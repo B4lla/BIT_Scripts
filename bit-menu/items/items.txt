@@ -1,0 +1,123 @@
+========================================
+ITEMS REQUIRED FOR BIT-MENU SCRIPT
+========================================
+
+The following items need to be added to your inventory system for the script to work properly.
+
+========================================
+OX_INVENTORY FORMAT
+========================================
+
+Add these items to your ox_inventory/data/items.lua file:
+
+```lua
+-- BIT Menu Items
+['handcuffs'] = {
+    label = 'Handcuffs',
+    weight = 500,
+    stack = true,
+    close = true,
+    description = 'Standard police handcuffs for restraining suspects'
+},
+
+['headbag'] = {
+    label = 'Head Bag',
+    weight = 100,
+    stack = true,
+    close = true,
+    description = 'A cloth bag used to cover someone\'s head'
+},
+
+['zipties'] = {
+    label = 'Zip Ties',
+    weight = 50,
+    stack = true,
+    close = true,
+    description = 'Plastic restraints for securing legs'
+},
+```
+
+========================================
+QB-CORE FORMAT
+========================================
+
+Add these items to your qb-core/shared/items.lua file:
+
+```lua
+-- BIT Menu Items
+['handcuffs'] = {
+    ['name'] = 'handcuffs',
+    ['label'] = 'Handcuffs',
+    ['weight'] = 500,
+    ['type'] = 'item',
+    ['image'] = 'handcuffs.png',
+    ['unique'] = false,
+    ['useable'] = false,
+    ['shouldClose'] = true,
+    ['combinable'] = nil,
+    ['description'] = 'Standard police handcuffs for restraining suspects'
+},
+
+['headbag'] = {
+    ['name'] = 'headbag',
+    ['label'] = 'Head Bag',
+    ['weight'] = 100,
+    ['type'] = 'item',
+    ['image'] = 'headbag.png',
+    ['unique'] = false,
+    ['useable'] = false,
+    ['shouldClose'] = true,
+    ['combinable'] = nil,
+    ['description'] = 'A cloth bag used to cover someone\'s head'
+},
+
+['zipties'] = {
+    ['name'] = 'zipties',
+    ['label'] = 'Zip Ties',
+    ['weight'] = 50,
+    ['type'] = 'item',
+    ['image'] = 'zipties.png',
+    ['unique'] = false,
+    ['useable'] = false,
+    ['shouldClose'] = true,
+    ['combinable'] = nil,
+    ['description'] = 'Plastic restraints for securing legs'
+},
+```
+
+========================================
+ESX FORMAT (if using ESX inventory)
+========================================
+
+Add these items to your es_extended/server/main.lua or your database:
+
+```sql
+-- Add to your items table in database
+INSERT INTO `items` (`name`, `label`, `weight`, `rare`, `can_remove`) VALUES
+('handcuffs', 'Handcuffs', 1, 0, 1),
+('headbag', 'Head Bag', 1, 0, 1),
+('zipties', 'Zip Ties', 1, 0, 1);
+```
+
+========================================
+NOTES
+========================================
+
+1. Make sure to add corresponding images for the items:
+   - handcuffs.png
+   - headbag.png  
+   - zipties.png
+
+2. Place the images in your inventory's images folder:
+   - For ox_inventory: ox_inventory/web/images/
+   - For qb-inventory: qb-inventory/html/images/
+   - For ESX: es_extended/web/images/ (if using web inventory)
+
+3. These items are required for the following actions:
+   - handcuffs: Used for handcuffing players
+   - headbag: Used for putting bags over players' heads
+   - zipties: Used for tying players' legs
+
+4. You can modify the weights, descriptions, and other properties as needed for your server.
+
+5. Remember to restart your inventory resource after adding these items.
