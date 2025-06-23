@@ -13,7 +13,7 @@ local function registerToggleAction(eventName, clientEvent, propKey, utilName, r
             cbfn(false)
             return
         end
-        
+
         if newState and requiredItem then
             local hasItem = Config.Inventory.get[Config.Inventory.system](source, requiredItem)
             if not hasItem then
@@ -69,8 +69,10 @@ if Config.Framework:lower() == "esx" then
                 table.insert(inv, {name = item.name, label = item.label or item.name, count = item.count})
             end
             Utils.executeCallback("onSearch", source, targetId, inv)
-            cb(true, inv)
-            TriggerClientEvent('bit-menu:openTargetInventory', source, targetId, inv)        else
+            cb(true)
+
+            TriggerClientEvent('bit-menu:openTargetInventory', source, targetId, inv)
+        else
             cb(false, {})
         end
     end)
@@ -83,7 +85,8 @@ elseif Config.Framework:lower() == "qb" or Config.Framework:lower() == "qbox" th
                 table.insert(inv, {name = item.name, label = item.label or item.name, count = item.amount or item.count})
             end
             Utils.executeCallback("onSearch", source, targetId, inv)
-            cb(true, inv)
+            cb(true)
+            TriggerClientEvent('bit-menu:openTargetInventory', source, targetId, inv)
         else
             cb(false, {})
         end
