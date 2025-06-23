@@ -10,7 +10,7 @@ Config, Noti = {}, {}
 -- \______/  \______/ \__|  \__|\__|      \______| \______/  \______/ \__|  \__|\__|  \__|  \__|   \______| \______/ \__|  \__|
 
 
--- Framework used by the server (esx | qbcore | qbox)
+-- Framework used by the server (esx | qb | qbox)
 Config.Framework = "qb"
 -- Names will be displayed in the menu
 Config.UseSteamName = false
@@ -18,10 +18,6 @@ Config.UseSteamName = false
 Config.NearbyRadius = 5.0
 -- Command to open the menu | Keep it empty to disable the command
 Config.Command = "menu" 
--- Use target system (qb-target, ox_target, etc.) | Set to false to disable
-Config.UseTarget = true 
--- Target system to use | ox, qb or custom | If custom configure it in the client/target.lua file
-Config.TargetSystem = "qb" 
 -- Key to open the menu | Set to false to disable | Key codes: https://docs.fivem.net/docs/game-references/input-mapper-parameter-ids/
 Config.MenuKey = {
     enabled = true,                   -- Enable/disable key binding
@@ -30,7 +26,7 @@ Config.MenuKey = {
 }
 -- Notification system to use (okok | origen | ox | wasabi | codem | esx | qb)
 Config.Notifications = "qb"
--- Inventory system to use (ox | qs | custom) | Custom allows you to implement your own inventory system
+-- Inventory system to use (esx | qbcore| ox | qs | custom) | Custom allows you to implement your own inventory system
 Config.Inventory = {
   system = "qbcore",
   open = {
@@ -38,7 +34,8 @@ Config.Inventory = {
       -- ESX
     end,
     qbcore = function(targetId, inv)
-      exports['qb-inventory']:openInventory(targetId)
+      exports['qb-inventory']:OpenInventoryById(playerID, targetId)
+      --exports['qb-inventory']:openInventory(targetId)
     end,
     ox = function(targetId, inv)
       exports.ox_inventory:openInventory("player", targetId)
