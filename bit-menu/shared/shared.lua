@@ -26,7 +26,7 @@ Config.MenuKey = {
 }
 -- Notification system to use (okok | origen | ox | wasabi | codem | esx | qb)
 Config.Notifications = "qb"
--- Inventory system to use (ox | qs | custom) | Custom allows you to implement your own inventory system
+-- Inventory system to use (esx | qbcore| ox | qs | custom) | Custom allows you to implement your own inventory system
 Config.Inventory = {
   system = "qbcore",
   open = {
@@ -34,7 +34,8 @@ Config.Inventory = {
       -- ESX
     end,
     qbcore = function(targetId, inv)
-      exports['qb-inventory']:openInventory(targetId)
+      exports['qb-inventory']:OpenInventoryById(playerID, targetId)
+      --exports['qb-inventory']:openInventory(targetId)
     end,
     ox = function(targetId, inv)
       exports.ox_inventory:openInventory("player", targetId)
