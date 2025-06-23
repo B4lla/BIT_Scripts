@@ -122,25 +122,25 @@ end
 
 function Action.search(targetId)
     if not targetId then
-        Notifications("error", Utils.getText("error"), 5000)
+        Notifications("error", Utils.getText("error"), Noti.time)
         return
     end
-    triggerCallback('bit-menu:requestSearch', function(success, inv)
+    triggerCallback('bit-menu:requestSearch', function(success)
         if not success then
             Notifications(Noti.error, Utils.getText("searchError"), Noti.time)
-            return
-        end
-        local system = Config.Inventory.system
-        local openFunc = Config.Inventory.open[system]
-        if openFunc then
-            openFunc(targetId, inv)
         end
     end, targetId)
 end
 
-
-
-
+-- Listen to server event to open target inventory
+RegisterNetEvent('bit-menu:openTargetInventory')
+AddEventHandler('bit-menu:openTargetInventory', function(targetId, inv)
+    local system = Config.Inventory.system
+    local openFunc = Config.Inventory.open[system]
+    if openFunc then
+        openFunc(targetId, inv)
+    end
+end)
 
 --############### PUT / REMOVE FROM VEHICLE ###############
 
