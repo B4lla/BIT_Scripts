@@ -11,7 +11,7 @@ Config, Noti = {}, {}
 
 
 -- Framework used by the server (esx | qbcore | qbox)
-Config.Framework = "esx"
+Config.Framework = "qb"
 -- Names will be displayed in the menu
 Config.UseSteamName = false
 -- Radius to search for nearby players
@@ -21,7 +21,7 @@ Config.Command = "menu"
 -- Use target system (qb-target, ox_target, etc.) | Set to false to disable
 Config.UseTarget = true 
 -- Target system to use | ox, qb or custom | If custom configure it in the client/target.lua file
-Config.TargetSystem = "ox" 
+Config.TargetSystem = "qb" 
 -- Key to open the menu | Set to false to disable | Key codes: https://docs.fivem.net/docs/game-references/input-mapper-parameter-ids/
 Config.MenuKey = {
     enabled = true,                   -- Enable/disable key binding
@@ -29,10 +29,10 @@ Config.MenuKey = {
     description = "Open BIT Menu"     -- Description for key mapping
 }
 -- Notification system to use (okok | origen | ox | wasabi | codem | esx | qb)
-Config.Notifications = "codem"
+Config.Notifications = "qb"
 -- Inventory system to use (ox | qs | custom) | Custom allows you to implement your own inventory system
 Config.Inventory = {
-  system = "ox",
+  system = "qbcore",
   open = {
     esx = function(targetId, inv)
       -- ESX
@@ -57,8 +57,8 @@ Config.Inventory = {
       return item and item.count > 0
     end,
     qbcore = function(targetId, itemName)
-      local item = exports['qb-inventory']:GetItem(targetId, itemName)
-      return item and item.count > 0
+      local item = exports['qb-inventory']:GetItemByName(targetId, itemName)
+      return item and item.amount > 0
     end,    ox = function(targetId, itemName)
       local item = exports.ox_inventory:Search(targetId, 'count', itemName)
       return item and item > 0

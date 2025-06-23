@@ -11,10 +11,9 @@ data_file "DLC_ITYP_REQUEST" "stream/cuffs_main.ytyp"
 
 files {
     'html/index.html',
-    'html/styles.css',
     'html/app.js',
-    'html/assets/*.png',
-    'html/assets/*.jpg',
+    'html/assets/headbag.jpg',
+    'html/styles.css',
 }
 
 client_scripts {
