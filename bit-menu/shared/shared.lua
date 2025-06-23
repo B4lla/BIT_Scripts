@@ -229,6 +229,7 @@ Actions = {
         handcuffError = "Could not handcuff the player",
         unhandcuffSuccess = "Player unhandcuffed", 
         unhandcuffError = "Could not unhandcuff the player",
+        unhandcuffNotCuffed = "Player is not handcuffed",
         
         -- Search messages
         searchError = "Could not access player's inventory",

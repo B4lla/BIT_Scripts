@@ -9,6 +9,11 @@ local function registerToggleAction(eventName, clientEvent, propKey, utilName, r
         local oldState = Players[targetId][propKey] or false
         local newState = not oldState
 
+        if eventName == 'bit-menu:requestUnhandcuff' and not oldState then
+            cbfn(false)
+            return
+        end
+        
         if newState and requiredItem then
             local hasItem = Config.Inventory.get[Config.Inventory.system](source, requiredItem)
             if not hasItem then

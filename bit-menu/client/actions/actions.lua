@@ -43,11 +43,20 @@ function Action.unhandcuff(targetId)
         return
     end
     
-    triggerCallback('bit-menu:requestUnhandcuff', function(success, newState, oldState)
-        if success then
-            Notifications(Noti.check, Utils.getText("unhandcuffSuccess"), Noti.time)
+    triggerCallback('bit-menu:requestUnhandcuff', function(success, result, oldState)
+        if not success then
+            if result == "not_cuffed" then
+                Notifications(Noti.error, Utils.getText("unhandcuffNotCuffed"), Noti.time)
+            else
+                Notifications(Noti.error, Utils.getText("unhandcuffError"), Noti.time)
+            end
+            return
+        end
+        local newState = not oldState
+        if newState then
+            Notifications(Noti.check, Utils.getText("handcuffSuccess"), Noti.time)
         else
-            Notifications(Noti.error, Utils.getText("unhandcuffError"), Noti.time)
+            Notifications(Noti.check, Utils.getText("unhandcuffSuccess"), Noti.time)
         end
     end, targetId)
 end
