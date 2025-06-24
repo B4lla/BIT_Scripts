@@ -1,6 +1,6 @@
 fx_version 'cerulean'
 game 'gta5'
-author 'BIT Development'
+author 'Balla'
 description 'BIT Menu - A versatile menu for actions and interactions'
 version '1.0'
 lua54 'yes'
