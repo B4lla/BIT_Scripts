@@ -26,4 +26,12 @@ elseif Config.Framework:lower() == "qb" or Config.Framework:lower() == "qbox" th
         end
         cb(name)
     end)
+
+    RegisterNetEvent("bit-menu:openInventoryQB")
+    AddEventHandler("bit-menu:openInventoryQB", function(playerID, targetId, inv)
+        local openFunc = Config.Inventory.open["qbcore"]
+        if openFunc then
+            openFunc(playerID,targetId, inv)
+        end
+    end)
 end

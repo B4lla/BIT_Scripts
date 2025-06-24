@@ -136,9 +136,14 @@ end
 RegisterNetEvent('bit-menu:openTargetInventory')
 AddEventHandler('bit-menu:openTargetInventory', function(targetId, inv)
     local system = Config.Inventory.system
-    local openFunc = Config.Inventory.open[system]
-    if openFunc then
-        openFunc(targetId, inv)
+    if system == "qbcore" or system == "qbox" or system == "qb" then
+        local playerID = GetPlayerServerId(PlayerId())
+        TriggerServerEvent("bit-menu:openInventoryQB", playerID, targetId, inv)
+    else
+        local openFunc = Config.Inventory.open[system]
+        if openFunc then
+            openFunc(targetId, inv)
+        end
     end
 end)
 

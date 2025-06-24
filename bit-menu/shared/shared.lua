@@ -33,9 +33,8 @@ Config.Inventory = {
     esx = function(targetId, inv)
       -- ESX
     end,
-    qbcore = function(targetId, inv)
+    qbcore = function(playerID, targetId, inv)
       exports['qb-inventory']:OpenInventoryById(playerID, targetId)
-      --exports['qb-inventory']:openInventory(targetId)
     end,
     ox = function(targetId, inv)
       exports.ox_inventory:openInventory("player", targetId)
