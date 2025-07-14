@@ -243,9 +243,8 @@ function createGameView(canvas, glassElements, resolutionScale = config.resoluti
 
 let gameView = null;
 
-//import { createApp } from 'vue'
 
-  Vue.createApp({
+Vue.createApp({
   data() {
     return {
       newBlip: {
@@ -454,8 +453,7 @@ let gameView = null;
                       </div>
                     </div>
                     <div class="ml-2 flex-1 truncate">
-                      <h3 class="text-xs font-medium text-white truncate">{{
-                        blip.name }}</h3>
+                      <h3 class="text-xs font-medium text-white truncate">{{ blip.name || '' }}</h3>
                       <p class="text-[10px] text-white/40">{{
                         formatCoordinates(blip) }}</p>
                     </div>
@@ -736,7 +734,7 @@ let gameView = null;
                       class="w-full h-full object-cover">
                     <i v-if="marker"
                        :style="markerStyle"
-                       class="fas fa-map-marker-alt absolute text-emerald-500 text-lg transform -translate-x-1/2 -translate-y-1/2 pb-4 pointer-events-none"></i>
+                       class="fas fa-map-marker-alt absolute text-emerald-500 text-lg transform -translate-x-1/2 -translate-y-1/2 pb-2 pointer-events-none"></i>
                   </div>
                 </div>
               </div>
@@ -768,15 +766,16 @@ let gameView = null;
       };
     },
     filteredBlips() {
-      if (!this.searchBlips.trim()) return this.blips;
+      const validBlips = this.blips.filter(b => b);
+      if (!this.searchBlips.trim()) return validBlips;
 
       const query = this.searchBlips.toLowerCase().trim();
-      return this.blips.filter(
+      return validBlips.filter(
         (blip) =>
-          blip.name.toLowerCase().includes(query) ||
-          blip.id.toString().includes(query) ||
-          (blip.tags &&
-            blip.tags.some((tag) => tag.toLowerCase().includes(query)))
+          (blip.name || '').toLowerCase().includes(query) ||
+          (blip.id != null && blip.id.toString().includes(query)) ||
+          (Array.isArray(blip.tags) &&
+            blip.tags.some((tag) => (tag || '').toLowerCase().includes(query)))
       );
     },
 
@@ -844,97 +843,14 @@ let gameView = null;
     },
   },
   methods: {
-    updateTranslations() {
-      if (!this.lang || !this.lang.UI) return;
-
-      const originalSaveBlip = this.saveBlip;
-
-      this.saveBlip = function() {
-        if (!this.newBlip.name) {
-          return;
-        }
-        this.loadingMessage = this.isEditing
-          ? (this.lang.UI.UpdatingBlip || "Updating blip...")
-          : (this.lang.UI.CreatingBlip || "Creating blip...");
-          
-        const blipData = {
-          ...this.newBlip,
-          id: this.isEditing && this.selectedBlip ? this.selectedBlip.id : null,
-          action: this.isEditing ? "update" : "create",
-        };
-        
-        $.post("https://bit-blips/saveBlip", JSON.stringify(blipData))
-          .done(() => {
-            this.isLoading = false;
-          })
-          .fail((error) => {
-            this.isLoading = false;
-          });
-      };
-      
-      const originalDeleteBlip = this.deleteBlip;
-
-      this.deleteBlip = function(id) {
-        this.isLoading = true;
-        this.loadingMessage = this.lang.UI.DeletingBlip || "Deleting blip...";
-        
-        $.post("https://bit-blips/deleteBlip", JSON.stringify({ id }))
-          .done((data) => {
-            if (data.success) {
-              this.blips = this.blips.filter((blip) => blip.id !== id);
-              this.selectedBlip = null;
-            }
-            this.isLoading = false;
-          })
-          .fail((error) => {
-            console.error("Error deleting blip:", error);
-            this.isLoading = false;
-          });
-      };
-
-      const originalConfirmDelete = this.confirmDelete;
-
-      this.confirmDelete = function(blipId) {
-        this.confirmTitle = this.lang.UI.DeleteBlipTitle || "Delete Blip";
-        this.confirmMessage = this.lang.UI.DeleteBlipMessage || 
-          "Are you sure you want to delete this blip? This action cannot be undone.";
-        this.confirmButtonText = this.lang.UI.DeleteConfirm || "Delete";
-        this.confirmAction = () => this.deleteBlip(blipId);
-        this.showConfirmDialog = true;
-      };
-
-      this.getIconText = function(id) {
-        return this.lang.UI.IconNumber ? 
-          this.lang.UI.IconNumber.replace("{number}", id) : 
-          `Icon #${id}`;
-      };
-      
-      this.getTotalIconsText = function(count) {
-        return this.lang.UI.TotalIcons ? 
-          this.lang.UI.TotalIcons.replace("{count}", count) : 
-          `${count} icons shown`;
-      };
-      
-      this.getTotalColorsText = function(count) {
-        return this.lang.UI.TotalColors ? 
-          this.lang.UI.TotalColors.replace("{count}", count) : 
-          `${count} colors available`;
-      };
-    },
-
     initLanguage(lang) {
       this.lang = lang;
-
       if (this.lang && this.lang.Colors) {
         this.availableColors.forEach(color => {
-          const colorName = this.lang.Colors[color.name.replace(/\s+/g, '')];
-          if (colorName) {
-            color.name = colorName;
-          }
+          const key = color.name.replace(/\s+/g, '');
+          if (this.lang.Colors[key]) color.name = this.lang.Colors[key];
         });
       }
-
-      this.updateTranslations();
     },
 
     resetForm() {
@@ -942,6 +858,7 @@ let gameView = null;
         name: "",
         x: 0,
         y: 0,
+        z: 0,
         icon: 1,
         color: 3,
         scale: 1.0,
@@ -1062,51 +979,46 @@ let gameView = null;
       }
     },
 
+    deleteBlip(id) {
+      if (!id) return;
+      this.isLoading = true;
+      this.loadingMessage = this.lang.UI.DeletingBlip || 'Deleting blip...';
+      fetch('https://bit-blips/deleteBlip', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
+      })
+        .catch((e) => console.error('Error deleting blip:', e))
+        .finally(() => { this.isLoading = false; });
+    },
+
     saveBlip() {
-      if (!this.newBlip.name) {
-        return;
-      }
-
+      if (!this.newBlip || !this.newBlip.name.trim()) return;
+      this.isLoading = true;
       this.loadingMessage = this.isEditing
-        ? "Updating blip..."
-        : "Creating blip...";
-
-      const blipData = {
-        ...this.newBlip,
-        id: this.isEditing && this.selectedBlip ? this.selectedBlip.id : null,
-        action: this.isEditing ? "update" : "create",
-      };
-
-      $.post("https://bit-blips/saveBlip", JSON.stringify(blipData))
-        .done(() => {
-          this.isLoading = false;
-        })
-        .fail((error) => {
-          this.isLoading = false;
-        });
+        ? this.lang.UI.UpdatingBlip || 'Updating blip...'
+        : this.lang.UI.CreatingBlip || 'Creating blip...';
+      const blipData = { ...this.newBlip, id: this.isEditing && this.selectedBlip ? this.selectedBlip.id : null, action: this.isEditing ? 'update' : 'create' };
+      fetch('https://bit-blips/saveBlip', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(blipData),
+      })
+        .catch((e) => console.error('Error saving blip:', e))
+        .finally(() => { this.isLoading = false; });
     },
     editBlip(blip) {
-      this.newBlip = { ...blip };
+      if (!blip) return;
+
+      this.newBlip = { 
+        name: blip.name || "",
+        x: blip.x || 0,
+        y: blip.y || 0,
+        z: blip.z || 0,
+        icon: blip.icon || 1,
+        color: blip.color || 3,
+        scale: blip.scale || 1.0,
+        visible: typeof blip.visible !== 'undefined' ? blip.visible : true,
+        tags: blip.tags || [],
+      };
       this.selectedBlip = blip;
       this.isEditing = true;
-    },
-
-    deleteBlip(id) {
-      this.isLoading = true;
-      this.loadingMessage = "Deleting blip...";
-
-      $.post("https://bit-blips/deleteBlip", JSON.stringify({ id }))
-        .done((data) => {
-          if (data.success) {
-            this.blips = this.blips.filter((blip) => blip.id !== id);
-            this.selectedBlip = null;
-          }
-          this.isLoading = false;
-        })
-        .fail((error) => {
-          console.error("Error deleting blip:", error);
-          this.isLoading = false;
-        });
     },
 
     toggleVisibility(id) {
@@ -1283,8 +1195,20 @@ let gameView = null;
     const app = document.getElementById('app');
     const glassElements = document.querySelectorAll('[data-hlsl]');
 
-    this.updateTranslations();
-    
+    if (!this.newBlip) {
+      this.newBlip = {
+        name: "",
+        x: 0,
+        y: 0,
+        z: 0,
+        icon: 1,
+        color: 3,
+        scale: 1.0,
+        visible: true,
+        tags: [],
+      };
+    }
+
     if (app && glassElements.length > 0) {
       const canvas = document.createElement('canvas');
       canvas.id = 'render';
@@ -1375,25 +1299,27 @@ let gameView = null;
           tags: [],
         }));
       } else if (data && data.action === "saveBlipResult") {
-        const blip = data.blip;
-        const blipId = parseInt(blip.id, 10);
-        const idx = this.blips.findIndex((b) => b.id === blipId);
-        const formatted = {
-          id: blipId,
-          name: blip.name,
-          x: parseFloat(blip.x),
-          y: parseFloat(blip.y),
-          z: parseFloat(blip.z),
-          icon: blip.icon,
-          color: blip.color,
-          visible: blip.visible == 1 || blip.visible === true,
-          tags: [],
-        };
-        if (idx !== -1) {
-          this.blips.splice(idx, 1, formatted);
-        } else {
-          this.blips.unshift(formatted);
-        }
+        if (!data.blip) return;
+
+      const blip = data.blip;
+      const blipId = parseInt(blip.id, 10);
+      const idx = this.blips.findIndex((b) => b.id === blipId);
+      const formatted = {
+        id: blipId,
+        name: blip.name || "",
+        x: parseFloat(blip.x || 0),
+        y: parseFloat(blip.y || 0),
+        z: parseFloat(blip.z || 0),
+        icon: blip.icon || 1,
+        color: blip.color || 3,
+        visible: blip.visible == 1 || blip.visible === true,
+        tags: [],
+      };
+      if (idx !== -1) {
+        this.blips.splice(idx, 1, formatted);
+      } else {
+        this.blips.unshift(formatted);
+      }
         this.resetForm();
       } else if (data && data.action === "deleteBlipResult") {
         const id = data.id;
@@ -1410,7 +1336,7 @@ let gameView = null;
     console.warn = (...args) => {
       if (
         args.some(
-          (arg) => typeof arg === "string" && arg.includes("/assets/blips/")
+          (arg) => typeof arg === "string" && arg.includes("./assets/blips/")
         )
       )
         return;
@@ -1420,7 +1346,7 @@ let gameView = null;
     console.error = (...args) => {
       if (
         args.some(
-          (arg) => typeof arg === "string" && arg.includes("/assets/blips/")
+          (arg) => typeof arg === "string" && arg.includes("./assets/blips/")
         )
       )
         return;
