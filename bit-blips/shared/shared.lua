@@ -11,7 +11,7 @@ Config, Noti, Lang = {}, {}, {}
 
 
 -- Framework used by the server (esx | qb | qbox)
-Config.Framework = "esx"
+Config.Framework = "qb"
 -- oxmysql, mysql-async or ghmattisql
 Config.Mysql = "oxmysql" 
 -- Command to open the menu in-game
@@ -23,7 +23,7 @@ Config.MenuKey = {
     description = "Open BIT Personal Blips"     -- Description for key mapping
 }
 -- Notification system to use (okok | origen | ox | wasabi | codem | esx | qb)
-Config.Notifications = "codem"
+Config.Notifications = "qb"
 
 -- Blur strength for the UI background blur
 Config.BlurStrength = 7

@@ -102,8 +102,20 @@ if ESX then
                 ['@visible'] = blip.visible and 1 or 0
             }
         )
+        -- Intentar obtener el ID usando LAST_INSERT_ID()
         local last = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT LAST_INSERT_ID() AS id', {})
-        if last and last[1] then blipId = last[1].id end
+        if last and last[1] and last[1].id then 
+            blipId = last[1].id 
+        else
+            -- Fallback: buscar el blip más reciente del jugador
+            local recent = SqlFunc(Config.Mysql, 'fetchAll', 
+                'SELECT id FROM bit_blips WHERE identifier=@identifier ORDER BY id DESC LIMIT 1',
+                { ['@identifier'] = identifier }
+            )
+            if recent and recent[1] then
+                blipId = recent[1].id
+            end
+        end
     end
      if blipId then
          local saved = SqlFunc(Config.Mysql, 'fetchAll',
@@ -195,8 +207,20 @@ elseif QBCore then
                 ['@visible'] = blip.visible and 1 or 0
             }
         )
+        -- Intentar obtener el ID usando LAST_INSERT_ID()
         local last = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT LAST_INSERT_ID() AS id', {})
-        if last and last[1] then blipId = last[1].id end
+        if last and last[1] and last[1].id then 
+            blipId = last[1].id 
+        else
+            -- Fallback: buscar el blip más reciente del jugador
+            local recent = SqlFunc(Config.Mysql, 'fetchAll', 
+                'SELECT id FROM bit_blips WHERE identifier=@identifier ORDER BY id DESC LIMIT 1',
+                { ['@identifier'] = identifier }
+            )
+            if recent and recent[1] then
+                blipId = recent[1].id
+            end
+        end
     end
      if blipId then
          local saved = SqlFunc(Config.Mysql, 'fetchAll',
@@ -260,6 +284,5 @@ AddEventHandler('onResourceStart', function(resourceName)
                 visible BOOLEAN DEFAULT TRUE
             )
         ]], {})
-        print('[BIT-Blips] Database table bit_blips created or already exists.')
     end
 end)

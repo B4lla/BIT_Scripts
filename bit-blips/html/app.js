@@ -983,11 +983,18 @@ Vue.createApp({
       if (!id) return;
       this.isLoading = true;
       this.loadingMessage = this.lang.UI.DeletingBlip || 'Deleting blip...';
-      fetch('https://bit-blips/deleteBlip', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }),
-      })
-        .catch((e) => console.error('Error deleting blip:', e))
-        .finally(() => { this.isLoading = false; });
+      
+      // Usar el callback de NUI en lugar de fetch directo
+      $.post('https://bit-blips/deleteBlip', JSON.stringify({ id }))
+        .done((response) => {
+          // La respuesta se maneja en el manejador de mensajes deleteBlipResult
+        })
+        .fail((error) => {
+          console.error('Error deleting blip:', error);
+        })
+        .always(() => {
+          this.isLoading = false;
+        });
     },
 
     saveBlip() {
@@ -996,12 +1003,29 @@ Vue.createApp({
       this.loadingMessage = this.isEditing
         ? this.lang.UI.UpdatingBlip || 'Updating blip...'
         : this.lang.UI.CreatingBlip || 'Creating blip...';
+      const isNew = !this.isEditing;
+      const tempId = Date.now();
       const blipData = { ...this.newBlip, id: this.isEditing && this.selectedBlip ? this.selectedBlip.id : null, action: this.isEditing ? 'update' : 'create' };
-      fetch('https://bit-blips/saveBlip', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(blipData),
-      })
-        .catch((e) => console.error('Error saving blip:', e))
-        .finally(() => { this.isLoading = false; });
+      // Si es un blip nuevo, lo añadimos temporalmente al listado
+      if (isNew) {
+        const tempBlip = {
+          ...blipData,
+          id: tempId,
+          tags: [],
+        };
+        this.blips.unshift(tempBlip);
+      }
+      // Usar el callback de NUI en lugar de fetch directo
+      $.post('https://bit-blips/saveBlip', JSON.stringify(blipData))
+        .done((response) => {
+          // La respuesta se maneja en el manejador de mensajes saveBlipResult
+        })
+        .fail((error) => {
+          console.error('Error saving blip:', error);
+        })
+        .always(() => {
+          this.isLoading = false;
+        });
     },
     editBlip(blip) {
       if (!blip) return;
@@ -1303,7 +1327,17 @@ Vue.createApp({
 
       const blip = data.blip;
       const blipId = parseInt(blip.id, 10);
-      const idx = this.blips.findIndex((b) => b.id === blipId);
+      // Buscar si hay un blip temporal con el mismo nombre y coords (por si el id temporal no coincide)
+      let idx = this.blips.findIndex((b) => b.id === blipId);
+      if (idx === -1) {
+        idx = this.blips.findIndex((b) =>
+          (!b.id || typeof b.id === 'number') &&
+          b.name === blip.name &&
+          parseFloat(b.x) === parseFloat(blip.x) &&
+          parseFloat(b.y) === parseFloat(blip.y) &&
+          parseFloat(b.z) === parseFloat(blip.z)
+        );
+      }
       const formatted = {
         id: blipId,
         name: blip.name || "",
