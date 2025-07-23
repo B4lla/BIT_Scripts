@@ -531,11 +531,11 @@ Vue.createApp({
                           class="absolute right-2 top-2 text-xs text-white/40">{{ lang.UI.YCoord || 'Y' }}</span>
                       </div>
                       <div class="relative">
-                        <input type="number" v-model="newBlip.z" step="0.1"
-                          placeholder="Z"
+                        <input type="number" v-model="newBlip.scale" step="0.1" min="0.1" max="5.0"
+                          placeholder="Scale"
                           class="w-full bg-black/20 border border-white/5 rounded-md py-2 pl-2 pr-6 text-xs text-white focus:outline-none focus:border-emerald-500/30 no-spinners">
                         <span
-                          class="absolute right-2 top-2 text-xs text-white/40">{{ lang.UI.ZCoord || 'Z' }}</span>
+                          class="absolute right-2 top-2 text-xs text-white/40">{{ lang.UI.Scale || 'Scale' }}</span>
                       </div>
                     </div>
 
@@ -920,10 +920,9 @@ Vue.createApp({
     },
 
     confirmDelete(blipId) {
-      this.confirmTitle = "Delete Blip";
-      this.confirmMessage =
-        "Are you sure you want to delete this blip? This action cannot be undone.";
-      this.confirmButtonText = "Delete";
+      this.confirmTitle = this.lang.UI.DeleteBlip || "Delete Blip";
+      this.confirmMessage = this.lang.UI.DeleteBlipConfirm || "Are you sure you want to delete this blip? This action cannot be undone.";
+      this.confirmButtonText = this.lang.UI.Delete || "Delete";
       this.confirmAction = () => this.deleteBlip(blipId);
       this.showConfirmDialog = true;
     },
@@ -984,10 +983,9 @@ Vue.createApp({
       this.isLoading = true;
       this.loadingMessage = this.lang.UI.DeletingBlip || 'Deleting blip...';
       
-      // Usar el callback de NUI en lugar de fetch directo
       $.post('https://bit-blips/deleteBlip', JSON.stringify({ id }))
         .done((response) => {
-          // La respuesta se maneja en el manejador de mensajes deleteBlipResult
+
         })
         .fail((error) => {
           console.error('Error deleting blip:', error);
@@ -1005,8 +1003,10 @@ Vue.createApp({
         : this.lang.UI.CreatingBlip || 'Creating blip...';
       const isNew = !this.isEditing;
       const tempId = Date.now();
+      if (!this.newBlip.scale) {
+        this.newBlip.scale = 1.0;
+      }
       const blipData = { ...this.newBlip, id: this.isEditing && this.selectedBlip ? this.selectedBlip.id : null, action: this.isEditing ? 'update' : 'create' };
-      // Si es un blip nuevo, lo añadimos temporalmente al listado
       if (isNew) {
         const tempBlip = {
           ...blipData,
@@ -1015,10 +1015,9 @@ Vue.createApp({
         };
         this.blips.unshift(tempBlip);
       }
-      // Usar el callback de NUI en lugar de fetch directo
       $.post('https://bit-blips/saveBlip', JSON.stringify(blipData))
         .done((response) => {
-          // La respuesta se maneja en el manejador de mensajes saveBlipResult
+
         })
         .fail((error) => {
           console.error('Error saving blip:', error);
@@ -1327,7 +1326,7 @@ Vue.createApp({
 
       const blip = data.blip;
       const blipId = parseInt(blip.id, 10);
-      // Buscar si hay un blip temporal con el mismo nombre y coords (por si el id temporal no coincide)
+
       let idx = this.blips.findIndex((b) => b.id === blipId);
       if (idx === -1) {
         idx = this.blips.findIndex((b) =>
