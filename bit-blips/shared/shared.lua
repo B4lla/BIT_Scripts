@@ -16,6 +16,8 @@ Config.Framework = "qb"
 Config.Mysql = "oxmysql" 
 -- Command to open the menu in-game
 Config.Command = "personalblips" 
+-- Font configuration for blip text (0-5)
+Config.BlipTextFont = 4
 -- Key to open the menu | Set to false to disable | Key codes: https://docs.fivem.net/docs/game-references/input-mapper-parameter-ids/
 Config.MenuKey = {
     enabled = true,                             -- Enable/disable key binding
