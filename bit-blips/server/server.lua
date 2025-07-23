@@ -58,7 +58,7 @@ if ESX then
         end
         local identifier = xPlayer.identifier
         local rows = SqlFunc(Config.Mysql, 'fetchAll',
-            'SELECT id, name, x, y, z, blip_sprite AS icon, blip_color AS color, visible FROM bit_blips WHERE identifier = @identifier',
+            'SELECT id, name, x, y, scale, blip_sprite AS icon, blip_color AS color, visible FROM bit_blips WHERE identifier = @identifier',
             { ['@identifier'] = identifier }
         )
         cb(rows)
@@ -72,14 +72,13 @@ if ESX then
         local identifier = xPlayer.identifier
         local blipId = tonumber(blip.id)
     if blipId and blipId > 0 then
-        -- Update existing blip
         SqlFunc(Config.Mysql, 'execute',
-            'UPDATE bit_blips SET name=@name, x=@x, y=@y, z=@z, blip_color=@color, blip_sprite=@icon, visible=@visible WHERE id=@id AND identifier=@identifier',
+            'UPDATE bit_blips SET name=@name, x=@x, y=@y, scale=@scale, blip_color=@color, blip_sprite=@icon, visible=@visible WHERE id=@id AND identifier=@identifier',
             {
                 ['@name'] = blip.name,
                 ['@x'] = blip.x,
                 ['@y'] = blip.y,
-                ['@z'] = blip.z,
+                ['@scale'] = blip.scale or 1.0,
                 ['@color'] = blip.color,
                 ['@icon'] = blip.icon,
                 ['@visible'] = blip.visible and 1 or 0,
@@ -88,7 +87,6 @@ if ESX then
             }
         )
     else
-        -- Insert new blip
         SqlFunc(Config.Mysql, 'execute',
             'INSERT INTO bit_blips (identifier,name,x,y,z,blip_color,blip_sprite,visible) VALUES (@identifier,@name,@x,@y,@z,@color,@icon,@visible)',
             {
@@ -102,20 +100,8 @@ if ESX then
                 ['@visible'] = blip.visible and 1 or 0
             }
         )
-        -- Intentar obtener el ID usando LAST_INSERT_ID()
         local last = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT LAST_INSERT_ID() AS id', {})
-        if last and last[1] and last[1].id then 
-            blipId = last[1].id 
-        else
-            -- Fallback: buscar el blip más reciente del jugador
-            local recent = SqlFunc(Config.Mysql, 'fetchAll', 
-                'SELECT id FROM bit_blips WHERE identifier=@identifier ORDER BY id DESC LIMIT 1',
-                { ['@identifier'] = identifier }
-            )
-            if recent and recent[1] then
-                blipId = recent[1].id
-            end
-        end
+        if last and last[1] then blipId = last[1].id end
     end
      if blipId then
          local saved = SqlFunc(Config.Mysql, 'fetchAll',
@@ -163,7 +149,7 @@ elseif QBCore then
         end
         local identifier = Player.PlayerData.citizenid
         local rows = SqlFunc(Config.Mysql, 'fetchAll',
-            'SELECT id, name, x, y, z, blip_sprite AS icon, blip_color AS color, visible FROM bit_blips WHERE identifier = @identifier',
+            'SELECT id, name, x, y, scale, blip_sprite AS icon, blip_color AS color, visible FROM bit_blips WHERE identifier = @identifier',
             { ['@identifier'] = identifier }
         )
         cb(rows)
@@ -177,14 +163,13 @@ elseif QBCore then
         local identifier = Player.PlayerData.citizenid
         local blipId = tonumber(blip.id)
     if blipId and blipId > 0 then
-        -- Update existing blip
         SqlFunc(Config.Mysql, 'execute',
-            'UPDATE bit_blips SET name=@name, x=@x, y=@y, z=@z, blip_color=@color, blip_sprite=@icon, visible=@visible WHERE id=@id AND identifier=@identifier',
+            'UPDATE bit_blips SET name=@name, x=@x, y=@y, scale=@scale, blip_color=@color, blip_sprite=@icon, visible=@visible WHERE id=@id AND identifier=@identifier',
             {
                 ['@name'] = blip.name,
                 ['@x'] = blip.x,
                 ['@y'] = blip.y,
-                ['@z'] = blip.z,
+                ['@scale'] = blip.scale or 1.0,
                 ['@color'] = blip.color,
                 ['@icon'] = blip.icon,
                 ['@visible'] = blip.visible and 1 or 0,
@@ -193,7 +178,6 @@ elseif QBCore then
             }
         )
     else
-        -- Insert new blip
         SqlFunc(Config.Mysql, 'execute',
             'INSERT INTO bit_blips (identifier,name,x,y,z,blip_color,blip_sprite,visible) VALUES (@identifier,@name,@x,@y,@z,@color,@icon,@visible)',
             {
@@ -207,20 +191,8 @@ elseif QBCore then
                 ['@visible'] = blip.visible and 1 or 0
             }
         )
-        -- Intentar obtener el ID usando LAST_INSERT_ID()
         local last = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT LAST_INSERT_ID() AS id', {})
-        if last and last[1] and last[1].id then 
-            blipId = last[1].id 
-        else
-            -- Fallback: buscar el blip más reciente del jugador
-            local recent = SqlFunc(Config.Mysql, 'fetchAll', 
-                'SELECT id FROM bit_blips WHERE identifier=@identifier ORDER BY id DESC LIMIT 1',
-                { ['@identifier'] = identifier }
-            )
-            if recent and recent[1] then
-                blipId = recent[1].id
-            end
-        end
+        if last and last[1] then blipId = last[1].id end
     end
      if blipId then
          local saved = SqlFunc(Config.Mysql, 'fetchAll',
@@ -278,11 +250,12 @@ AddEventHandler('onResourceStart', function(resourceName)
                 name VARCHAR(100) NOT NULL,
                 x FLOAT NOT NULL,
                 y FLOAT NOT NULL,
-                z FLOAT DEFAULT 0,
+                scale FLOAT DEFAULT 1.0,
                 blip_color INT DEFAULT 1,
                 blip_sprite INT DEFAULT 1,
                 visible BOOLEAN DEFAULT TRUE
             )
         ]], {})
+        print('[BIT-Blips] Database table bit_blips created or already exists.')
     end
 end)
