@@ -25,7 +25,6 @@ RegisterCommand(Config.Command, function()
         coords = coords,
         blurStrength = Config.BlurStrength
     })
-    -- Enviar textos de idioma al NUI para traducción
     SendNUIMessage({ action = 'initLang', lang = Lang })
 
     if Config.Framework == 'esx' then
@@ -44,8 +43,6 @@ RegisterCommand(Config.Command, function()
             Citizen.Wait(15000)
         end 
     end)
-
-    DisplayRadar(false)
 end, false)
 
 
@@ -61,17 +58,20 @@ RegisterNUICallback("closeUI", function(data, cb)
         ESX.TriggerServerCallback('bit-blips:updateVisibility', function(success)
             SetNuiFocus(false, false)
             InMenu = false
+            DisplayRadar(true)
             LoadPlayerBlips()
         end, data.blips)
     elseif Config.Framework == 'qb' or Config.Framework == 'qbox' then
         QBCore.Functions.TriggerCallback('bit-blips:updateVisibility', function(success)
             SetNuiFocus(false, false)
             InMenu = false
+            DisplayRadar(true) 
             LoadPlayerBlips()
         end, data.blips)
     else
         SetNuiFocus(false, false)
         InMenu = false
+        DisplayRadar(true) 
         LoadPlayerBlips()
     end
     cb('ok')
