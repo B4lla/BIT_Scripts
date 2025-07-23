@@ -1,0 +1,1 @@
+ALTER TABLE bit_blips ADD COLUMN scale FLOAT DEFAULT 1.0;
