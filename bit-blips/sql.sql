@@ -4,8 +4,8 @@ CREATE TABLE IF NOT EXISTS bit_blips (
     name VARCHAR(100) NOT NULL,
     x FLOAT NOT NULL,
     y FLOAT NOT NULL,
-    z FLOAT DEFAULT 0,
+    scale FLOAT DEFAULT 1.0,
     blip_color INT DEFAULT 1,
     blip_sprite INT DEFAULT 1,
-    visible BOOLEAN DEFAULT TRUE,
+    visible BOOLEAN DEFAULT TRUE
 );
