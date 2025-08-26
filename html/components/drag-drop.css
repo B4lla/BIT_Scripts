@@ -1,0 +1,27 @@
+/* --- Estilos para Arrastre Manual en FiveM --- */
+
+/* El icono "fantasma" que sigue al cursor */
+.drag-ghost {
+  position: fixed; /* O absolute, dependiendo del contenedor padre */
+  top: 0;
+  left: 0;
+  pointer-events: none; /* ¡MUY IMPORTANTE! Para detectar lo que hay debajo */
+  z-index: 9999;
+  transform: translate(-50%, -50%) scale(1.1); /* Centra el fantasma en el cursor y lo agranda */
+  transition: transform 0.2s;
+  will-change: transform;
+}
+
+/* El icono original mientras se está arrastrando */
+.draggable-item.dragging {
+  opacity: 0.4 !important;
+  transform: scale(0.9) !important;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+/* El slot sobre el que se está arrastrando un icono */
+.drop-zone.drag-over-active {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 20px;
+  transform: scale(1.05);
+}

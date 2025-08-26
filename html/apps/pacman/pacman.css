@@ -1,0 +1,275 @@
+
+.pacman-app {
+  font-family: 'Arial', sans-serif;
+  background: linear-gradient(135deg, #000000 0%, #1a1a2e 50%, #16213e 100%);
+  color: #ffffff;
+  overflow: hidden;
+  user-select: none;
+  height: 100vh;
+  max-height: 100vh;
+}
+
+.pacman-app canvas {
+  box-shadow: 0 0 15px rgba(0, 102, 255, 0.3);
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  max-width: 100%;
+  height: auto;
+}
+
+
+.pacman-button {
+  background: linear-gradient(135deg, #ffff00, #ffd700);
+  color: #000000;
+  border: none;
+  border-radius: 6px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 8px rgba(255, 255, 0, 0.2);
+  font-size: 14px;
+}
+
+.pacman-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #ffd700, #ffb000);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(255, 255, 0, 0.3);
+}
+
+.pacman-button:active {
+  transform: translateY(0);
+  box-shadow: 0 2px 10px rgba(255, 255, 0, 0.3);
+}
+
+.pacman-button:disabled {
+  background: #555;
+  color: #999;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+
+@keyframes powerPelletGlow {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+.power-pellet {
+  animation: powerPelletGlow 0.8s infinite;
+}
+
+
+@keyframes ghostFlash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.ghost-scared {
+  animation: ghostFlash 0.3s infinite;
+}
+
+
+@keyframes scoreUp {
+  0% {
+    transform: scale(1);
+    color: #ffff00;
+  }
+  50% {
+    transform: scale(1.2);
+    color: #ffffff;
+  }
+  100% {
+    transform: scale(1);
+    color: #ffff00;
+  }
+}
+
+.score-animation {
+  animation: scoreUp 0.5s ease;
+}
+
+
+.life-icon {
+  width: 16px;
+  height: 16px;
+  background: radial-gradient(circle, #ffff00 60%, transparent 70%);
+  border-radius: 50%;
+  position: relative;
+}
+
+.life-icon::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  width: 0;
+  height: 0;
+  border-top: 4px solid transparent;
+  border-bottom: 4px solid transparent;
+  border-left: 6px solid #000000;
+  transform: translateY(-50%);
+}
+
+
+.game-over-screen {
+  background: radial-gradient(circle, rgba(255, 0, 0, 0.8) 0%, rgba(0, 0, 0, 0.9) 100%);
+  backdrop-filter: blur(5px);
+}
+
+.game-over-text {
+  text-shadow: 
+    0 0 10px #ff0000,
+    0 0 20px #ff0000,
+    0 0 30px #ff0000;
+  animation: pulse 1s infinite;
+}
+
+
+.pause-screen {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(3px);
+}
+
+
+.controls-hint {
+  background: rgba(255, 255, 0, 0.1);
+  border: 1px solid rgba(255, 255, 0, 0.3);
+  border-radius: 8px;
+  padding: 10px;
+  margin-top: 10px;
+}
+
+
+@media (max-width: 480px) {
+  .pacman-app {
+    font-size: 14px;
+  }
+  
+  .pacman-app canvas {
+    max-width: 100%;
+    height: auto;
+  }
+}
+
+
+.touch-control {
+  background: rgba(255, 255, 0, 0.1);
+  border: 2px solid rgba(255, 255, 0, 0.3);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.touch-control:active {
+  background: rgba(255, 255, 0, 0.3);
+  border-color: rgba(255, 255, 0, 0.6);
+  transform: scale(0.95);
+}
+
+
+.retro-glow {
+  box-shadow: 
+    0 0 5px #0066ff,
+    0 0 10px #0066ff,
+    0 0 15px #0066ff,
+    inset 0 0 5px rgba(0, 102, 255, 0.2);
+}
+
+.yellow-glow {
+  text-shadow: 
+    0 0 5px #ffff00,
+    0 0 10px #ffff00,
+    0 0 15px #ffff00;
+}
+
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.7;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.blinking {
+  animation: blink 1s infinite;
+}
+
+
+@keyframes levelComplete {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.level-complete {
+  animation: levelComplete 0.8s ease-out;
+}
+
+
+@keyframes pacmanMove {
+  0% {
+    transform: rotate(0deg);
+  }
+  25% {
+    transform: rotate(90deg);
+  }
+  50% {
+    transform: rotate(180deg);
+  }
+  75% {
+    transform: rotate(270deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.pacman-loader {
+  animation: pacmanMove 2s linear infinite;
+}
+
+
+@keyframes celebration {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-10px);
+  }
+  60% {
+    transform: translateY(-5px);
+  }
+}
+
+.high-score-celebration {
+  animation: celebration 2s ease-in-out;
+  color: #00ff00;
+  text-shadow: 0 0 10px #00ff00;
+}

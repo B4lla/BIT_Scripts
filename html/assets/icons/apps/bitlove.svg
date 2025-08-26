@@ -1,0 +1,28 @@
+<svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect x="0" y="0" width="60" height="60" rx="12" ry="12" fill="url(#gradient1)"/>
+  
+  <rect x="5" y="5" width="50" height="50" rx="10" ry="10" fill="url(#gradient2)" opacity="0.8"/>
+
+  <path d="M30 45L26.5 41.8C19 35.1 14 30.6 14 25C14 20.6 17.6 17 22 17C24.9 17 27.7 18.4 30 20.4C32.3 18.4 35.1 17 38 17C42.4 17 46 20.6 46 25C46 30.6 41 35.1 33.5 41.8L30 45Z" fill="white"/>
+
+  <circle cx="42" cy="18" r="2" fill="rgba(255,255,255,0.8)"/>
+  <path d="M42 14L42.5 16L44 16.5L42.5 17L42 19L41.5 17L40 16.5L41.5 16L42 14Z" fill="rgba(255,255,255,0.6)"/>
+  
+  <circle cx="18" cy="18" r="1.5" fill="rgba(255,255,255,0.7)"/>
+  <path d="M18 15.5L18.3 17L19.5 17.3L18.3 17.6L18 19L17.7 17.6L16.5 17.3L17.7 17L18 15.5Z" fill="rgba(255,255,255,0.5)"/>
+
+  <path d="M45 35L44.3 34.4C42.1 32.4 40.5 31.3 40.5 29.8C40.5 28.7 41.4 27.8 42.5 27.8C43.2 27.8 43.8 28.1 44.2 28.6C44.6 28.1 45.2 27.8 45.9 27.8C46.9 27.8 47.8 28.7 47.8 29.8C47.8 31.3 46.2 32.4 44 34.4L45 35Z" fill="rgba(255,255,255,0.6)"/>
+  
+  <defs>
+    <linearGradient id="gradient1" x1="0" y1="0" x2="60" y2="60" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FF6B9D"/>
+      <stop offset="50%" stop-color="#FF1744"/>
+      <stop offset="100%" stop-color="#D81B60"/>
+    </linearGradient>
+    
+    <linearGradient id="gradient2" x1="5" y1="5" x2="55" y2="55" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="rgba(255,255,255,0.3)"/>
+      <stop offset="100%" stop-color="rgba(255,255,255,0.1)"/>
+    </linearGradient>
+  </defs>
+</svg>

@@ -1,0 +1,145 @@
+
+.pong-app {
+  font-family: 'Monaco', 'Courier New', monospace;
+  background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+  color: #ffffff;
+  overflow: hidden;
+  user-select: none;
+}
+
+.pong-game-canvas {
+  background: #000;
+  border: 2px solid #00ff00;
+  box-shadow: 0 0 20px #00ff0044;
+  cursor: none;
+  transition: transform 0.5s ease;
+}
+
+
+.pong-game-canvas.landscape {
+  transform: rotate(90deg);
+  width: 250px !important;
+  height: 400px !important;
+}
+
+.pong-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 15px;
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(10px);
+  border-radius: 15px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.pong-button {
+  padding: 12px 20px;
+  background: linear-gradient(135deg, #00ff00, #00cc00);
+  color: #000;
+  border: none;
+  border-radius: 10px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 14px;
+}
+
+.pong-button:hover:not(:disabled) {
+  background: linear-gradient(135deg, #00cc00, #009900);
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 255, 0, 0.3);
+}
+
+.pong-button:disabled {
+  background: #555;
+  color: #999;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.pong-score {
+  font-size: 24px;
+  font-weight: bold;
+  text-align: center;
+  color: #00ff00;
+  text-shadow: 0 0 10px #00ff0088;
+  margin: 10px 0;
+}
+
+.pong-difficulty {
+  display: flex;
+  gap: 5px;
+  margin: 10px 0;
+}
+
+.difficulty-btn {
+  flex: 1;
+  padding: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 12px;
+}
+
+.difficulty-btn.active {
+  background: linear-gradient(135deg, #00ff00, #00cc00);
+  color: #000;
+  border-color: #00ff00;
+}
+
+.difficulty-btn:hover:not(.active) {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.pong-status {
+  text-align: center;
+  margin: 10px 0;
+  font-size: 14px;
+  color: #ccc;
+}
+
+.game-over {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.9);
+  padding: 30px;
+  border-radius: 15px;
+  border: 2px solid #ff0000;
+  text-align: center;
+  z-index: 10;
+}
+
+.game-over h3 {
+  color: #ff0000;
+  margin-bottom: 15px;
+  font-size: 20px;
+}
+
+.game-over p {
+  margin: 10px 0;
+  color: #fff;
+}
+
+.pong-instructions {
+  font-size: 11px;
+  color: #888;
+  text-align: center;
+  margin-top: 10px;
+  line-height: 1.4;
+}
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0.3; }
+}
+
+.blinking {
+  animation: blink 1s infinite;
+}

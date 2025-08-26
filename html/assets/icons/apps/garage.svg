@@ -1,0 +1,20 @@
+<svg width="60" height="60" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g clip-path="url(#clip0_garage)">
+<rect width="60" height="60" rx="13.28" fill="url(#paint0_linear_garage)"/>
+<path d="M15 20H45C46.1 20 47 20.9 47 22V38C47 39.1 46.1 40 45 40H15C13.9 40 13 39.1 13 38V22C13 20.9 13.9 20 15 20Z" fill="white"/>
+<path d="M18 35C19.1 35 20 34.1 20 33C20 31.9 19.1 31 18 31C16.9 31 16 31.9 16 33C16 34.1 16.9 35 18 35Z" fill="url(#paint0_linear_garage)"/>
+<path d="M42 35C43.1 35 44 34.1 44 33C44 31.9 43.1 31 42 31C40.9 31 40 31.9 40 33C40 34.1 40.9 35 42 35Z" fill="url(#paint0_linear_garage)"/>
+<path d="M20 25H40V30H20V25Z" fill="#E0E0E0"/>
+<path d="M17 27H23V28H17V27Z" fill="#E0E0E0"/>
+<path d="M37 27H43V28H37V27Z" fill="#E0E0E0"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_garage" x1="30" y1="0" x2="30" y2="60" gradientUnits="userSpaceOnUse">
+<stop stop-color="#4A90E2"/>
+<stop offset="1" stop-color="#357ABD"/>
+</linearGradient>
+<clipPath id="clip0_garage">
+<rect width="60" height="60" rx="13.28" fill="white"/>
+</clipPath>
+</defs>
+</svg>
