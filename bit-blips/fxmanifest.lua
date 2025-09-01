@@ -11,6 +11,7 @@ files {
     'html/index.html',
     'html/styles.css',
     'html/app.js',
+    'html/tailwindcss.js',
     'html/assets/blips/*.png',
     'html/assets/blips/*.gif',
     'html/assets/map.png',
