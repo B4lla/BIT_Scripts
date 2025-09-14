@@ -1,0 +1,62 @@
+
+
+
+.range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 24px;
+  height: 24px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e5ea;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.range-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  background: #fff;
+  border-radius: 12px;
+  border: 1px solid #e5e5ea;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+
+.dark .range-slider::-webkit-slider-thumb {
+  background: #fff;
+  border-color: #48484a;
+}
+
+.dark .range-slider::-moz-range-thumb {
+  background: #fff;
+  border-color: #48484a;
+}
+
+
+* {
+  transition: background-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+              color 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+
+::-webkit-scrollbar {
+  width: 0;
+}
+
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.settings-section-animate {
+  animation: slideIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}

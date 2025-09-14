@@ -1,0 +1,118 @@
+
+
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.8; }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s infinite;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+
+.call-overlay-enter-active, .call-overlay-leave-active {
+  transition: all 0.5s ease;
+}
+
+.call-overlay-enter-from, .call-overlay-leave-to {
+  opacity: 0;
+  transform: scale(0.9);
+}
+
+
+.slide-up-overlay-enter-active, .slide-up-overlay-leave-active {
+  transition: all 0.3s ease;
+}
+
+.slide-up-overlay-enter-from, .slide-up-overlay-leave-to {
+  opacity: 0;
+}
+
+.slide-up-content-enter-active, .slide-up-content-leave-active {
+  transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+
+.slide-up-content-enter-from, .slide-up-content-leave-to {
+  transform: translateY(100%);
+  opacity: 0;
+}
+
+
+.contact-list-enter-active, .contact-list-leave-active,
+.recents-list-enter-active, .recents-list-leave-active,
+.favorites-list-enter-active, .favorites-list-leave-active,
+.voicemail-list-enter-active, .voicemail-list-leave-active {
+  transition: all 0.5s ease;
+}
+
+.contact-list-enter-from, .contact-list-leave-to,
+.recents-list-enter-from, .recents-list-leave-to,
+.favorites-list-enter-from, .favorites-list-leave-to,
+.voicemail-list-enter-from, .voicemail-list-leave-to {
+  opacity: 0;
+  transform: translateX(-30px);
+}
+
+.contact-list-move, .recents-list-move,
+.favorites-list-move, .voicemail-list-move {
+  transition: transform 0.5s ease;
+}
+
+  .slide-up-overlay-enter-active,
+  .slide-up-overlay-leave-active {
+    transition: opacity 0.3s ease;
+  }
+
+  .slide-up-overlay-enter-from,
+  .slide-up-overlay-leave-to {
+    opacity: 0;
+  }
+
+  .slide-up-content-enter-active,
+  .slide-up-content-leave-active {
+    transition: transform 0.3s ease;
+  }
+
+  .slide-up-content-enter-from,
+  .slide-up-content-leave-to {
+    transform: translateY(100%);
+  }
+
+  ::-webkit-scrollbar {
+    width: 0px;
+    background: transparent;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  input:focus,
+  textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+  }
+
+  .active\\:opacity-30:active {
+    opacity: 0.3;
+  }
+
+  .active\\:scale-95:active {
+    transform: scale(0.95);
+  }
+
+  .rounded-t-3xl {
+    border-top-left-radius: 1.5rem;
+    border-top-right-radius: 1.5rem;
+  }
