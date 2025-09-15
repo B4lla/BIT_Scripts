@@ -1,207 +1,198 @@
 const AppStore = {
-  name: 'AppStore',
-  emits: ["close"],
-  setup() {
-    const { ref, computed, onMounted } = Vue;
-    
-  const searchQuery = ref("")
-  
-  const selectedCategory = ref("all")
-    const availableApps = ref([])
-  const loading = ref(true)
-  const downloadingApps = ref({})
+	name: "AppShop",
+	emits: ["close"],
+	setup() {
+		const { ref, computed, onMounted } = Vue;
 
-    const categories = [
-      { id: "all", name: "Todas", icon: "grid" },
-      { id: "featured", name: "Destacadas", icon: "star" },
-      { id: "games", name: "Juegos", icon: "gamepad-2" },
-      { id: "productivity", name: "Productividad", icon: "briefcase" },
-      { id: "social", name: "Redes Sociales", icon: "users" },
-      { id: "finance", name: "Finanzas", icon: "credit-card" },
-      { id: "entertainment", name: "Entretenimiento", icon: "play" },
-      { id: "tools", name: "Herramientas", icon: "settings" },
-      { id: "transport", name: "Transporte", icon: "car" },
-    ]
+		const searchQuery = ref("");
 
-    const loadAvailableApps = async () => {
-      try {
-        loading.value = true
-        
-        
-        const response = await fetch('https://bit-smartphone/appstore:getApps', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        });
-        
-        
-        
-        if (response.ok) {
-          const data = await response.json();
-          
-          availableApps.value = data.apps || data || [];
-          
-        } else {
-          
-          availableApps.value = [];
-        }
-      } catch (e) {
-        
-        availableApps.value = [];
-      } finally {
-        loading.value = false
-      }
-    }
+		const selectedCategory = ref("all");
+		const availableApps = ref([]);
+		const loading = ref(true);
+		const downloadingApps = ref({});
 
-    const featuredApps = computed(() => {
-      return availableApps.value
-        .filter(app => app.rating >= 4.5)
-        .sort((a, b) => b.rating - a.rating)
-        .slice(0, 6);
-    })
+		const categories = [
+			{ id: "all", name: "Todas", icon: "grid" },
+			{ id: "featured", name: "Destacadas", icon: "star" },
+			{ id: "games", name: "Juegos", icon: "gamepad-2" },
+			{ id: "productivity", name: "Productividad", icon: "briefcase" },
+			{ id: "social", name: "Redes Sociales", icon: "users" },
+			{ id: "finance", name: "Finanzas", icon: "credit-card" },
+			{ id: "entertainment", name: "Entretenimiento", icon: "play" },
+			{ id: "tools", name: "Herramientas", icon: "settings" },
+			{ id: "transport", name: "Transporte", icon: "car" },
+		];
 
-    const filteredApps = computed(() => {
-      let apps = availableApps.value
-      if (selectedCategory.value === "all") {
-        
-        apps = availableApps.value
-      } else if (selectedCategory.value === "featured") {
-        apps = featuredApps.value
-      } else {
-        apps = apps.filter((app) => app.category === selectedCategory.value)
-      }
-      if (searchQuery.value) {
-        apps = apps.filter(
-          (app) =>
-            app.label.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-            app.description.toLowerCase().includes(searchQuery.value.toLowerCase()),
-        )
-      }
-      return apps
-    })
+		const loadAvailableApps = async () => {
+			try {
+				loading.value = true;
 
-    const handleInstallApp = async (app) => {
-      if (downloadingApps.value[app.id] != null || app.installed) return;
-      
-      downloadingApps.value[app.id] = 0;
-      
-      const interval = setInterval(() => {
-        if (downloadingApps.value[app.id] < 100) {
-          downloadingApps.value[app.id] += 10;
-        }
-        
-        if (downloadingApps.value[app.id] >= 100) {
-          clearInterval(interval);
-          
-          downloadingApps.value[app.id] = 100;
-          
-          fetch('https://bit-smartphone/appstore:downloadApp', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ appId: app.id })
-          }).then(async response => {
-            if (response.ok) {
-              const result = await response.json();
-            } else {
-              throw new Error('Network response was not ok');
-            }
-          }).catch(err => {
-            console.error('[App Store] Error sending download request:', err);
-            delete downloadingApps.value[app.id];
-          });
+				const response = await fetch("https://bit-smartphone/appstore:getApps", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
 
-          setTimeout(() => {
-            if (downloadingApps.value[app.id] === 100) {
-              console.warn('[App Store] Download timeout for app:', app.id);
-              delete downloadingApps.value[app.id];
-            }
-          }, 30000);
-        }
-      }, 200);
-    }
+				if (response.ok) {
+					const data = await response.json();
 
-    const isInstalled = (appId) => {
-      if (window.appInstance && typeof window.appInstance.isAppInstalled === 'function') {
-        return window.appInstance.isAppInstalled(appId);
-      }
-      return false;
-    }
+					availableApps.value = data.apps || data || [];
+				} else {
+					availableApps.value = [];
+				}
+			} catch (e) {
+				availableApps.value = [];
+			} finally {
+				loading.value = false;
+			}
+		};
 
-    const formatPrice = (price) => {
-      return price === 0 ? 'Gratis' : `$${price}`;
-    }
+		const featuredApps = computed(() => {
+			return availableApps.value
+				.filter((app) => app.rating >= 4.5)
+				.sort((a, b) => b.rating - a.rating)
+				.slice(0, 6);
+		});
 
-    const isDownloading = (appId) => {
-      return downloadingApps.value[appId] != null && typeof downloadingApps.value[appId] === 'number';
-    }
+		const filteredApps = computed(() => {
+			let apps = availableApps.value;
+			if (selectedCategory.value === "all") {
+				apps = availableApps.value;
+			} else if (selectedCategory.value === "featured") {
+				apps = featuredApps.value;
+			} else {
+				apps = apps.filter((app) => app.category === selectedCategory.value);
+			}
+			if (searchQuery.value) {
+				apps = apps.filter((app) => app.label.toLowerCase().includes(searchQuery.value.toLowerCase()) || app.description.toLowerCase().includes(searchQuery.value.toLowerCase()));
+			}
+			return apps;
+		});
 
-    const handleServerMessage = (event) => {
-      const { action, apps, success, message, appId } = event.data;
-      
-      
-      switch (action) {
-        case 'appstore:appsLoaded':
-          availableApps.value = apps || [];
-          loading.value = false;
-          break;
-          
-        case 'appstore:downloadResult':
-          if (success) {
-            try {
-              if (window.appInstance && typeof window.appInstance.installApp === 'function') {
-                window.appInstance.installApp(appId).then?.(() => {
-                }).catch?.((e) => {
-                  console.error('[AppStore] installApp error:', e);
-                });
-              } else {
-                loadAvailableApps();
-              }
-            } catch (e) {
-              console.error('[AppStore] Error invoking installApp fallback:', e);
-              loadAvailableApps();
-            }
+		const handleInstallApp = async (app) => {
+			if (downloadingApps.value[app.id] != null || app.installed) return;
 
-            const app = availableApps.value.find(a => a.id === appId);
-            if (app) {
-              app.installed = true;
-            } else {
-              console.error('[AppStore] App not found for installation in UI:', appId);
-            }
+			downloadingApps.value[app.id] = 0;
 
-            delete downloadingApps.value[appId];
-          } else {
-            console.error('[AppStore] Download failed for app:', appId, message);
-            delete downloadingApps.value[appId];
-          }
-          break;
-          
-        default:
-          
-      }
-    };
+			const interval = setInterval(() => {
+				if (downloadingApps.value[app.id] < 100) {
+					downloadingApps.value[app.id] += 10;
+				}
 
-    onMounted(() => {
-      loadAvailableApps();
-      
-      window.__appstore_message_handler = handleServerMessage;
-    })
+				if (downloadingApps.value[app.id] >= 100) {
+					clearInterval(interval);
 
-    return {
-      searchQuery,
-      selectedCategory,
-      categories,
-      availableApps,
-      featuredApps,
-      filteredApps,
-      loading,
-      downloadingApps,
-      handleInstallApp,
-      isInstalled,
-      formatPrice,
-      isDownloading,
-    }
-  },
-  template: `
+					downloadingApps.value[app.id] = 100;
+
+					fetch("https://bit-smartphone/appstore:downloadApp", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ appId: app.id }),
+					})
+						.then(async (response) => {
+							if (response.ok) {
+								const result = await response.json();
+							} else {
+								throw new Error("Network response was not ok");
+							}
+						})
+						.catch((err) => {
+							console.error("[App Store] Error sending download request:", err);
+							delete downloadingApps.value[app.id];
+						});
+
+					setTimeout(() => {
+						if (downloadingApps.value[app.id] === 100) {
+							console.warn("[App Store] Download timeout for app:", app.id);
+							delete downloadingApps.value[app.id];
+						}
+					}, 30000);
+				}
+			}, 200);
+		};
+
+		const isInstalled = (appId) => {
+			if (window.appInstance && typeof window.appInstance.isAppInstalled === "function") {
+				return window.appInstance.isAppInstalled(appId);
+			}
+			return false;
+		};
+
+		const formatPrice = (price) => {
+			return price === 0 ? "Gratis" : `$${price}`;
+		};
+
+		const isDownloading = (appId) => {
+			return downloadingApps.value[appId] != null && typeof downloadingApps.value[appId] === "number";
+		};
+
+		const handleServerMessage = (event) => {
+			const { action, apps, success, message, appId } = event.data;
+
+			switch (action) {
+				case "appstore:appsLoaded":
+					availableApps.value = apps || [];
+					loading.value = false;
+					break;
+
+				case "appstore:downloadResult":
+					if (success) {
+						try {
+							if (window.appInstance && typeof window.appInstance.installApp === "function") {
+								window.appInstance
+									.installApp(appId)
+									.then?.(() => {})
+									.catch?.((e) => {
+										console.error("[AppShop] installApp error:", e);
+									});
+							} else {
+								loadAvailableApps();
+							}
+						} catch (e) {
+							console.error("[AppShop] Error invoking installApp fallback:", e);
+							loadAvailableApps();
+						}
+
+						const app = availableApps.value.find((a) => a.id === appId);
+						if (app) {
+							app.installed = true;
+						} else {
+							console.error("[AppShop] App not found for installation in UI:", appId);
+						}
+
+						delete downloadingApps.value[appId];
+					} else {
+						console.error("[AppShop] Download failed for app:", appId, message);
+						delete downloadingApps.value[appId];
+					}
+					break;
+
+				default:
+			}
+		};
+
+		onMounted(() => {
+			loadAvailableApps();
+
+			window.__appstore_message_handler = handleServerMessage;
+		});
+
+		return {
+			searchQuery,
+			selectedCategory,
+			categories,
+			availableApps,
+			featuredApps,
+			filteredApps,
+			loading,
+			downloadingApps,
+			handleInstallApp,
+			isInstalled,
+			formatPrice,
+			isDownloading,
+		};
+	},
+	template: `
     <div class="flex flex-col h-full bg-white text-black">
       <div class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
         <h1 class="text-xl font-bold">App Store</h1>
@@ -222,7 +213,7 @@ const AppStore = {
         </div>
       </div>
 
-      <div class="flex overflow-x-auto p-4 space-x-3 bg-white border-b">
+      /* <div class="flex overflow-x-auto p-4 space-x-3 bg-white border-b">
         <button
           v-for="category in categories"
           :key="category.id"
@@ -237,7 +228,7 @@ const AppStore = {
           <i :data-lucide="category.icon" class="w-4 h-4"></i>
           <span class="text-sm font-medium">{{ category.name }}</span>
         </button>
-      </div>
+      </div> */
 
       <div class="flex-1 overflow-y-auto bg-gray-50">
         <div v-if="loading" class="flex items-center justify-center p-12">
@@ -328,6 +319,6 @@ const AppStore = {
       </div>
     </div>
   `,
-}
+};
 
-window.appStore = AppStore
+window.appStore = AppStore;

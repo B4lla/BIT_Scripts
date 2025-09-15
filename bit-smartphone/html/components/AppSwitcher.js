@@ -1,141 +1,136 @@
 const AppSwitcher = {
-  name: 'AppSwitcher',
-  props: {
-    openApps: {
-      type: Array,
-      default: () => []
-    },
-    allApps: {
-      type: Array,
-      default: () => []
-    },
-    visible: {
-      type: Boolean,
-      default: false
-    }
-  },
-  emits: ['close', 'open-app', 'close-app'],
-  data() {
-    return {
-      currentIndex: 0,
-      isDragging: false,
-      startX: 0,
-      currentX: 0,
-      offsetX: 0,
-      draggedAppId: null
-    };
-  },
-  computed: {
-    openAppsWithData() {
-      return this.openApps.map(openApp => {
-        const appData = this.allApps.find(app => app.id === openApp.id);
-        return {
-          ...openApp,
-          ...appData
-        };
-      });
-    },
-    
-    
-    appsTransform() {
-      return this.openAppsWithData.map((app, index) => {
-        const distance = index - this.currentIndex;
-        
-        let translateX, scale, rotateY, zIndex, opacity;
-        
-        if (index === this.currentIndex) {
-          translateX = this.offsetX;
-          scale = 1;
-          rotateY = this.offsetX / 20; 
-          zIndex = 20;
-          opacity = 1;
-        } else {
-          
-          const direction = distance > 0 ? 1 : -1;
-          translateX = direction * 55 + this.offsetX;
-          scale = 0.8;
-          rotateY = -direction * 45;
-          zIndex = 10 - Math.abs(distance);
-          opacity = Math.abs(distance) < 3 ? 1 : 0;
-        }
-        
-        return {
-          transform: `translateX(${translateX}px) scale(${scale}) rotateY(${rotateY}deg)`,
-          zIndex,
-          opacity
-        };
-      });
-    }
-  },
-  watch: {
-    visible(newVal) {
-      if (newVal && this.openAppsWithData.length > 0) {
-        this.currentIndex = this.openApps.length -1;
-        this.offsetX = 0;
-      }
-    }
-  },
-  methods: {
-    handleTouchStart(e) {
-      this.isDragging = true;
-      this.startX = e.touches[0].clientX;
-      this.currentX = e.touches[0].clientX;
-    },
-    
-    handleTouchMove(e) {
-      if (!this.isDragging) return;
-      
-      this.currentX = e.touches[0].clientX;
-      this.offsetX = this.currentX - this.startX;
-    },
-    
-    handleTouchEnd() {
-      if (!this.isDragging) return;
-      
-      const threshold = 80; 
-      
-      if (this.offsetX > threshold && this.currentIndex > 0) {
-        
-        this.currentIndex
-      } else if (this.offsetX < -threshold && this.currentIndex < this.openAppsWithData.length - 1) {
-        
-        this.currentIndex++;
-      }
-      
-      this.isDragging = false;
-      this.offsetX = 0;
-      this.startX = 0;
-      this.currentX = 0;
-    },
-    
-    selectApp(index) {
-      this.currentIndex = index;
-    },
-    
-    openCurrentApp() {
-      if (this.openAppsWithData[this.currentIndex]) {
-        this.$emit('open-app', this.openAppsWithData[this.currentIndex].id);
-      }
-    },
-    
-    closeCurrentApp() {
-      if (this.openAppsWithData[this.currentIndex]) {
-        const closedAppId = this.openAppsWithData[this.currentIndex].id;
-        
-        
-        if (this.currentIndex >= this.openAppsWithData.length - 1 && this.currentIndex > 0) {
-           this.currentIndex--;
-        }
+	name: "AppSwitcher",
+	props: {
+		openApps: {
+			type: Array,
+			default: () => [],
+		},
+		allApps: {
+			type: Array,
+			default: () => [],
+		},
+		visible: {
+			type: Boolean,
+			default: false,
+		},
+	},
+	emits: ["close", "open-app", "close-app"],
+	data() {
+		return {
+			currentIndex: 0,
+			isDragging: false,
+			startX: 0,
+			currentX: 0,
+			offsetX: 0,
+			draggedAppId: null,
+		};
+	},
+	computed: {
+		openAppsWithData() {
+			return this.openApps.map((openApp) => {
+				const appData = this.allApps.find((app) => app.id === openApp.id);
+				return {
+					...openApp,
+					...appData,
+				};
+			});
+		},
 
-        this.$emit('close-app', closedAppId);
-      }
-    },
-    
-    closeAppSwitcher() {
-      this.$emit('close');
-    }
-  },
-  template: `
+		appsTransform() {
+			return this.openAppsWithData.map((app, index) => {
+				const distance = index - this.currentIndex;
+
+				let translateX, scale, rotateY, zIndex, opacity;
+
+				if (index === this.currentIndex) {
+					translateX = this.offsetX;
+					scale = 1;
+					rotateY = this.offsetX / 20;
+					zIndex = 20;
+					opacity = 1;
+				} else {
+					const direction = distance > 0 ? 1 : -1;
+					translateX = direction * 55 + this.offsetX;
+					scale = 0.8;
+					rotateY = -direction * 45;
+					zIndex = 10 - Math.abs(distance);
+					opacity = Math.abs(distance) < 3 ? 1 : 0;
+				}
+
+				return {
+					transform: `translateX(${translateX}px) scale(${scale}) rotateY(${rotateY}deg)`,
+					zIndex,
+					opacity,
+				};
+			});
+		},
+	},
+	watch: {
+		visible(newVal) {
+			if (newVal && this.openAppsWithData.length > 0) {
+				this.currentIndex = this.openApps.length - 1;
+				this.offsetX = 0;
+			}
+		},
+	},
+	methods: {
+		handleTouchStart(e) {
+			this.isDragging = true;
+			this.startX = e.touches[0].clientX;
+			this.currentX = e.touches[0].clientX;
+		},
+
+		handleTouchMove(e) {
+			if (!this.isDragging) return;
+
+			this.currentX = e.touches[0].clientX;
+			this.offsetX = this.currentX - this.startX;
+		},
+
+		handleTouchEnd() {
+			if (!this.isDragging) return;
+
+			const threshold = 80;
+
+			if (this.offsetX > threshold && this.currentIndex > 0) {
+				this.currentIndex;
+			} else if (this.offsetX < -threshold && this.currentIndex < this.openAppsWithData.length - 1) {
+				this.currentIndex++;
+			}
+
+			this.isDragging = false;
+			this.offsetX = 0;
+			this.startX = 0;
+			this.currentX = 0;
+		},
+
+		selectApp(index) {
+			this.currentIndex = index;
+		},
+
+		openCurrentApp() {
+			if (this.openAppsWithData[this.currentIndex]) {
+				this.$emit("open-app", this.openAppsWithData[this.currentIndex].id);
+			}
+		},
+
+		closeCurrentApp() {
+			if (this.openAppsWithData[this.currentIndex]) {
+				const closedAppId = this.openAppsWithData[this.currentIndex].id;
+
+				if (this.currentIndex >= this.openAppsWithData.length - 1 && this.currentIndex > 0) {
+					this.currentIndex--;
+				}
+
+				this.$emit("close-app", closedAppId);
+			}
+		},
+
+		closeAppSwitcher() {
+			this.$emit("close");
+		},
+	},
+	template: `
     <div v-if="visible" 
          class="app-switcher-ios absolute inset-0 z-[55] bg-black/60 backdrop-blur-lg transition-opacity duration-300"
          @click="closeAppSwitcher">
@@ -188,7 +183,7 @@ const AppSwitcher = {
                   <div class="app-preview-area w-full h-full">
                     <div v-if="!app.preview" class="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-700 to-gray-900">
                       <div class="w-20 h-20 rounded-3xl flex items-center justify-center" :class="app.color">
-                        <img :src="'./assets/icons/apps/' + app.id + '.svg'" :alt="app.name" class="w-10 h-10" />
+                        <img :src="'./assets/icons/apps/' + app.id + '.svg'" :alt="(typeof app.name === 'function' ? app.name() : app.name)" class="w-10 h-10" />
                       </div>
                     </div>
                     <div v-else class="w-full h-full">
@@ -221,5 +216,5 @@ const AppSwitcher = {
         </div>
       </div>
     </div>
-  `
+  `,
 };

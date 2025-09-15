@@ -1,148 +1,147 @@
 const YouTube = {
-  name: "YouTube",
-  props: ["userSettings"],
-  emits: ["close"],
-  setup(props, { emit }) {
-    const { ref, computed } = Vue;
+	name: "Youtube",
+	props: ["userSettings"],
+	emits: ["close"],
+	setup(props, { emit }) {
+		const { ref, computed } = Vue;
 
-    const searchQuery = ref("");
-    const selectedVideo = ref(null);
-    const isPlaying = ref(false);
-    const isLoading = ref(false);
-    const searchResults = ref([]);
-    const nextPageToken = ref(null);
-    const prevPageToken = ref(null);
-    const hasError = ref(false);
-    const errorMessage = ref("");
+		const searchQuery = ref("");
+		const selectedVideo = ref(null);
+		const isPlaying = ref(false);
+		const isLoading = ref(false);
+		const searchResults = ref([]);
+		const nextPageToken = ref(null);
+		const prevPageToken = ref(null);
+		const hasError = ref(false);
+		const errorMessage = ref("");
 
-    const YOUTUBE_API_KEY = 'AIzaSyClCJEgN8nBpplIq2d-FCmrpxZZKjyoPQE';
-    const YOUTUBE_API_URL = 'https://www.googleapis.com/youtube/v3/search';
+		const YOUTUBE_API_KEY = "AIzaSyClCJEgN8nBpplIq2d-FCmrpxZZKjyoPQE";
+		const YOUTUBE_API_URL = "https://www.googleapis.com/youtube/v3/search";
 
-    const searchVideos = async (pageToken = null) => {
-      if (!searchQuery.value.trim()) {
-        searchResults.value = [];
-        return;
-      }
+		const searchVideos = async (pageToken = null) => {
+			if (!searchQuery.value.trim()) {
+				searchResults.value = [];
+				return;
+			}
 
-      isLoading.value = true;
-      hasError.value = false;
-      
-      if (!pageToken) {
-        searchResults.value = [];
-      }
+			isLoading.value = true;
+			hasError.value = false;
 
-      try {
-        const params = new URLSearchParams({
-          part: 'snippet,id',
-          q: searchQuery.value,
-          type: 'video',
-          key: YOUTUBE_API_KEY,
-          maxResults: 10
-        });
+			if (!pageToken) {
+				searchResults.value = [];
+			}
 
-        if (pageToken) {
-          params.append('pageToken', pageToken);
-        }
+			try {
+				const params = new URLSearchParams({
+					part: "snippet,id",
+					q: searchQuery.value,
+					type: "video",
+					key: YOUTUBE_API_KEY,
+					maxResults: 10,
+				});
 
-        const response = await fetch(`${YOUTUBE_API_URL}?${params}`);
-        
-        if (!response.ok) {
-          throw new Error(`Error ${response.status}: ${response.statusText}`);
-        }
+				if (pageToken) {
+					params.append("pageToken", pageToken);
+				}
 
-        const data = await response.json();
-        
-        nextPageToken.value = data.nextPageToken || null;
-        prevPageToken.value = data.prevPageToken || null;
+				const response = await fetch(`${YOUTUBE_API_URL}?${params}`);
 
-        const processedVideos = data.items.map(item => ({
-          id: item.id.videoId,
-          title: item.snippet.title,
-          channel: item.snippet.channelTitle,
-          description: item.snippet.description,
-          thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
-          publishedAt: item.snippet.publishedAt,
-          videoId: item.id.videoId
-        }));
+				if (!response.ok) {
+					throw new Error(`Error ${response.status}: ${response.statusText}`);
+				}
 
-        if (pageToken) {
-          searchResults.value = [...searchResults.value, ...processedVideos];
-        } else {
-          searchResults.value = processedVideos;
-        }
+				const data = await response.json();
 
-      } catch (error) {
-        console.error('Error searching YouTube:', error);
-        hasError.value = true;
-        errorMessage.value = 'Error al buscar videos. Inténtalo de nuevo.';
-      } finally {
-        isLoading.value = false;
-      }
-    };
+				nextPageToken.value = data.nextPageToken || null;
+				prevPageToken.value = data.prevPageToken || null;
 
-    const loadNextPage = () => {
-      if (nextPageToken.value) {
-        searchVideos(nextPageToken.value);
-      }
-    };
+				const processedVideos = data.items.map((item) => ({
+					id: item.id.videoId,
+					title: item.snippet.title,
+					channel: item.snippet.channelTitle,
+					description: item.snippet.description,
+					thumbnail: item.snippet.thumbnails.high?.url || item.snippet.thumbnails.medium?.url,
+					publishedAt: item.snippet.publishedAt,
+					videoId: item.id.videoId,
+				}));
 
-    const loadPrevPage = () => {
-      if (prevPageToken.value) {
-        searchVideos(prevPageToken.value);
-      }
-    };
+				if (pageToken) {
+					searchResults.value = [...searchResults.value, ...processedVideos];
+				} else {
+					searchResults.value = processedVideos;
+				}
+			} catch (error) {
+				console.error("Error searching YouTube:", error);
+				hasError.value = true;
+				errorMessage.value = "Error al buscar videos. Inténtalo de nuevo.";
+			} finally {
+				isLoading.value = false;
+			}
+		};
 
-    const selectVideo = (video) => {
-      selectedVideo.value = video;
-      isPlaying.value = false;
-    };
+		const loadNextPage = () => {
+			if (nextPageToken.value) {
+				searchVideos(nextPageToken.value);
+			}
+		};
 
-    const togglePlay = () => {
-      isPlaying.value = !isPlaying.value;
-    };
+		const loadPrevPage = () => {
+			if (prevPageToken.value) {
+				searchVideos(prevPageToken.value);
+			}
+		};
 
-    const goBack = () => {
-      if (selectedVideo.value) {
-        selectedVideo.value = null;
-        isPlaying.value = false;
-      } else {
-        emit("close");
-      }
-    };
+		const selectVideo = (video) => {
+			selectedVideo.value = video;
+			isPlaying.value = false;
+		};
 
-    const handleSearch = (event) => {
-      event.preventDefault();
-      searchVideos();
-    };
+		const togglePlay = () => {
+			isPlaying.value = !isPlaying.value;
+		};
 
-    const clearResults = () => {
-      searchResults.value = [];
-      searchQuery.value = '';
-      hasError.value = false;
-    };
+		const goBack = () => {
+			if (selectedVideo.value) {
+				selectedVideo.value = null;
+				isPlaying.value = false;
+			} else {
+				emit("close");
+			}
+		};
 
-    return {
-      searchQuery,
-      selectedVideo,
-      isPlaying,
-      isLoading,
-      searchResults,
-      nextPageToken,
-      prevPageToken,
-      hasError,
-      errorMessage,
-      searchVideos,
-      loadNextPage,  
-      loadPrevPage,
-      selectVideo,
-      togglePlay,
-      goBack,
-      handleSearch,
-      clearResults
-    };
-  },
-  template: `
-    <div class="youtube-app h-full w-full flex flex-col bg-gray-900 text-white">
+		const handleSearch = (event) => {
+			event.preventDefault();
+			searchVideos();
+		};
+
+		const clearResults = () => {
+			searchResults.value = [];
+			searchQuery.value = "";
+			hasError.value = false;
+		};
+
+		return {
+			searchQuery,
+			selectedVideo,
+			isPlaying,
+			isLoading,
+			searchResults,
+			nextPageToken,
+			prevPageToken,
+			hasError,
+			errorMessage,
+			searchVideos,
+			loadNextPage,
+			loadPrevPage,
+			selectVideo,
+			togglePlay,
+			goBack,
+			handleSearch,
+			clearResults,
+		};
+	},
+	template: `
+    <div class="youtube-app h-full w-full flex flex-col bg-gray-900 pt-12 text-white">
       <div class="flex items-center justify-between p-4 border-b border-gray-700">
         <div class="flex items-center space-x-3">
           <button @click="goBack" class="p-2 hover:bg-gray-800 rounded-lg transition-colors">
@@ -155,7 +154,7 @@ const YouTube = {
               <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/>
             </svg>
           </div>
-          <h1 class="text-xl font-bold">YouTube</h1>
+          <h1 class="text-xl font-bold">Youtuf</h1>
         </div>
         <button v-if="searchResults.length > 0" @click="clearResults" class="text-gray-400 hover:text-white transition-colors">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -333,5 +332,5 @@ const YouTube = {
         </div>
       </div>
     </div>
-  `
+  `,
 };

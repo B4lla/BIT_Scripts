@@ -1,324 +1,329 @@
 const Camera = {
-  name: 'Camera',
-  props: ["photos", "userSettings", "t"],
-  emits: ["close", "take-photo"],
-  setup(props, { emit }) {
-    const { ref, onMounted, onUnmounted, computed } = Vue;
-    
-    const isLoading = ref(false);
-    const error = ref(null);
-    const flashMode = ref("off");
-    const facingMode = ref("back");
-    const isCameraActive = ref(false);
-    const isTakingPhoto = ref(false);
-    const previewSrc = ref(null);
-    const frameCount = ref(0);
-    const isDragging = ref(false);
-    const dragStart = ref({ x: 0, y: 0 });
-    const lastDragTime = ref(0);
+	name: "Camera",
+	props: ["photos", "userSettings", "t"],
+	emits: ["close", "take-photo"],
+	setup(props, { emit }) {
+		const { ref, onMounted, onUnmounted, computed } = Vue;
 
-    const flashModes = [
-      { key: "off", label: "Desactivado", icon: "flash-off" },
-      { key: "on", label: "Activado", icon: "flash-on" },
-      { key: "auto", label: "Automático", icon: "flash-auto" }
-    ];
+		const isLoading = ref(false);
+		const error = ref(null);
+		const flashMode = ref("off");
+		const facingMode = ref("back");
+		const isCameraActive = ref(false);
+		const isTakingPhoto = ref(false);
+		const previewSrc = ref(null);
+		const frameCount = ref(0);
+		const isDragging = ref(false);
+		const dragStart = ref({ x: 0, y: 0 });
+		const lastDragTime = ref(0);
 
-    const previewImageStyle = computed(() => {
-      const baseStyle = {
-        width: '100%',
-        height: '100%',
-        objectFit: 'cover',
-        cursor: isDragging.value ? 'grabbing' : 'grab'
-      };
-      
-      if (facingMode.value === 'front') {
-        baseStyle.transform = 'scaleX(-1)';
-      }
-      
-      return baseStyle;
-    });
+		const flashModes = [
+			{ key: "off", label: "Desactivado", icon: "flash-off" },
+			{ key: "on", label: "Activado", icon: "flash-on" },
+			{ key: "auto", label: "Automático", icon: "flash-auto" },
+		];
 
-    const startDrag = (event) => {
-      if (!isCameraActive.value || isTakingPhoto.value) return;
-      
-      event.preventDefault();
-      event.stopPropagation();
-      
-      isDragging.value = true;
-      
-      const clientX = event.clientX || (event.touches && event.touches[0].clientX) || 0;
-      const clientY = event.clientY || (event.touches && event.touches[0].clientY) || 0;
-      
-      dragStart.value = { x: clientX, y: clientY };
-      lastDragTime.value = Date.now();
-      
-    };
+		const previewImageStyle = computed(() => {
+			const baseStyle = {
+				width: "100%",
+				height: "100%",
+				objectFit: "cover",
+				cursor: isDragging.value ? "grabbing" : "grab",
+			};
 
-    const onDrag = (event) => {
-      if (!isDragging.value || !isCameraActive.value || isTakingPhoto.value) return;
-      
-      event.preventDefault();
-      
-      const now = Date.now();
-      if (now - lastDragTime.value < 16) return;
-      
-      const clientX = event.clientX || (event.touches && event.touches[0].clientX) || 0;
-      const clientY = event.clientY || (event.touches && event.touches[0].clientY) || 0;
-      
-      let deltaX = (clientX - dragStart.value.x) * 0.2;
-      const deltaY = (clientY - dragStart.value.y) * 0.2;
-      
-      if (facingMode.value === 'front') {
-        deltaX = -deltaX;
-      }
-      
-      fetch('https://bit-smartphone/camera:mouse_move', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deltaX, deltaY, facingMode: facingMode.value })
-      }).catch((error) => {
-        console.error('[Camera] Error sending mouse movement:', error);
-      });
-      
-      lastDragTime.value = now;
-    };
+			if (facingMode.value === "front") {
+				baseStyle.transform = "scaleX(-1)";
+			}
 
-    const stopDrag = (event) => {
-      if (isDragging.value) {
-        isDragging.value = false;
-      }
-    };
+			return baseStyle;
+		});
 
-    const startCamera = async () => {
-      try {
-        isLoading.value = true;
-        error.value = null;
-        
-        const response = await fetch('https://bit-smartphone/camera:start', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: facingMode.value })
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-          isCameraActive.value = true;
-        } else {
-          throw new Error('Error al iniciar la cámara');
-        }
-      } catch (err) {
-        error.value = "No se pudo acceder a la cámara de FiveM.";
-      } finally {
-        isLoading.value = false;
-      }
-    };
+		const startDrag = (event) => {
+			if (!isCameraActive.value || isTakingPhoto.value) return;
 
-    const stopCamera = () => {
-      if (!isCameraActive.value) return; 
-      
-      try {
-        isCameraActive.value = false;
-        previewSrc.value = null;
-        frameCount.value = 0;
-        isDragging.value = false;
-        isTakingPhoto.value = false;
-        error.value = null;
-        
-        fetch('https://bit-smartphone/camera:stop', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        }).catch(() => {
-        });
-      } catch (err) {
-        console.warn('Error stopping camera:', err);
-      }
-    };
+			event.preventDefault();
+			event.stopPropagation();
 
-    const takePhoto = async () => {
-      if (isTakingPhoto.value || !isCameraActive.value) return;
-      
-      
-      if (!window.cameraTimeouts) {
-        window.cameraTimeouts = [];
-      }
-      
-      isTakingPhoto.value = true;
-      
-      const resetButton = () => {
-        try {
-          const resetTimeout = setTimeout(() => {
-            isTakingPhoto.value = false;
-          }, 300);
-          
-          if (window.cameraTimeouts && Array.isArray(window.cameraTimeouts)) {
-            window.cameraTimeouts.forEach(timeoutId => {
-              try {
-                clearTimeout(timeoutId);
-              } catch (e) {
-              }
-            });
-            window.cameraTimeouts = [resetTimeout]; 
-          }
-        } catch (err) {
-          isTakingPhoto.value = false;
-        }
-      };
-      
-      const timeoutId = setTimeout(() => {
-        if (isTakingPhoto.value) {
-          error.value = 'Timeout al tomar la foto';
-          resetButton();
-        }
-      }, 15000);
-      
-      
-      window.cameraTimeouts.push(timeoutId);
-      
-      try {
-        
-        const response = await fetch('https://bit-smartphone/camera:take', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            metadata: { 
-              app: 'camera', 
-              flashMode: flashMode.value, 
-              facingMode: facingMode.value, 
-              timestamp: Date.now(),
-              frameNumber: frameCount.value
-            } 
-          })
-        });
-        
-        clearTimeout(timeoutId);
-        
-        const data = await response.json();
-        if (data.success) {
-          if (navigator.vibrate) navigator.vibrate(50);
-        } else {
-          throw new Error(data.error || 'Error al tomar la foto');
-        }
-        
-        resetButton();
-      } catch (err) {
-        clearTimeout(timeoutId);
-        error.value = 'Error al capturar la foto';
-        resetButton();
-      }
-    };
+			isDragging.value = true;
 
-    const switchCamera = async () => {
-      if (isTakingPhoto.value) return;
-      
-      try {
-        const newMode = facingMode.value === "back" ? "front" : "back";
-        previewSrc.value = null;
-        
-        const response = await fetch('https://bit-smartphone/camera:switch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: newMode })
-        });
-        
-        const data = await response.json();
-        if (data.success) {
-          facingMode.value = data.mode;
-        }
-      } catch (err) {
-        error.value = 'No se pudo cambiar la cámara';
-      }
-    };
+			const clientX = event.clientX || (event.touches && event.touches[0].clientX) || 0;
+			const clientY = event.clientY || (event.touches && event.touches[0].clientY) || 0;
 
-    const cycleFlashMode = () => {
-      if (isTakingPhoto.value) return;
-      
-      const modes = ['off', 'on', 'auto'];
-      const currentIndex = modes.indexOf(flashMode.value);
-      flashMode.value = modes[(currentIndex + 1) % modes.length];
-    };
+			dragStart.value = { x: clientX, y: clientY };
+			lastDragTime.value = Date.now();
+		};
 
-    const messageListener = (event) => {
-      const { action, ...data } = event.data;
-      
-      switch (action) {
-        case 'camera:start_preview':
-          break;
-          
-        case 'camera:preview_frame':
-          if (data.imageData) {
-            previewSrc.value = data.imageData;
-            frameCount.value = data.frameNumber || frameCount.value + 1;
-          }
-          break;
-          
-        case 'camera:stop_preview':
-          previewSrc.value = null;
-          break;
-          
-        case 'camera:photo_taken':
-          isTakingPhoto.value = false;
-          if (data.success) {
-            emit('take-photo', data.url);
-          } else {
-            error.value = 'Error al tomar la foto';
-          }
-          break;
-      }
-    };
+		const onDrag = (event) => {
+			if (!isDragging.value || !isCameraActive.value || isTakingPhoto.value) return;
 
-    onMounted(() => {
-      window.addEventListener('message', messageListener);
-      document.addEventListener('mouseup', stopDrag);
-      document.addEventListener('mousemove', onDrag);
-      document.addEventListener('touchend', stopDrag);
-      document.addEventListener('touchmove', onDrag, { passive: false });
-      startCamera();
-    });
+			event.preventDefault();
 
-    onUnmounted(() => {
-      try {
-        window.removeEventListener('message', messageListener);
-        document.removeEventListener('mouseup', stopDrag);
-        document.removeEventListener('mousemove', onDrag);
-        document.removeEventListener('touchend', stopDrag);
-        document.removeEventListener('touchmove', onDrag);
-        
-        if (window.cameraTimeouts && Array.isArray(window.cameraTimeouts)) {
-          window.cameraTimeouts.forEach(timeoutId => {
-            try {
-              clearTimeout(timeoutId);
-            } catch (e) {
-            }
-          });
-          window.cameraTimeouts = [];
-        }
-        
-        stopCamera();
-        
-        if (typeof GetParentResourceName === 'function') {
-          fetch(`https://${GetParentResourceName()}/camera:close`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({})
-          }).catch(() => {
-          });
-        }
-      } catch (error) {
-        console.warn('Error during camera cleanup:', error);
-      }
-    });
+			const now = Date.now();
+			if (now - lastDragTime.value < 16) return;
 
-    return {
-      isLoading, error, flashMode, facingMode,
-      flashModes, isCameraActive,
-      isTakingPhoto, previewSrc, frameCount, isDragging,
-      previewImageStyle,
-      takePhoto, switchCamera, cycleFlashMode, startCamera, 
-      stopCamera, startDrag, onDrag, stopDrag
-    };
-  },
-  template: `
+			const clientX = event.clientX || (event.touches && event.touches[0].clientX) || 0;
+			const clientY = event.clientY || (event.touches && event.touches[0].clientY) || 0;
+
+			let deltaX = (clientX - dragStart.value.x) * 0.2;
+			const deltaY = (clientY - dragStart.value.y) * 0.2;
+
+			if (facingMode.value === "front") {
+				deltaX = -deltaX;
+			}
+
+			fetch("https://bit-smartphone/camera:mouse_move", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ deltaX, deltaY, facingMode: facingMode.value }),
+			}).catch((error) => {
+				console.error("[Camera] Error sending mouse movement:", error);
+			});
+
+			lastDragTime.value = now;
+		};
+
+		const stopDrag = (event) => {
+			if (isDragging.value) {
+				isDragging.value = false;
+			}
+		};
+
+		const startCamera = async () => {
+			try {
+				isLoading.value = true;
+				error.value = null;
+
+				const response = await fetch("https://bit-smartphone/camera:start", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ mode: facingMode.value }),
+				});
+
+				const data = await response.json();
+				if (data.success) {
+					isCameraActive.value = true;
+				} else {
+					throw new Error("Error al iniciar la cámara");
+				}
+			} catch (err) {
+				error.value = "No se pudo acceder a la cámara de FiveM.";
+			} finally {
+				isLoading.value = false;
+			}
+		};
+
+		const stopCamera = () => {
+			if (!isCameraActive.value) return;
+
+			try {
+				isCameraActive.value = false;
+				previewSrc.value = null;
+				frameCount.value = 0;
+				isDragging.value = false;
+				isTakingPhoto.value = false;
+				error.value = null;
+
+				fetch("https://bit-smartphone/camera:stop", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				}).catch(() => {});
+			} catch (err) {
+				console.warn("Error stopping camera:", err);
+			}
+		};
+
+		const takePhoto = async () => {
+			if (isTakingPhoto.value || !isCameraActive.value) return;
+
+			if (!window.cameraTimeouts) {
+				window.cameraTimeouts = [];
+			}
+
+			isTakingPhoto.value = true;
+
+			const resetButton = () => {
+				try {
+					const resetTimeout = setTimeout(() => {
+						isTakingPhoto.value = false;
+					}, 300);
+
+					if (window.cameraTimeouts && Array.isArray(window.cameraTimeouts)) {
+						window.cameraTimeouts.forEach((timeoutId) => {
+							try {
+								clearTimeout(timeoutId);
+							} catch (e) {}
+						});
+						window.cameraTimeouts = [resetTimeout];
+					}
+				} catch (err) {
+					isTakingPhoto.value = false;
+				}
+			};
+
+			const timeoutId = setTimeout(() => {
+				if (isTakingPhoto.value) {
+					error.value = "Timeout al tomar la foto";
+					resetButton();
+				}
+			}, 15000);
+
+			window.cameraTimeouts.push(timeoutId);
+
+			try {
+				const response = await fetch("https://bit-smartphone/camera:take", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						metadata: {
+							app: "camera",
+							flashMode: flashMode.value,
+							facingMode: facingMode.value,
+							timestamp: Date.now(),
+							frameNumber: frameCount.value,
+						},
+					}),
+				});
+
+				clearTimeout(timeoutId);
+
+				const data = await response.json();
+				if (data.success) {
+					if (navigator.vibrate) navigator.vibrate(50);
+				} else {
+					throw new Error(data.error || "Error al tomar la foto");
+				}
+
+				resetButton();
+			} catch (err) {
+				clearTimeout(timeoutId);
+				error.value = "Error al capturar la foto";
+				resetButton();
+			}
+		};
+
+		const switchCamera = async () => {
+			if (isTakingPhoto.value) return;
+
+			try {
+				const newMode = facingMode.value === "back" ? "front" : "back";
+				previewSrc.value = null;
+
+				const response = await fetch("https://bit-smartphone/camera:switch", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ mode: newMode }),
+				});
+
+				const data = await response.json();
+				if (data.success) {
+					facingMode.value = data.mode;
+				}
+			} catch (err) {
+				error.value = "No se pudo cambiar la cámara";
+			}
+		};
+
+		const cycleFlashMode = () => {
+			if (isTakingPhoto.value) return;
+
+			const modes = ["off", "on", "auto"];
+			const currentIndex = modes.indexOf(flashMode.value);
+			flashMode.value = modes[(currentIndex + 1) % modes.length];
+		};
+
+		const messageListener = (event) => {
+			const { action, ...data } = event.data;
+
+			switch (action) {
+				case "camera:start_preview":
+					break;
+
+				case "camera:preview_frame":
+					if (data.imageData) {
+						previewSrc.value = data.imageData;
+						frameCount.value = data.frameNumber || frameCount.value + 1;
+					}
+					break;
+
+				case "camera:stop_preview":
+					previewSrc.value = null;
+					break;
+
+				case "camera:photo_taken":
+					isTakingPhoto.value = false;
+					if (data.success) {
+						emit("take-photo", data.url);
+					} else {
+						error.value = "Error al tomar la foto";
+					}
+					break;
+			}
+		};
+
+		onMounted(() => {
+			window.addEventListener("message", messageListener);
+			document.addEventListener("mouseup", stopDrag);
+			document.addEventListener("mousemove", onDrag);
+			document.addEventListener("touchend", stopDrag);
+			document.addEventListener("touchmove", onDrag, { passive: false });
+			startCamera();
+		});
+
+		onUnmounted(() => {
+			try {
+				window.removeEventListener("message", messageListener);
+				document.removeEventListener("mouseup", stopDrag);
+				document.removeEventListener("mousemove", onDrag);
+				document.removeEventListener("touchend", stopDrag);
+				document.removeEventListener("touchmove", onDrag);
+
+				if (window.cameraTimeouts && Array.isArray(window.cameraTimeouts)) {
+					window.cameraTimeouts.forEach((timeoutId) => {
+						try {
+							clearTimeout(timeoutId);
+						} catch (e) {}
+					});
+					window.cameraTimeouts = [];
+				}
+
+				stopCamera();
+
+				if (typeof GetParentResourceName === "function") {
+					fetch(`https://${GetParentResourceName()}/camera:close`, {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({}),
+					}).catch(() => {});
+				}
+			} catch (error) {
+				console.warn("Error during camera cleanup:", error);
+			}
+		});
+
+		return {
+			isLoading,
+			error,
+			flashMode,
+			facingMode,
+			flashModes,
+			isCameraActive,
+			isTakingPhoto,
+			previewSrc,
+			frameCount,
+			isDragging,
+			previewImageStyle,
+			takePhoto,
+			switchCamera,
+			cycleFlashMode,
+			startCamera,
+			stopCamera,
+			startDrag,
+			onDrag,
+			stopDrag,
+		};
+	},
+	template: `
     <div class="relative w-full h-full overflow-hidden transition-all duration-300 bg-black">
       
       <div v-if="isLoading" class="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black">
@@ -390,11 +395,11 @@ const Camera = {
         </div>
         
         <div v-if="!isDragging && !isTakingPhoto" class="text-center mt-4">
-          <p class="text-white text-sm opacity-70">Drag to move the camera</p>
+          <p class="text-white text-sm opacity-70">{{ t('camera.dragToMove') }}</p>
         </div>
       </div>
     </div>
   `,
-}
+};
 
 window.Camera = Camera;

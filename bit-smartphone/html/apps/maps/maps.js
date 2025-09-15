@@ -1,356 +1,317 @@
 const Maps = {
-    name: 'maps',
-    props: {
-        t: {
-            type: Function,
-            default: () => (key) => key
-        }
-    },
-    data() {
-        return {
-            
-            mapScale: 1,
-            mapOffsetX: 0,
-            mapOffsetY: 0,
-            isDragging: false,
-            dragStartX: 0,
-            dragStartY: 0,
-            
-            
-            markers: [],
-            
-            
-            showBottomPanel: false,
-            selectedMarker: null,
-            showAddMarker: false,
-            currentView: 'players', 
-            
-            
-            newMarker: {
-                name: '',
-                icon: '📍',
-                x: 50,
-                y: 50,
-                description: ''
-            },
-            
-            
-            nearbyPlayers: [
-                {
-                    id: 1,
-                    name: 'Player_001',
-                    distance: '150m',
-                    online: true
-                },
-                {
-                    id: 2,
-                    name: 'JohnDoe',
-                    distance: '300m',
-                    online: true
-                },
-                {
-                    id: 3,
-                    name: 'MikeSmith',
-                    distance: '500m',
-                    online: false
-                }
-            ],
-            
-            
-            availableIcons: ['📍', '🏠', '🏢', '🏪', '🍔', '⛽', '🏥', '👮', '🚗', '💰', '🎯', '⭐', '❤️', '⚠️'],
-            
-            
-            clickPosition: { x: 0, y: 0 }
-        }
-    },
-    computed: {
-        mapStyle() {
-            return {
-                transform: 'scale(' + this.mapScale + ') translate(' + this.mapOffsetX + 'px, ' + this.mapOffsetY + 'px)',
-                transformOrigin: 'center center'
-            };
-        },
-        
-        visibleMarkers() {
-            return this.markers.map(marker => ({
-                ...marker,
-                screenX: marker.x,
-                screenY: marker.y
-            }));
-        }
-    },
-    mounted() {
-    this.initializeMap();
-    this.setupWheelZoom();
-    
-    window.addEventListener('message', this.handleNuiMessage.bind(this));
-    
-    this.loadMarkers();
-    },
-    methods: {
-        
-        loadMarkers() {
-            fetch('https://bit-smartphone/maps:getMarkers', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({})
-            }).catch(() => {});
-        },
-        
-        handleNuiMessage(event) {
-            const msg = event.data;
-            if (!msg || !msg.action) return;
-            if (msg.action === 'updateMarkers') {
-                this.markers = msg.data || [];
-            } else if (msg.action === 'receiveLocation') {
-                const { sender, location } = msg.data;
-                this.showNotification('Ubicación recibida de ' + sender, 'info');
-                
-                this.mapScale = 1;
-                this.mapOffsetX = 0;
-                this.mapOffsetY = 0;
-                
-                
-            }
-        },
-        initializeMap() {
-            
-            this.mapScale = 1;
-            this.mapOffsetX = 0;
-            this.mapOffsetY = 0;
-        },
-        
-        setupWheelZoom() {
-            
-            this.$nextTick(() => {
-                const mapContainer = document.querySelector('.map-container');
-                if (mapContainer) {
-                    mapContainer.addEventListener('wheel', this.onWheel, { passive: false });
-                }
-            });
-        },
-        
-        onWheel(event) {
-            event.preventDefault();
-            const delta = event.deltaY > 0 ? -0.1 : 0.1;
-            const newScale = Math.max(0.5, Math.min(3, this.mapScale + delta));
-            this.mapScale = newScale;
-        },
-        
-        
-        startDrag(event) {
-            if (event.target.classList.contains('marker')) return;
-            
-            this.isDragging = true;
-            this.dragStartX = event.clientX - this.mapOffsetX;
-            this.dragStartY = event.clientY - this.mapOffsetY;
-            event.preventDefault();
-        },
-        
-        onDrag(event) {
-            if (!this.isDragging) return;
-            
-            const newOffsetX = event.clientX - this.dragStartX;
-            const newOffsetY = event.clientY - this.dragStartY;
-            
-            
-            const mapContainer = document.querySelector('.map-container');
-            if (mapContainer) {
-                const containerWidth = mapContainer.clientWidth;
-                const containerHeight = mapContainer.clientHeight;
-                const mapWidth = containerWidth * this.mapScale;
-                const mapHeight = containerHeight * this.mapScale;
-                
-                const maxOffsetX = (mapWidth - containerWidth) / 2;
-                const maxOffsetY = (mapHeight - containerHeight) / 2;
-                
-                this.mapOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, newOffsetX));
-                this.mapOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, newOffsetY));
-            } else {
-                this.mapOffsetX = newOffsetX;
-                this.mapOffsetY = newOffsetY;
-            }
-            
-            event.preventDefault();
-        },
-        
-        endDrag() {
-            this.isDragging = false;
-        },
-        
-        zoomIn() {
-            const oldScale = this.mapScale;
-            this.mapScale = Math.min(this.mapScale * 1.2, 3);
-            this.adjustOffsetAfterZoom(oldScale);
-        },
-        
-        zoomOut() {
-            const oldScale = this.mapScale;
-            this.mapScale = Math.max(this.mapScale / 1.2, 0.5);
-            this.adjustOffsetAfterZoom(oldScale);
-        },
-        
-        adjustOffsetAfterZoom(oldScale) {
-            
-            const mapContainer = document.querySelector('.map-container');
-            if (mapContainer) {
-                const containerWidth = mapContainer.clientWidth;
-                const containerHeight = mapContainer.clientHeight;
-                const mapWidth = containerWidth * this.mapScale;
-                const mapHeight = containerHeight * this.mapScale;
-                
-                const maxOffsetX = Math.max(0, (mapWidth - containerWidth) / 2);
-                const maxOffsetY = Math.max(0, (mapHeight - containerHeight) / 2);
-                
-                this.mapOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, this.mapOffsetX));
-                this.mapOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, this.mapOffsetY));
-            }
-        },
-        
-        resetView() {
-            this.mapScale = 1;
-            this.mapOffsetX = 0;
-            this.mapOffsetY = 0;
-        },
-        
-        
-        onMapClick(event) {
-            if (this.isDragging) return;
-            
-            const rect = event.currentTarget.getBoundingClientRect();
-            const x = ((event.clientX - rect.left) / rect.width) * 100;
-            const y = ((event.clientY - rect.top) / rect.height) * 100;
-            
-            this.clickPosition = { x, y };
-            this.newMarker.x = x;
-            this.newMarker.y = y;
-            
-            this.showAddMarkerDialog();
-        },
-        
-        onMarkerClick(marker, event) {
-            event.stopPropagation();
-            this.selectedMarker = marker;
-            this.currentView = 'marker-info';
-            this.showBottomPanel = true;
-        },
-        
-        addMarker() {
-            if (!this.newMarker.name.trim()) {
-                this.showNotification('El nombre del marcador es requerido', 'error');
-                return;
-            }
-            
-            const marker = {
-                id: Date.now(),
-                name: this.newMarker.name,
-                icon: this.newMarker.icon,
-                x: this.newMarker.x,
-                y: this.newMarker.y,
-                description: this.newMarker.description,
-                type: 'custom'
-            };
-            
-            
-            fetch('https://bit-smartphone/maps:saveMarker', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(marker)
-            }).then(() => {
-                this.resetNewMarker();
-                this.showBottomPanel = false;
-                this.showNotification('Marcador añadido correctamente', 'success');
-            }).catch(() => {
-                this.showNotification('Error al añadir marcador', 'error');
-            });
-        },
-        
-        deleteMarker(markerId) {
-            
-            fetch('https://bit-smartphone/maps:deleteMarker', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: markerId })
-            }).then(() => {
-                this.showBottomPanel = false;
-                this.showNotification('Marcador eliminado', 'success');
-            }).catch(() => {
-                this.showNotification('Error al eliminar marcador', 'error');
-            });
-        },
-        
-        resetNewMarker() {
-            this.newMarker = {
-                name: '',
-                icon: '📍',
-                x: 50,
-                y: 50,
-                description: ''
-            };
-        },
-        
-        
-        showPlayersPanel() {
-            this.currentView = 'players';
-            this.showBottomPanel = true;
-        },
-        
-        showAddMarkerDialog() {
-            this.currentView = 'add-marker';
-            this.showBottomPanel = true;
-        },
-        
-        hideBottomPanel() {
-            this.showBottomPanel = false;
-            this.selectedMarker = null;
-        },
-        
-        
-        sendLocationToPlayer(player, marker = null) {
-            const location = marker || {
-                name: 'Ubicación actual',
-                x: 50,
-                y: 50
-            };
-            
-            this.showNotification('Ubicación enviada a ' + player.name, 'success');
-            
-            
-            
-            fetch('https://bit-smartphone/maps:sendLocation', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ playerId: player.id, location: location })
-            }).catch(() => {});
-        },
-        
-        
-        showNotification(message, type = 'info') {
-            if (window.postMessage) {
-                window.postMessage({
-                    type: 'notification',
-                    data: {
-                        title: 'Maps',
-                        message: message,
-                        type: type
-                    }
-                });
-            }
-        },
-        
-        
-        getMarkerTypeColor(type) {
-            const colors = {
-                spawn: 'bg-gradient-to-br from-green-400 to-green-600',
-                police: 'bg-gradient-to-br from-blue-400 to-blue-600',
-                medical: 'bg-gradient-to-br from-red-400 to-red-600',
-                custom: 'bg-gradient-to-br from-purple-400 to-purple-600',
-                default: 'bg-gradient-to-br from-gray-400 to-gray-600'
-            };
-            return colors[type] || colors.default;
-        }
-    },
-    template: `
+	name: "maps",
+	props: {
+		t: {
+			type: Function,
+			default: () => (key) => key,
+		},
+	},
+	data() {
+		return {
+			mapScale: 1,
+			mapOffsetX: 0,
+			mapOffsetY: 0,
+			isDragging: false,
+			dragStartX: 0,
+			dragStartY: 0,
+
+			markers: [],
+
+			showBottomPanel: false,
+			selectedMarker: null,
+			showAddMarker: false,
+			currentView: "players",
+
+			newMarker: {
+				name: "",
+				icon: "📍",
+				x: 50,
+				y: 50,
+				description: "",
+			},
+
+			nearbyPlayers: [],
+
+			availableIcons: ["📍", "🏠", "🏢", "🏪", "🍔", "⛽", "🏥", "👮", "🚗", "💰", "🎯", "⭐", "❤️", "⚠️"],
+
+			clickPosition: { x: 0, y: 0 },
+		};
+	},
+	computed: {
+		mapStyle() {
+			return {
+				transform: "scale(" + this.mapScale + ") translate(" + this.mapOffsetX + "px, " + this.mapOffsetY + "px)",
+				transformOrigin: "center center",
+			};
+		},
+
+		visibleMarkers() {
+			return this.markers.map((marker) => ({
+				...marker,
+				screenX: marker.x,
+				screenY: marker.y,
+			}));
+		},
+	},
+	mounted() {
+		this.initializeMap();
+		this.setupWheelZoom();
+
+		window.addEventListener("message", this.handleNuiMessage.bind(this));
+
+		this.loadMarkers();
+	},
+	methods: {
+		loadMarkers() {
+			fetch("https://bit-smartphone/maps:getMarkers", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({}),
+			}).catch(() => {});
+		},
+
+		handleNuiMessage(event) {
+			const msg = event.data;
+			if (!msg || !msg.action) return;
+			if (msg.action === "updateMarkers") {
+				this.markers = msg.data || [];
+			} else if (msg.action === "receiveLocation") {
+				const { sender, location } = msg.data;
+				this.showNotification("Ubicación recibida de " + sender, "info");
+
+				this.mapScale = 1;
+				this.mapOffsetX = 0;
+				this.mapOffsetY = 0;
+			}
+		},
+		initializeMap() {
+			this.mapScale = 1;
+			this.mapOffsetX = 0;
+			this.mapOffsetY = 0;
+		},
+
+		setupWheelZoom() {
+			this.$nextTick(() => {
+				const mapContainer = document.querySelector(".map-container");
+				if (mapContainer) {
+					mapContainer.addEventListener("wheel", this.onWheel, { passive: false });
+				}
+			});
+		},
+
+		onWheel(event) {
+			event.preventDefault();
+			const delta = event.deltaY > 0 ? -0.1 : 0.1;
+			const newScale = Math.max(0.5, Math.min(3, this.mapScale + delta));
+			this.mapScale = newScale;
+		},
+
+		startDrag(event) {
+			if (event.target.classList.contains("marker")) return;
+
+			this.isDragging = true;
+			this.dragStartX = event.clientX - this.mapOffsetX;
+			this.dragStartY = event.clientY - this.mapOffsetY;
+			event.preventDefault();
+		},
+
+		onDrag(event) {
+			if (!this.isDragging) return;
+
+			const newOffsetX = event.clientX - this.dragStartX;
+			const newOffsetY = event.clientY - this.dragStartY;
+
+			const mapContainer = document.querySelector(".map-container");
+			if (mapContainer) {
+				const containerWidth = mapContainer.clientWidth;
+				const containerHeight = mapContainer.clientHeight;
+				const mapWidth = containerWidth * this.mapScale;
+				const mapHeight = containerHeight * this.mapScale;
+
+				const maxOffsetX = (mapWidth - containerWidth) / 2;
+				const maxOffsetY = (mapHeight - containerHeight) / 2;
+
+				this.mapOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, newOffsetX));
+				this.mapOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, newOffsetY));
+			} else {
+				this.mapOffsetX = newOffsetX;
+				this.mapOffsetY = newOffsetY;
+			}
+
+			event.preventDefault();
+		},
+
+		endDrag() {
+			this.isDragging = false;
+		},
+
+		zoomIn() {
+			const oldScale = this.mapScale;
+			this.mapScale = Math.min(this.mapScale * 1.2, 3);
+			this.adjustOffsetAfterZoom(oldScale);
+		},
+
+		zoomOut() {
+			const oldScale = this.mapScale;
+			this.mapScale = Math.max(this.mapScale / 1.2, 0.5);
+			this.adjustOffsetAfterZoom(oldScale);
+		},
+
+		adjustOffsetAfterZoom(oldScale) {
+			const mapContainer = document.querySelector(".map-container");
+			if (mapContainer) {
+				const containerWidth = mapContainer.clientWidth;
+				const containerHeight = mapContainer.clientHeight;
+				const mapWidth = containerWidth * this.mapScale;
+				const mapHeight = containerHeight * this.mapScale;
+
+				const maxOffsetX = Math.max(0, (mapWidth - containerWidth) / 2);
+				const maxOffsetY = Math.max(0, (mapHeight - containerHeight) / 2);
+
+				this.mapOffsetX = Math.max(-maxOffsetX, Math.min(maxOffsetX, this.mapOffsetX));
+				this.mapOffsetY = Math.max(-maxOffsetY, Math.min(maxOffsetY, this.mapOffsetY));
+			}
+		},
+
+		resetView() {
+			this.mapScale = 1;
+			this.mapOffsetX = 0;
+			this.mapOffsetY = 0;
+		},
+
+		onMapClick(event) {
+			if (this.isDragging) return;
+
+			const rect = event.currentTarget.getBoundingClientRect();
+			const x = ((event.clientX - rect.left) / rect.width) * 100;
+			const y = ((event.clientY - rect.top) / rect.height) * 100;
+
+			this.clickPosition = { x, y };
+			this.newMarker.x = x;
+			this.newMarker.y = y;
+
+			this.showAddMarkerDialog();
+		},
+
+		onMarkerClick(marker, event) {
+			event.stopPropagation();
+			this.selectedMarker = marker;
+			this.currentView = "marker-info";
+			this.showBottomPanel = true;
+		},
+
+		addMarker() {
+			if (!this.newMarker.name.trim()) {
+				this.showNotification("El nombre del marcador es requerido", "error");
+				return;
+			}
+
+			const marker = {
+				id: Date.now(),
+				name: this.newMarker.name,
+				icon: this.newMarker.icon,
+				x: this.newMarker.x,
+				y: this.newMarker.y,
+				description: this.newMarker.description,
+				type: "custom",
+			};
+
+			fetch("https://bit-smartphone/maps:saveMarker", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify(marker),
+			})
+				.then(() => {
+					this.resetNewMarker();
+					this.showBottomPanel = false;
+					this.showNotification("Marcador añadido correctamente", "success");
+				})
+				.catch(() => {
+					this.showNotification("Error al añadir marcador", "error");
+				});
+		},
+
+		deleteMarker(markerId) {
+			fetch("https://bit-smartphone/maps:deleteMarker", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ id: markerId }),
+			})
+				.then(() => {
+					this.showBottomPanel = false;
+					this.showNotification("Marcador eliminado", "success");
+				})
+				.catch(() => {
+					this.showNotification("Error al eliminar marcador", "error");
+				});
+		},
+
+		resetNewMarker() {
+			this.newMarker = {
+				name: "",
+				icon: "📍",
+				x: 50,
+				y: 50,
+				description: "",
+			};
+		},
+
+		showPlayersPanel() {
+			this.currentView = "players";
+			this.showBottomPanel = true;
+		},
+
+		showAddMarkerDialog() {
+			this.currentView = "add-marker";
+			this.showBottomPanel = true;
+		},
+
+		hideBottomPanel() {
+			this.showBottomPanel = false;
+			this.selectedMarker = null;
+		},
+
+		sendLocationToPlayer(player, marker = null) {
+			const location = marker || {
+				name: "Ubicación actual",
+				x: 50,
+				y: 50,
+			};
+
+			this.showNotification("Ubicación enviada a " + player.name, "success");
+
+			fetch("https://bit-smartphone/maps:sendLocation", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({ playerId: player.id, location: location }),
+			}).catch(() => {});
+		},
+
+		showNotification(message, type = "info") {
+			if (window.postMessage) {
+				window.postMessage({
+					type: "notification",
+					data: {
+						title: "Maps",
+						message: message,
+						type: type,
+					},
+				});
+			}
+		},
+
+		getMarkerTypeColor(type) {
+			const colors = {
+				spawn: "bg-gradient-to-br from-green-400 to-green-600",
+				police: "bg-gradient-to-br from-blue-400 to-blue-600",
+				medical: "bg-gradient-to-br from-red-400 to-red-600",
+				custom: "bg-gradient-to-br from-purple-400 to-purple-600",
+				default: "bg-gradient-to-br from-gray-400 to-gray-600",
+			};
+			return colors[type] || colors.default;
+		},
+	},
+	template: `
         <div class="maps-app h-full bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 relative overflow-hidden">
             
             <div class="absolute top-0 left-0 right-0 z-20 p-4 mt-10">
@@ -573,5 +534,5 @@ const Maps = {
                 </div>
             </div>
         </div>
-    `
-}
+    `,
+};

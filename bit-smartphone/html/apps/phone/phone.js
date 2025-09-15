@@ -1,710 +1,667 @@
 const Phone = {
-  name: 'Phone',
-  props: {
-    userSettings: {
-      type: Object,
-      required: true
-    },
-    t: {
-      type: Function,
-      required: false
-    }
-  },
-  emits: ["close", "open-app"],
-  setup(props, ctx) {
-    const { emit } = ctx;
-    const { ref, computed, onMounted, onUnmounted, watch, nextTick } = Vue;
-    
-    console.log('[Phone] Component setup started', { 
-      hasT: !!props.t, 
-      tType: typeof props.t,
-      userSettings: !!props.userSettings 
-    });
+	name: "Phone",
+	props: {
+		userSettings: {
+			type: Object,
+			required: true,
+		},
+		t: {
+			type: Function,
+			required: false,
+		},
+	},
+	emits: ["close", "open-app"],
+	setup(props, ctx) {
+		const { emit } = ctx;
+		const { ref, computed, onMounted, onUnmounted, watch, nextTick } = Vue;
 
-    const t = computed(() => {
-      if (typeof props.t === 'function') {
-        return props.t;
-      }
-      return (key) => {
-        console.warn('[Phone] Translation function not available for key:', key);
-        return key;
-      };
-    });
-    
-    const currentView = ref("contacts")
-    const dialNumber = ref("")
-    const selectedContact = ref(null)
-    const searchQuery = ref("")
-    const newContactName = ref("")
-    const newContactNumber = ref("")
-    const editContactName = ref("")
-    const editContactNumber = ref("")
-    const editNotesText = ref("")
-    
-    
-    const showSlideUp = ref("")
-    const isAnimating = ref(false)
-    
-    
-    const favorites = ref([])
-    const voicemails = ref([])
-    const contacts = ref([])
-    const recents = ref([])
-    const blockedNumbers = ref([])
-    
-    
-    const isLoading = ref(true)
-    const isLoadingContacts = ref(false)
+		console.log("[Phone] Component setup started", {
+			hasT: !!props.t,
+			tType: typeof props.t,
+			userSettings: !!props.userSettings,
+		});
 
-    const showAirDropModal = ref(false)
-    const nearbyPlayers = ref([])
-    const isLoadingNearbyPlayers = ref(false)
-    const userProfile = ref({
-      name: "Mi Perfil",
-      phoneNumber: "000-000-0000",
-      avatar: "👤"
-    })
+		const t = computed(() => {
+			if (typeof props.t === "function") {
+				return props.t;
+			}
+			return (key) => {
+				console.warn("[Phone] Translation function not available for key:", key);
+				return key;
+			};
+		});
 
+		const currentView = ref("contacts");
+		const dialNumber = ref("");
+		const selectedContact = ref(null);
+		const searchQuery = ref("");
+		const newContactName = ref("");
+		const newContactNumber = ref("");
+		const editContactName = ref("");
+		const editContactNumber = ref("");
+		const editNotesText = ref("");
 
+		const showSlideUp = ref("");
+		const isAnimating = ref(false);
 
-    const loadRecents = async () => {
-  recents.value = []
-    }
+		const favorites = ref([]);
+		const voicemails = ref([]);
+		const contacts = ref([]);
+		const recents = ref([]);
+		const blockedNumbers = ref([]);
 
-    const loadVoicemails = async () => {
-  voicemails.value = []
-    }
+		const isLoading = ref(true);
+		const isLoadingContacts = ref(false);
 
-    const loadBlocked = async () => {
-  blockedNumbers.value = []
-    }
+		const showAirDropModal = ref(false);
+		const nearbyPlayers = ref([]);
+		const isLoadingNearbyPlayers = ref(false);
+		const userProfile = ref({
+			name: "Mi Perfil",
+			phoneNumber: "000-000-0000",
+			avatar: "👤",
+		});
 
-    const handleNuiMessage = (event) => {
-      const msg = event.data
-      if (!msg || !msg.action) return
-      switch (msg.action) {
-        case 'contacts:loaded':
-          contacts.value = msg.data.contacts || []
-          isLoadingContacts.value = false
-          break
-        case 'contact:saved':
-          if (msg.data.success) {
-            newContactName.value = ""
-            newContactNumber.value = ""
-            loadContacts()
-            if (window.appInstance && window.appInstance.addNotification) {
-              window.appInstance.addNotification({
-                icon: '📞',
-                title: 'Contacto guardado',
-                body: 'El contacto se guardó exitosamente',
-                timestamp: Date.now()
-              })
-            }
-          } else {
-            if (window.appInstance && window.appInstance.addNotification) {
-              window.appInstance.addNotification({
-                icon: '⚠️',
-                title: 'Error',
-                body: 'No se pudo guardar el contacto',
-                timestamp: Date.now(),
-                priority: 'high'
-              })
-            }
-          }
-          break
-        case 'contact:added':
-          if (msg.data.success) {
-            isLoadingContacts.value = true
-            loadContacts()
-          }
-          break
-        case 'contact:updated':
-          if (msg.data.success) {
-            isLoadingContacts.value = true
-            loadContacts()
-          }
-          break
-        case 'contact:deleted':
-          if (msg.data.success) {
-            isLoadingContacts.value = true
-            loadContacts()
-          }
-          break
-        case 'recents:loaded':
-          recents.value = msg.data.calls || []
-          break
-        case 'voicemails:loaded':
-          voicemails.value = msg.data.voicemails || []
-          break
-        case 'blocked:loaded':
-          blockedNumbers.value = msg.data.blocked || []
-          break
-        case 'nearbyPlayers:loaded':
-          
-          nearbyPlayers.value = msg.data.players || []
-          isLoadingNearbyPlayers.value = false
-          break
-        case 'airdrop:sent':
-          if (msg.data.success) {
-            showAirDropModal.value = false
-            if (window.appInstance && window.appInstance.addNotification) {
-              window.appInstance.addNotification({
-                icon: '',
-                title: window.currentLanguage === 'es' ? 'AirDrop enviado' : 'AirDrop sent',
-                body: window.currentLanguage === 'es' 
-                  ? `Número compartido con ${msg.data.playerName}` 
-                  : `Number shared with ${msg.data.playerName}`,
-                timestamp: Date.now()
-              })
-            }
-          }
-          break
-        case 'userProfile:loaded':
-          if (msg.data.profile) {
-            userProfile.value = {
-              name: msg.data.profile.name || "Mi Perfil",
-              phoneNumber: msg.data.profile.phoneNumber || "000-000-0000",
-              avatar: msg.data.profile.avatar || "👤"
-            }
-          }
-          break
-        case 'airdrop:received':
-          
-          if (msg.data) {
-            if (window.appInstance && window.appInstance.addNotification) {
-              window.appInstance.addNotification({
-                icon: '',
-                title: window.currentLanguage === 'es' ? 'AirDrop recibido' : 'AirDrop received',
-                body: window.currentLanguage === 'es' 
-                  ? `Contacto recibido de ${msg.data.from}` 
-                  : `Contact received from ${msg.data.from}`,
-                timestamp: Date.now(),
-                priority: 'high'
-              })
-            }
+		const loadRecents = async () => {
+			recents.value = [];
+		};
 
-            newContactName.value = msg.data.from || ''
-            newContactNumber.value = msg.data.phoneNumber || ''
-            showSlideUpModal('add-contact', false)
-          }
-          break
-      }
-    }
+		const loadVoicemails = async () => {
+			voicemails.value = [];
+		};
 
+		const loadBlocked = async () => {
+			blockedNumbers.value = [];
+		};
 
-    const loadUserProfile = () => {
-      fetch('https://bit-smartphone/getUserProfile', {
-        method: 'POST',
-        body: JSON.stringify({})
-      }).catch(error => console.error('[Phone] Error loading user profile:', error))
-    }
+		const handleNuiMessage = (event) => {
+			const msg = event.data;
+			if (!msg || !msg.action) return;
+			switch (msg.action) {
+				case "contacts:loaded":
+					contacts.value = msg.data.contacts || [];
+					isLoadingContacts.value = false;
+					break;
+				case "contact:saved":
+					if (msg.data.success) {
+						newContactName.value = "";
+						newContactNumber.value = "";
+						loadContacts();
+						if (window.appInstance && window.appInstance.addNotification) {
+							window.appInstance.addNotification({
+								icon: "📞",
+								title: "Contacto guardado",
+								body: "El contacto se guardó exitosamente",
+								timestamp: Date.now(),
+							});
+						}
+					} else {
+						if (window.appInstance && window.appInstance.addNotification) {
+							window.appInstance.addNotification({
+								icon: "⚠️",
+								title: "Error",
+								body: "No se pudo guardar el contacto",
+								timestamp: Date.now(),
+								priority: "high",
+							});
+						}
+					}
+					break;
+				case "contact:added":
+					if (msg.data.success) {
+						isLoadingContacts.value = true;
+						loadContacts();
+					}
+					break;
+				case "contact:updated":
+					if (msg.data.success) {
+						isLoadingContacts.value = true;
+						loadContacts();
+					}
+					break;
+				case "contact:deleted":
+					if (msg.data.success) {
+						isLoadingContacts.value = true;
+						loadContacts();
+					}
+					break;
+				case "recents:loaded":
+					recents.value = msg.data.calls || [];
+					break;
+				case "voicemails:loaded":
+					voicemails.value = msg.data.voicemails || [];
+					break;
+				case "blocked:loaded":
+					blockedNumbers.value = msg.data.blocked || [];
+					break;
+				case "nearbyPlayers:loaded":
+					nearbyPlayers.value = msg.data.players || [];
+					isLoadingNearbyPlayers.value = false;
+					break;
+				case "airdrop:sent":
+					if (msg.data.success) {
+						showAirDropModal.value = false;
+						if (window.appInstance && window.appInstance.addNotification) {
+							window.appInstance.addNotification({
+								icon: "",
+								title: window.currentLanguage === "es" ? "AirDrop enviado" : "AirDrop sent",
+								body: window.currentLanguage === "es" ? `Número compartido con ${msg.data.playerName}` : `Number shared with ${msg.data.playerName}`,
+								timestamp: Date.now(),
+							});
+						}
+					}
+					break;
+				case "userProfile:loaded":
+					if (msg.data.profile) {
+						userProfile.value = {
+							name: msg.data.profile.name || "Mi Perfil",
+							phoneNumber: msg.data.profile.phoneNumber || "000-000-0000",
+							avatar: msg.data.profile.avatar || "👤",
+						};
+					}
+					break;
+				case "airdrop:received":
+					if (msg.data) {
+						if (window.appInstance && window.appInstance.addNotification) {
+							window.appInstance.addNotification({
+								icon: "",
+								title: window.currentLanguage === "es" ? "AirDrop recibido" : "AirDrop received",
+								body: window.currentLanguage === "es" ? `Contacto recibido de ${msg.data.from}` : `Contact received from ${msg.data.from}`,
+								timestamp: Date.now(),
+								priority: "high",
+							});
+						}
 
-    const openAirDropModal = () => {
-      
-      showAirDropModal.value = true
+						newContactName.value = msg.data.from || "";
+						newContactNumber.value = msg.data.phoneNumber || "";
+						showSlideUpModal("add-contact", false);
+					}
+					break;
+			}
+		};
 
-      setTimeout(() => {
-        nearbyPlayers.value = [
-          { id: 1, name: 'TestPlayer1', distance: 5 },
-          { id: 2, name: 'TestPlayer2', distance: 8 }
-        ];
-        isLoadingNearbyPlayers.value = false;
-        
-      }, 1000);
-      
-      loadNearbyPlayers()
-    }
+		const loadUserProfile = () => {
+			fetch("https://bit-smartphone/getUserProfile", {
+				method: "POST",
+				body: JSON.stringify({}),
+			}).catch((error) => console.error("[Phone] Error loading user profile:", error));
+		};
 
-    const closeAirDropModal = () => {
-      
-      showAirDropModal.value = false
-      nearbyPlayers.value = []
-    }
+		const openAirDropModal = () => {
+			showAirDropModal.value = true;
 
-    const loadNearbyPlayers = () => {
-      
-      isLoadingNearbyPlayers.value = true
-      fetch('https://bit-smartphone/getNearbyPlayers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      }).catch(error => {
-        isLoadingNearbyPlayers.value = false
-      })
-    }
+			setTimeout(() => {
+				nearbyPlayers.value = [];
+				isLoadingNearbyPlayers.value = false;
+			}, 1000);
 
-    const sendAirDrop = (targetPlayer) => {
-      fetch('https://bit-smartphone/sendAirDrop', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetPlayerId: targetPlayer.id,
-          targetPlayerName: targetPlayer.name,
-          phoneNumber: userProfile.value.phoneNumber,
-          userName: userProfile.value.name
-        })
-      })
-    }
+			loadNearbyPlayers();
+		};
 
-    const loadContacts = () => {
-      isLoadingContacts.value = true
-      
-      fetch('https://bit-smartphone/getContacts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({})
-      }).catch(error => {
-        isLoadingContacts.value = false
-      })
-    }
+		const closeAirDropModal = () => {
+			showAirDropModal.value = false;
+			nearbyPlayers.value = [];
+		};
 
-    const filteredContacts = computed(() => {
-      if (!searchQuery.value) return contacts.value.filter(c => !c.blocked)
-      return contacts.value.filter(contact => 
-        !contact.blocked && (
-          contact.name.toLowerCase().includes(searchQuery.value.toLowerCase()) ||
-          contact.number.includes(searchQuery.value)
-        )
-      )
-    })
+		const loadNearbyPlayers = () => {
+			isLoadingNearbyPlayers.value = true;
+			fetch("https://bit-smartphone/getNearbyPlayers", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({}),
+			}).catch((error) => {
+				isLoadingNearbyPlayers.value = false;
+			});
+		};
 
-    const favoriteContacts = computed(() => {
-      return contacts.value.filter(contact => contact.favorite && !contact.blocked)
-    })
+		const sendAirDrop = (targetPlayer) => {
+			fetch("https://bit-smartphone/sendAirDrop", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					targetPlayerId: targetPlayer.id,
+					targetPlayerName: targetPlayer.name,
+					phoneNumber: userProfile.value.phoneNumber,
+					userName: userProfile.value.name,
+				}),
+			});
+		};
 
-    const unreadVoicemails = computed(() => {
-      return voicemails.value.filter(vm => !vm.listened).length
-    })
+		const loadContacts = () => {
+			isLoadingContacts.value = true;
 
-    
-    const addDigit = (digit) => {
-      dialNumber.value += digit
-    }
+			fetch("https://bit-smartphone/getContacts", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({}),
+			}).catch((error) => {
+				isLoadingContacts.value = false;
+			});
+		};
 
-    const deleteDigit = () => {
-      dialNumber.value = dialNumber.value.slice(0, -1)
-    }
+		const filteredContacts = computed(() => {
+			if (!searchQuery.value) return contacts.value.filter((c) => !c.blocked);
+			return contacts.value.filter((contact) => !contact.blocked && (contact.name.toLowerCase().includes(searchQuery.value.toLowerCase()) || contact.number.includes(searchQuery.value)));
+		});
 
-    const setView = (view) => {
-      if (isAnimating.value) return
-      currentView.value = view
-      selectedContact.value = null
-      closeSlideUp()
-      
-      
-      if (view === 'recents') {
-        loadRecents()
-      } else if (view === 'voicemail') {
-        loadVoicemails()
-      }
-    }
+		const favoriteContacts = computed(() => {
+			return contacts.value.filter((contact) => contact.favorite && !contact.blocked);
+		});
 
-    const viewContact = (contact) => {
-      selectedContact.value = { ...contact }
-      currentView.value = 'contact-detail'
-    }
+		const unreadVoicemails = computed(() => {
+			return voicemails.value.filter((vm) => !vm.listened).length;
+		});
 
-    
-    const makeCall = (number, type = 'audio') => {
-      if (!number) return
-      
-      
-      fetch('https://bit-smartphone/makeCall', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetId: number,
-          type: type
-        })
-      }).then(() => {
-        
-        emit('open-app', 'call')
-      }).catch(error => {
-        console.error('Error making call:', error)
-      })
-    }
+		const addDigit = (digit) => {
+			dialNumber.value += digit;
+		};
 
-    
-    const showSlideUpModal = async (type, clear = true) => {
-      if (isAnimating.value) return
+		const deleteDigit = () => {
+			dialNumber.value = dialNumber.value.slice(0, -1);
+		};
 
-      isAnimating.value = true
-      showSlideUp.value = type
+		const setView = (view) => {
+			if (isAnimating.value) return;
+			currentView.value = view;
+			selectedContact.value = null;
+			closeSlideUp();
 
-      if (type === 'add-contact' && clear) {
-        newContactName.value = ""
-        newContactNumber.value = ""
-      } else if (type === 'edit-contact' && selectedContact.value) {
-        editContactName.value = selectedContact.value.name || ""
-        editContactNumber.value = selectedContact.value.number || ""
-      } else if (type === 'edit-notes' && selectedContact.value) {
-        editNotesText.value = selectedContact.value.notes || ""
-      }
+			if (view === "recents") {
+				loadRecents();
+			} else if (view === "voicemail") {
+				loadVoicemails();
+			}
+		};
 
-      await nextTick()
-      setTimeout(() => { isAnimating.value = false }, 300)
-    }
+		const viewContact = (contact) => {
+			selectedContact.value = { ...contact };
+			currentView.value = "contact-detail";
+		};
 
-    const closeSlideUp = async () => {
-      if (isAnimating.value) return
-      
-      isAnimating.value = true
-      showSlideUp.value = ""
-      
-      await nextTick()
-      setTimeout(() => { isAnimating.value = false }, 300)
-    }
+		const makeCall = (number, type = "audio") => {
+			if (!number) return;
 
-    
-    const saveNewContact = async () => {
-      if (newContactName.value.trim() && newContactNumber.value.trim()) {
-        
-        try {
-          const response = await fetch('https://bit-smartphone/saveContact', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: newContactName.value.trim(),
-              number: newContactNumber.value.trim()
-            })
-          });
+			fetch("https://bit-smartphone/makeCall", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					targetId: number,
+					type: type,
+				}),
+			})
+				.then(() => {
+					emit("open-app", "call");
+				})
+				.catch((error) => {
+					console.error("Error making call:", error);
+				});
+		};
 
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
-              await loadContacts();
-              newContactName.value = "";
-              newContactNumber.value = "";
-              closeSlideUp();
-            } else {
-              console.error('Error saving contact:', result.message);
-            }
-          } else {
-            contacts.value.push({
-              id: Date.now(),
-              name: newContactName.value.trim(),
-              number: newContactNumber.value.trim(),
-              avatar: null,
-              notes: "",
-              blocked: false,
-              favorite: false
-            });
-            newContactName.value = "";
-            newContactNumber.value = "";
-            closeSlideUp();
-          }
-        } catch (error) {
-          contacts.value.push({
-            id: Date.now(),
-            name: newContactName.value.trim(),
-            number: newContactNumber.value.trim(),
-            avatar: null,
-            notes: "",
-            blocked: false,
-            favorite: false
-          });
-          newContactName.value = "";
-          newContactNumber.value = "";
-          closeSlideUp();
-        }
-      }
-    }
+		const showSlideUpModal = async (type, clear = true) => {
+			if (isAnimating.value) return;
 
-    const saveEditContact = async () => {
-      if (editContactName.value.trim() && editContactNumber.value.trim() && selectedContact.value) {
-        try {
-          selectedContact.value.name = editContactName.value.trim();
-          selectedContact.value.number = editContactNumber.value.trim();
-          
-          const response = await fetch('https://bit-smartphone/updateContact', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              id: selectedContact.value.id,
-              name: selectedContact.value.name,
-              number: selectedContact.value.number,
-              notes: selectedContact.value.notes || "",
-              blocked: selectedContact.value.blocked || false,
-              favorite: selectedContact.value.favorite || false
-            })
-          });
+			isAnimating.value = true;
+			showSlideUp.value = type;
 
-          if (response.ok) {
-            const result = await response.json();
-            if (result.success) {
-              await loadContacts();
-            }
-          }
-          
-          const index = contacts.value.findIndex(c => c.id === selectedContact.value.id);
-          if (index !== -1) {
-            contacts.value[index] = { ...selectedContact.value };
-          }
-          
-          closeSlideUp();
-        } catch (error) {
-          const index = contacts.value.findIndex(c => c.id === selectedContact.value.id);
-          if (index !== -1) {
-            contacts.value[index] = { ...selectedContact.value };
-          }
-          
-          closeSlideUp();
-        }
-      }
-    }
+			if (type === "add-contact" && clear) {
+				newContactName.value = "";
+				newContactNumber.value = "";
+			} else if (type === "edit-contact" && selectedContact.value) {
+				editContactName.value = selectedContact.value.name || "";
+				editContactNumber.value = selectedContact.value.number || "";
+			} else if (type === "edit-notes" && selectedContact.value) {
+				editNotesText.value = selectedContact.value.notes || "";
+			}
 
-    const deleteContact = () => {
-      showSlideUpModal('delete-confirm')
-    }
+			await nextTick();
+			setTimeout(() => {
+				isAnimating.value = false;
+			}, 300);
+		};
 
-    const confirmDeleteContact = async () => {
-      try {
-        const response = await fetch('https://bit-smartphone/deleteContact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: selectedContact.value.id
-          })
-        });
+		const closeSlideUp = async () => {
+			if (isAnimating.value) return;
 
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            await loadContacts();
-          }
-        }
-        
-        contacts.value = contacts.value.filter(c => c.id !== selectedContact.value.id);
-        
-      } catch (error) {
-        contacts.value = contacts.value.filter(c => c.id !== selectedContact.value.id);
-      } finally {
-        currentView.value = 'contacts';
-        selectedContact.value = null;
-        closeSlideUp();
-      }
-    }
+			isAnimating.value = true;
+			showSlideUp.value = "";
 
-    const toggleBlock = async () => {
-      selectedContact.value.blocked = !selectedContact.value.blocked;
-      
-      try {
-        await fetch('https://bit-smartphone/updateContact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: selectedContact.value.id,
-            name: selectedContact.value.name,
-            number: selectedContact.value.number,
-            notes: selectedContact.value.notes || "",
-            blocked: selectedContact.value.blocked,
-            favorite: selectedContact.value.favorite || false
-          })
-        });
-      } catch (error) {
-        console.error('Error updating contact block status:', error);
-      }
-      
-      const index = contacts.value.findIndex(c => c.id === selectedContact.value.id);
-      if (index !== -1) {
-        contacts.value[index].blocked = selectedContact.value.blocked;
-      }
-    }
+			await nextTick();
+			setTimeout(() => {
+				isAnimating.value = false;
+			}, 300);
+		};
 
-    const toggleFavorite = async () => {
-      selectedContact.value.favorite = !selectedContact.value.favorite;
-      
-      try {
-        await fetch('https://bit-smartphone/updateContact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: selectedContact.value.id,
-            name: selectedContact.value.name,
-            number: selectedContact.value.number,
-            notes: selectedContact.value.notes || "",
-            blocked: selectedContact.value.blocked || false,
-            favorite: selectedContact.value.favorite
-          })
-        });
-      } catch (error) {
-        console.error('Error updating contact favorite status:', error);
-      }
-      
-      const index = contacts.value.findIndex(c => c.id === selectedContact.value.id);
-      if (index !== -1) {
-        contacts.value[index].favorite = selectedContact.value.favorite;
-      }
-    }
+		const saveNewContact = async () => {
+			if (newContactName.value.trim() && newContactNumber.value.trim()) {
+				try {
+					const response = await fetch("https://bit-smartphone/saveContact", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							name: newContactName.value.trim(),
+							number: newContactNumber.value.trim(),
+						}),
+					});
 
-    const saveEditNotes = async () => {
-      selectedContact.value.notes = editNotesText.value;
-      
-      try {
-        await fetch('https://bit-smartphone/updateContact', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: selectedContact.value.id,
-            name: selectedContact.value.name,
-            number: selectedContact.value.number,
-            notes: selectedContact.value.notes,
-            blocked: selectedContact.value.blocked || false,
-            favorite: selectedContact.value.favorite || false
-          })
-        });
-      } catch (error) {
-        console.error('Error updating contact notes:', error);
-      }
-      
-      const index = contacts.value.findIndex(c => c.id === selectedContact.value.id);
-      if (index !== -1) {
-        contacts.value[index].notes = editNotesText.value;
-      }
-      
-      closeSlideUp();
-    }
+					if (response.ok) {
+						const result = await response.json();
+						if (result.success) {
+							await loadContacts();
+							newContactName.value = "";
+							newContactNumber.value = "";
+							closeSlideUp();
+						} else {
+							console.error("Error saving contact:", result.message);
+						}
+					} else {
+						contacts.value.push({
+							id: Date.now(),
+							name: newContactName.value.trim(),
+							number: newContactNumber.value.trim(),
+							avatar: null,
+							notes: "",
+							blocked: false,
+							favorite: false,
+						});
+						newContactName.value = "";
+						newContactNumber.value = "";
+						closeSlideUp();
+					}
+				} catch (error) {
+					contacts.value.push({
+						id: Date.now(),
+						name: newContactName.value.trim(),
+						number: newContactNumber.value.trim(),
+						avatar: null,
+						notes: "",
+						blocked: false,
+						favorite: false,
+					});
+					newContactName.value = "";
+					newContactNumber.value = "";
+					closeSlideUp();
+				}
+			}
+		};
 
-    
-    const openMessages = () => {
-      emit('open-app', { id: 'messages', contactNumber: selectedContact.value?.number })
-    }
+		const saveEditContact = async () => {
+			if (editContactName.value.trim() && editContactNumber.value.trim() && selectedContact.value) {
+				try {
+					selectedContact.value.name = editContactName.value.trim();
+					selectedContact.value.number = editContactNumber.value.trim();
 
-    const playVoicemail = async (voicemail) => {
-      try {
-        const response = await fetch('https://bit-smartphone/playVoicemail', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: voicemail.id
-          })
-        })
-        
-        if (response.ok) {
-          voicemail.listened = true
-        }
-      } catch (error) {
-        console.error('Error marking voicemail as read:', error)
-      }
-    }
+					const response = await fetch("https://bit-smartphone/updateContact", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({
+							id: selectedContact.value.id,
+							name: selectedContact.value.name,
+							number: selectedContact.value.number,
+							notes: selectedContact.value.notes || "",
+							blocked: selectedContact.value.blocked || false,
+							favorite: selectedContact.value.favorite || false,
+						}),
+					});
 
-    const deleteVoicemail = async (voicemailId) => {
-      try {
-        const response = await fetch('https://bit-smartphone/deleteVoicemail', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            id: voicemailId
-          })
-        })
-        
-        if (response.ok) {
-          voicemails.value = voicemails.value.filter(vm => vm.id !== voicemailId)
-        }
-      } catch (error) {
-        console.error('Error deleting voicemail:', error)
-      }
-    }
+					if (response.ok) {
+						const result = await response.json();
+						if (result.success) {
+							await loadContacts();
+						}
+					}
 
-    
-    onMounted(async () => {
-      
-      
-      loadUserProfile();
-      
-      window.addEventListener('message', handleNuiMessage);
-      
-      isLoading.value = true;
-      await Promise.all([
-        loadContacts(),
-        loadRecents(),
-        loadVoicemails(),
-        loadBlocked()
-      ]);
-      isLoading.value = false;
-      
-      const handleOpenAirDrop = () => {
-        openAirDropModal();
-      };
-      
-      window.addEventListener('open-airdrop-modal', handleOpenAirDrop);
-      
-      onUnmounted(() => {
-        window.removeEventListener('message', handleNuiMessage);
-        window.removeEventListener('open-airdrop-modal', handleOpenAirDrop);
-      });
-    })
-    
-    return {
-      props,
-      t,
-      
-      currentView,
-      dialNumber,
-      contacts,
-      recents,
-      voicemails,
-      blockedNumbers,
-      selectedContact,
-      searchQuery,
-      favoriteContacts,
-      unreadVoicemails,
-      showSlideUp,
-      isAnimating,
-      isLoading,
-      isLoadingContacts,
-      
-      
-      newContactName,
-      newContactNumber,
-      editContactName,
-      editContactNumber,
-      editNotesText,
-      
-      
-      filteredContacts,
-      
-      
-      addDigit,
-      deleteDigit,
-      setView,
-      viewContact,
-      makeCall,
-      
-      
-      showSlideUpModal,
-      closeSlideUp,
-      
-      
-      saveNewContact,
-      saveEditContact,
-      saveEditNotes,
-      deleteContact,
-      toggleBlock,
-      toggleFavorite,
-      
-      
-      loadContacts,
-      loadRecents,
-      loadVoicemails,
-      loadBlocked,
-      
-      showAirDropModal,
-      nearbyPlayers,
-      isLoadingNearbyPlayers,
-      userProfile,
-      openAirDropModal,
-      closeAirDropModal,
-      loadNearbyPlayers,
-      sendAirDrop,
-      
-      
-      openMessages,
-      playVoicemail,
-      deleteVoicemail
-    }
-  },
-  template: `
+					const index = contacts.value.findIndex((c) => c.id === selectedContact.value.id);
+					if (index !== -1) {
+						contacts.value[index] = { ...selectedContact.value };
+					}
+
+					closeSlideUp();
+				} catch (error) {
+					const index = contacts.value.findIndex((c) => c.id === selectedContact.value.id);
+					if (index !== -1) {
+						contacts.value[index] = { ...selectedContact.value };
+					}
+
+					closeSlideUp();
+				}
+			}
+		};
+
+		const deleteContact = () => {
+			showSlideUpModal("delete-confirm");
+		};
+
+		const confirmDeleteContact = async () => {
+			try {
+				const response = await fetch("https://bit-smartphone/deleteContact", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						id: selectedContact.value.id,
+					}),
+				});
+
+				if (response.ok) {
+					const result = await response.json();
+					if (result.success) {
+						await loadContacts();
+					}
+				}
+
+				contacts.value = contacts.value.filter((c) => c.id !== selectedContact.value.id);
+			} catch (error) {
+				contacts.value = contacts.value.filter((c) => c.id !== selectedContact.value.id);
+			} finally {
+				currentView.value = "contacts";
+				selectedContact.value = null;
+				closeSlideUp();
+			}
+		};
+
+		const toggleBlock = async () => {
+			selectedContact.value.blocked = !selectedContact.value.blocked;
+
+			try {
+				await fetch("https://bit-smartphone/updateContact", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						id: selectedContact.value.id,
+						name: selectedContact.value.name,
+						number: selectedContact.value.number,
+						notes: selectedContact.value.notes || "",
+						blocked: selectedContact.value.blocked,
+						favorite: selectedContact.value.favorite || false,
+					}),
+				});
+			} catch (error) {
+				console.error("Error updating contact block status:", error);
+			}
+
+			const index = contacts.value.findIndex((c) => c.id === selectedContact.value.id);
+			if (index !== -1) {
+				contacts.value[index].blocked = selectedContact.value.blocked;
+			}
+		};
+
+		const toggleFavorite = async () => {
+			selectedContact.value.favorite = !selectedContact.value.favorite;
+
+			try {
+				await fetch("https://bit-smartphone/updateContact", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						id: selectedContact.value.id,
+						name: selectedContact.value.name,
+						number: selectedContact.value.number,
+						notes: selectedContact.value.notes || "",
+						blocked: selectedContact.value.blocked || false,
+						favorite: selectedContact.value.favorite,
+					}),
+				});
+			} catch (error) {
+				console.error("Error updating contact favorite status:", error);
+			}
+
+			const index = contacts.value.findIndex((c) => c.id === selectedContact.value.id);
+			if (index !== -1) {
+				contacts.value[index].favorite = selectedContact.value.favorite;
+			}
+		};
+
+		const saveEditNotes = async () => {
+			selectedContact.value.notes = editNotesText.value;
+
+			try {
+				await fetch("https://bit-smartphone/updateContact", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						id: selectedContact.value.id,
+						name: selectedContact.value.name,
+						number: selectedContact.value.number,
+						notes: selectedContact.value.notes,
+						blocked: selectedContact.value.blocked || false,
+						favorite: selectedContact.value.favorite || false,
+					}),
+				});
+			} catch (error) {
+				console.error("Error updating contact notes:", error);
+			}
+
+			const index = contacts.value.findIndex((c) => c.id === selectedContact.value.id);
+			if (index !== -1) {
+				contacts.value[index].notes = editNotesText.value;
+			}
+
+			closeSlideUp();
+		};
+
+		const openMessages = () => {
+			emit("open-app", { id: "messages", contactNumber: selectedContact.value?.number });
+		};
+
+		const playVoicemail = async (voicemail) => {
+			try {
+				const response = await fetch("https://bit-smartphone/playVoicemail", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						id: voicemail.id,
+					}),
+				});
+
+				if (response.ok) {
+					voicemail.listened = true;
+				}
+			} catch (error) {
+				console.error("Error marking voicemail as read:", error);
+			}
+		};
+
+		const deleteVoicemail = async (voicemailId) => {
+			try {
+				const response = await fetch("https://bit-smartphone/deleteVoicemail", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						id: voicemailId,
+					}),
+				});
+
+				if (response.ok) {
+					voicemails.value = voicemails.value.filter((vm) => vm.id !== voicemailId);
+				}
+			} catch (error) {
+				console.error("Error deleting voicemail:", error);
+			}
+		};
+
+		onMounted(async () => {
+			loadUserProfile();
+
+			window.addEventListener("message", handleNuiMessage);
+
+			isLoading.value = true;
+			await Promise.all([loadContacts(), loadRecents(), loadVoicemails(), loadBlocked()]);
+			isLoading.value = false;
+
+			const handleOpenAirDrop = () => {
+				openAirDropModal();
+			};
+
+			window.addEventListener("open-airdrop-modal", handleOpenAirDrop);
+
+			onUnmounted(() => {
+				window.removeEventListener("message", handleNuiMessage);
+				window.removeEventListener("open-airdrop-modal", handleOpenAirDrop);
+			});
+		});
+
+		return {
+			props,
+			t,
+
+			currentView,
+			dialNumber,
+			contacts,
+			recents,
+			voicemails,
+			blockedNumbers,
+			selectedContact,
+			searchQuery,
+			favoriteContacts,
+			unreadVoicemails,
+			showSlideUp,
+			isAnimating,
+			isLoading,
+			isLoadingContacts,
+
+			newContactName,
+			newContactNumber,
+			editContactName,
+			editContactNumber,
+			editNotesText,
+
+			filteredContacts,
+
+			addDigit,
+			deleteDigit,
+			setView,
+			viewContact,
+			makeCall,
+
+			showSlideUpModal,
+			closeSlideUp,
+
+			saveNewContact,
+			saveEditContact,
+			saveEditNotes,
+			deleteContact,
+			toggleBlock,
+			toggleFavorite,
+
+			loadContacts,
+			loadRecents,
+			loadVoicemails,
+			loadBlocked,
+
+			showAirDropModal,
+			nearbyPlayers,
+			isLoadingNearbyPlayers,
+			userProfile,
+			openAirDropModal,
+			closeAirDropModal,
+			loadNearbyPlayers,
+			sendAirDrop,
+
+			openMessages,
+			playVoicemail,
+			deleteVoicemail,
+		};
+	},
+	template: `
   <div class="h-full mb-6 flex flex-col relative overflow-hidden"
        :class="userSettings.darkMode ? 'bg-black text-white' : 'bg-white text-black'">
     
@@ -1559,6 +1516,6 @@ const Phone = {
 
   </div>
 `,
-}
+};
 
 window.Phone = window.Phone || Phone;

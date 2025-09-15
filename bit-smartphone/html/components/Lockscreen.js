@@ -1,284 +1,292 @@
 const Lockscreen = {
-  name: 'Lockscreen',
-  components: {
-    NotchNotification: NotchNotification,
-    LockscreenNotifications: LockscreenNotifications
-  },
-  props: {
-    phoneState: String,
-    currentWallpaperStyle: Object,
-    currentDate: String,
-    currentTime: String,
-    t: Function,
-    lockscreenSettings: {
-      type: Object,
-      default: () => ({
-        clockStyle: 'default',
-        clockColor: '#ffffff',
-        clockSize: 'large',
-        dateStyle: 'default', 
-        dateColor: '#ffffff',
-        dateSize: 'medium',
-        widgets: []
-      })
-    },
-    weatherData: Object,
-    musicState: Object,
-    batteryLevel: Number,
-    photos: Array,
-    notifications: {
-      type: Array,
-      default: () => []
-    }
-  },
-  emits: ['unlock-phone', 'update-lockscreen-settings', 'dismiss-notification', 'tap-notification', 'expand-notification', 'clear-all-notifications'],
-  data() {
-    return {
-      isCustomizing: false,
-      customizeMode: null, 
-      longPressTimer: null,
-      pressStartTime: 0,
-      flashlightOn: false,              
-      flashTimer: null,                
-      availableWidgets: [],
-      clockStyles: [],
-      sizes: [],
-      colors: [],
-      prevPhoneState: null
-    };
-  },
-  created() {
-    try {
-      this.availableWidgets = [
-        { id: 'weather', name: (this.t && this.t('lockscreen.widget.weather')) || 'Weather', icon: 'cloud-sun' },
-        { id: 'music', name: (this.t && this.t('lockscreen.widget.music')) || 'Music', icon: 'music' },
-        { id: 'battery', name: (this.t && this.t('lockscreen.widget.battery')) || 'Battery', icon: 'battery' },
-        { id: 'photos', name: (this.t && this.t('lockscreen.widget.photos')) || 'Photos', icon: 'image' }
-      ];
+	name: "Lockscreen",
+	components: {
+		NotchNotification: NotchNotification,
+		LockscreenNotifications: LockscreenNotifications,
+	},
+	props: {
+		phoneState: String,
+		currentWallpaperStyle: Object,
+		currentDate: String,
+		currentTime: String,
+		t: Function,
+		lockscreenSettings: {
+			type: Object,
+			default: () => ({
+				clockStyle: "default",
+				clockColor: "#ffffff",
+				clockSize: "large",
+				dateStyle: "default",
+				dateColor: "#ffffff",
+				dateSize: "medium",
+				widgets: [],
+			}),
+		},
+		weatherData: Object,
+		musicState: Object,
+		batteryLevel: Number,
+		photos: Array,
+		notifications: {
+			type: Array,
+			default: () => [],
+		},
+	},
+	emits: ["unlock-phone", "update-lockscreen-settings", "dismiss-notification", "tap-notification", "expand-notification", "clear-all-notifications"],
+	data() {
+		return {
+			isCustomizing: false,
+			customizeMode: null,
+			longPressTimer: null,
+			pressStartTime: 0,
+			flashlightOn: false,
+			flashTimer: null,
+			availableWidgets: [],
+			clockStyles: [],
+			sizes: [],
+			colors: [],
+			prevPhoneState: null,
+		};
+	},
+	created() {
+		try {
+			this.availableWidgets = [
+				{ id: "weather", name: (this.t && this.t("lockscreen.widget.weather")) || "Weather", icon: "cloud-sun" },
+				{ id: "music", name: (this.t && this.t("lockscreen.widget.music")) || "Music", icon: "music" },
+				{ id: "battery", name: (this.t && this.t("lockscreen.widget.battery")) || "Battery", icon: "battery" },
+				{ id: "photos", name: (this.t && this.t("lockscreen.widget.photos")) || "Photos", icon: "image" },
+			];
 
-      this.clockStyles = [
-        { id: 'default', name: (this.t && this.t('lockscreen.style.default')) || 'Default', class: 'font-bold tracking-tighter' },
-        { id: 'thin', name: (this.t && this.t('lockscreen.style.thin')) || 'Thin', class: 'font-thin tracking-wide' },
-        { id: 'rounded', name: (this.t && this.t('lockscreen.style.rounded')) || 'Rounded', class: 'font-black tracking-normal rounded-3xl' },
-        { id: 'modern', name: (this.t && this.t('lockscreen.style.modern')) || 'Modern', class: 'font-light tracking-widest' }
-      ];
+			this.clockStyles = [
+				{ id: "default", name: (this.t && this.t("lockscreen.style.default")) || "Default", class: "font-bold tracking-tighter" },
+				{ id: "thin", name: (this.t && this.t("lockscreen.style.thin")) || "Thin", class: "font-thin tracking-wide" },
+				{ id: "rounded", name: (this.t && this.t("lockscreen.style.rounded")) || "Rounded", class: "font-black tracking-normal rounded-3xl" },
+				{ id: "modern", name: (this.t && this.t("lockscreen.style.modern")) || "Modern", class: "font-light tracking-widest" },
+			];
 
-      this.sizes = [
-        { id: 'small', name: (this.t && this.t('settings.sizes.small')) || 'Small', clockClass: 'text-6xl', dateClass: 'text-lg' },
-        { id: 'medium', name: (this.t && this.t('settings.sizes.medium')) || 'Medium', clockClass: 'text-7xl', dateClass: 'text-xl' },
-        { id: 'large', name: (this.t && this.t('settings.sizes.large')) || 'Large', clockClass: 'text-8xl', dateClass: 'text-2xl' },
-        { id: 'xl', name: (this.t && this.t('settings.sizes.xlarge')) || 'Extra Large', clockClass: 'text-9xl', dateClass: 'text-3xl' }
-      ];
+			this.sizes = [
+				{ id: "small", name: (this.t && this.t("settings.sizes.small")) || "Small", clockClass: "text-6xl", dateClass: "text-lg" },
+				{ id: "medium", name: (this.t && this.t("settings.sizes.medium")) || "Medium", clockClass: "text-7xl", dateClass: "text-xl" },
+				{ id: "large", name: (this.t && this.t("settings.sizes.large")) || "Large", clockClass: "text-8xl", dateClass: "text-2xl" },
+				{ id: "xl", name: (this.t && this.t("settings.sizes.xlarge")) || "Extra Large", clockClass: "text-9xl", dateClass: "text-3xl" },
+			];
 
-      this.colors = [
-        { id: '#ffffff', name: 'White', color: '#ffffff' },
-        { id: '#000000', name: 'Black', color: '#000000' },
-        { id: '#3b82f6', name: 'Blue', color: '#3b82f6' },
-        { id: '#ef4444', name: 'Red', color: '#ef4444' },
-        { id: '#10b981', name: 'Green', color: '#10b981' },
-        { id: '#f59e0b', name: 'Yellow', color: '#f59e0b' },
-        { id: '#8b5cf6', name: 'Purple', color: '#8b5cf6' },
-        { id: '#ec4899', name: 'Pink', color: '#ec4899' }
-      ];
-    } catch (e) {
-    }
-  },
-  computed: {
-    clockClasses() {
-      const style = this.clockStyles.find(s => s.id === this.lockscreenSettings.clockStyle) || this.clockStyles[0];
-      const size = this.sizes.find(s => s.id === this.lockscreenSettings.clockSize) || this.sizes[2];
-      return style.class + ' ' + size.clockClass;
-    },
-    dateClasses() {
-      const style = this.clockStyles.find(s => s.id === this.lockscreenSettings.dateStyle) || this.clockStyles[0];
-      const size = this.sizes.find(s => s.id === this.lockscreenSettings.dateSize) || this.sizes[1];
-      return style.class + ' ' + size.dateClass;
-    },
-    clockStyle() {
-      return {
-        color: this.lockscreenSettings.clockColor,
-        textShadow: '0 2px 8px rgba(0,0,0,0.5)'
-      };
-    },
-    dateStyle() {
-      return {
-        color: this.lockscreenSettings.dateColor,
-        textShadow: '0 1px 4px rgba(0,0,0,0.5)'
-      };
-    }
-    ,
-    transitionName() {
-      if (this.phoneState === 'LOCKED_PREVIEW') return 'slide-down';
-      if (this.prevPhoneState === 'LOCKED_PREVIEW') return 'slide-down';
-      return 'fade';
-    }
-  },
-  methods: {
-    unlockPhone() {
-      if (!this.isCustomizing) {
-        this.$emit('unlock-phone');
-      }
-    },
-    
-    startLongPress(event) {
-      if (this.isCustomizing) return;
-      
-      this.pressStartTime = Date.now();
-      this.longPressTimer = setTimeout(() => {
-        this.isCustomizing = true;
-        this.customizeMode = 'main';
-        
-        if (navigator.vibrate) {
-          navigator.vibrate(50);
-        }
-      }, 800);
-    },
-    
-    endLongPress() {
-      if (this.longPressTimer) {
-        clearTimeout(this.longPressTimer);
-        this.longPressTimer = null;
-      }
-      
-      
-      if (!this.isCustomizing && Date.now() - this.pressStartTime < 500) {
-        this.unlockPhone();
-      }
-    },
-    
-    exitCustomization() {
-      this.isCustomizing = false;
-      this.customizeMode = null;
-    },
-    
-    updateClockStyle(styleId) {
-      this.$emit('update-lockscreen-settings', {
-        ...this.lockscreenSettings,
-        clockStyle: styleId
-      });
-    },
-    
-    updateClockColor(color) {
-      this.$emit('update-lockscreen-settings', {
-        ...this.lockscreenSettings,
-        clockColor: color
-      });
-    },
-    
-    updateClockSize(size) {
-      this.$emit('update-lockscreen-settings', {
-        ...this.lockscreenSettings,
-        clockSize: size
-      });
-    },
-    
-    updateDateStyle(styleId) {
-      this.$emit('update-lockscreen-settings', {
-        ...this.lockscreenSettings,
-        dateStyle: styleId
-      });
-    },
-    
-    updateDateColor(color) {
-      this.$emit('update-lockscreen-settings', {
-        ...this.lockscreenSettings,
-        dateColor: color
-      });
-    },
-    
-    updateDateSize(size) {
-      this.$emit('update-lockscreen-settings', {
-        ...this.lockscreenSettings,
-        dateSize: size
-      });
-    },
-    
-    addWidget(widgetId) {
-      const newWidget = {
-        id: widgetId + '_' + Date.now(),
-        type: widgetId,
-        position: { x: 50, y: 300 }, 
-        size: 'medium'
-      };
-      
-      const updatedWidgets = [...this.lockscreenSettings.widgets, newWidget];
-      this.$emit('update-lockscreen-settings', {
-        ...this.lockscreenSettings,
-        widgets: updatedWidgets
-      });
-    },
-    
-    removeWidget(widgetId) {
-      const updatedWidgets = this.lockscreenSettings.widgets.filter(w => w.id !== widgetId);
-      this.$emit('update-lockscreen-settings', {
-        ...this.lockscreenSettings,
-        widgets: updatedWidgets
-      });
-    },
-    
-    startFlashToggle(event) {
-      event.stopPropagation();
-      if (this.flashTimer) return;
-      this.flashTimer = setTimeout(() => {
-        this.toggleFlashlight();
-        this.flashTimer = null;
-      }, 800);
-    },
-    
-    endFlashToggle(event) {
-      event.stopPropagation();
-      if (this.flashTimer) {
-        clearTimeout(this.flashTimer);
-        this.flashTimer = null;
-      }
-    },
-    
-    toggleFlashlight() {
-      this.flashlightOn = !this.flashlightOn;
+			this.colors = [
+				{ id: "#ffffff", name: "White", color: "#ffffff" },
+				{ id: "#000000", name: "Black", color: "#000000" },
+				{ id: "#3b82f6", name: "Blue", color: "#3b82f6" },
+				{ id: "#ef4444", name: "Red", color: "#ef4444" },
+				{ id: "#10b981", name: "Green", color: "#10b981" },
+				{ id: "#f59e0b", name: "Yellow", color: "#f59e0b" },
+				{ id: "#8b5cf6", name: "Purple", color: "#8b5cf6" },
+				{ id: "#ec4899", name: "Pink", color: "#ec4899" },
+			];
+		} catch (e) {}
+	},
+	computed: {
+		clockClasses() {
+			const style = this.clockStyles.find((s) => s.id === this.lockscreenSettings.clockStyle) || this.clockStyles[0];
+			const size = this.sizes.find((s) => s.id === this.lockscreenSettings.clockSize) || this.sizes[2];
+			return style.class + " " + size.clockClass;
+		},
+		dateClasses() {
+			const style = this.clockStyles.find((s) => s.id === this.lockscreenSettings.dateStyle) || this.clockStyles[0];
+			const size = this.sizes.find((s) => s.id === this.lockscreenSettings.dateSize) || this.sizes[1];
+			return style.class + " " + size.dateClass;
+		},
+		clockStyle() {
+			return {
+				color: this.lockscreenSettings.clockColor,
+				textShadow: "0 2px 8px rgba(0,0,0,0.5)",
+			};
+		},
+		dateStyle() {
+			return {
+				color: this.lockscreenSettings.dateColor,
+				textShadow: "0 1px 4px rgba(0,0,0,0.5)",
+			};
+		},
+		transitionName() {
+			if (this.phoneState === "LOCKED_PREVIEW") return "slide-down";
+			if (this.prevPhoneState === "LOCKED_PREVIEW") return "slide-down";
+			return "fade";
+		},
+	},
+	methods: {
+		unlockPhone() {
+			if (!this.isCustomizing) {
+				this.$emit("unlock-phone");
+			}
+		},
 
-      fetch('https://bit-smartphone/toggleFlashlight', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          state: this.flashlightOn,
-          range: 15.0,
-          brightness: 2.0,
-          angle: 45.0
-        })
-      }).catch(console.error);
+		startLongPress(event) {
+			if (this.isCustomizing) return;
 
-      this.$emit('flashlight-toggle', this.flashlightOn);
-    },
+			this.pressStartTime = Date.now();
+			this.longPressTimer = setTimeout(() => {
+				this.isCustomizing = true;
+				this.customizeMode = "main";
 
-    handleDismissNotification(notificationId) {
-      this.$emit('dismiss-notification', notificationId);
-    },
+				if (navigator.vibrate) {
+					navigator.vibrate(50);
+				}
+			}, 800);
+		},
 
-    handleTapNotification(notification) {
-      this.$emit('tap-notification', notification);
-      this.unlockPhone();
-    },
+		endLongPress() {
+			if (this.longPressTimer) {
+				clearTimeout(this.longPressTimer);
+				this.longPressTimer = null;
+			}
 
-    handleExpandNotification(notification) {
-      this.$emit('expand-notification', notification);
-    },
+			if (!this.isCustomizing && Date.now() - this.pressStartTime < 500) {
+				this.unlockPhone();
+			}
+		},
 
-    handleClearAllNotifications() {
-      this.$emit('clear-all-notifications');
-    }
-  },
-  watch: {
-    phoneState(newVal, oldVal) {
-      this.prevPhoneState = oldVal;
-      setTimeout(() => {
-        if (this.prevPhoneState === oldVal) {
-          this.prevPhoneState = null;
-        }
-      }, 600);
-    }
-  },
-  
-  template: `
+		exitCustomization() {
+			this.isCustomizing = false;
+			this.customizeMode = null;
+		},
+
+		updateClockStyle(styleId) {
+			this.$emit("update-lockscreen-settings", {
+				...this.lockscreenSettings,
+				clockStyle: styleId,
+			});
+		},
+
+		updateClockColor(color) {
+			this.$emit("update-lockscreen-settings", {
+				...this.lockscreenSettings,
+				clockColor: color,
+			});
+		},
+
+		updateClockSize(size) {
+			this.$emit("update-lockscreen-settings", {
+				...this.lockscreenSettings,
+				clockSize: size,
+			});
+		},
+
+		updateDateStyle(styleId) {
+			this.$emit("update-lockscreen-settings", {
+				...this.lockscreenSettings,
+				dateStyle: styleId,
+			});
+		},
+
+		updateDateColor(color) {
+			this.$emit("update-lockscreen-settings", {
+				...this.lockscreenSettings,
+				dateColor: color,
+			});
+		},
+
+		updateDateSize(size) {
+			this.$emit("update-lockscreen-settings", {
+				...this.lockscreenSettings,
+				dateSize: size,
+			});
+		},
+
+		addWidget(widgetId) {
+			const newWidget = {
+				id: widgetId + "_" + Date.now(),
+				type: widgetId,
+				position: { x: 50, y: 300 },
+				size: "medium",
+			};
+
+			const updatedWidgets = [...this.lockscreenSettings.widgets, newWidget];
+			this.$emit("update-lockscreen-settings", {
+				...this.lockscreenSettings,
+				widgets: updatedWidgets,
+			});
+		},
+
+		removeWidget(widgetId) {
+			const updatedWidgets = this.lockscreenSettings.widgets.filter((w) => w.id !== widgetId);
+			this.$emit("update-lockscreen-settings", {
+				...this.lockscreenSettings,
+				widgets: updatedWidgets,
+			});
+		},
+
+		startFlashToggle(event) {
+			event.stopPropagation();
+			this.toggleFlashlight();
+		},
+
+		endFlashToggle(event) {
+			event.stopPropagation();
+			// Ya no se usa temporizador, no es necesario limpiar nada
+		},
+
+		toggleFlashlight() {
+			if (typeof window.toggleFlashlight === "function") {
+				window.toggleFlashlight();
+			} else {
+				// Fallback: mantener el fetch local por si el global no existe
+				const newState = !this.flashlightOn;
+				console.log("[Lockscreen] Intentando cambiar linterna a:", newState);
+				fetch("https://bit-smartphone/bit-smartphone:toggleFlashlight", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						state: newState,
+						range: 15.0,
+						brightness: 2.0,
+						angle: 45.0,
+					}),
+				})
+					.then((response) => {
+						if (!response.ok) {
+							throw new Error("Respuesta NUI no OK: " + response.status);
+						}
+						return response.json().catch(() => null);
+					})
+					.then((data) => {
+						console.log("[Lockscreen] Respuesta NUI toggleFlashlight:", data);
+						this.flashlightOn = newState;
+						this.$emit("flashlight-toggle", this.flashlightOn);
+					})
+					.catch((err) => {
+						console.error("[Lockscreen] Error al cambiar linterna:", err);
+						// Opcional: feedback visual de error
+					});
+			}
+		},
+
+		handleDismissNotification(notificationId) {
+			this.$emit("dismiss-notification", notificationId);
+		},
+
+		handleTapNotification(notification) {
+			this.$emit("tap-notification", notification);
+			this.unlockPhone();
+		},
+
+		handleExpandNotification(notification) {
+			this.$emit("expand-notification", notification);
+		},
+
+		handleClearAllNotifications() {
+			this.$emit("clear-all-notifications");
+		},
+	},
+	watch: {
+		phoneState(newVal, oldVal) {
+			this.prevPhoneState = oldVal;
+			setTimeout(() => {
+				if (this.prevPhoneState === oldVal) {
+					this.prevPhoneState = null;
+				}
+			}, 600);
+		},
+	},
+
+	template: `
     <transition :name="transitionName">
       <div v-if="phoneState === 'LOCKED' || phoneState === 'LOCKED_PREVIEW'" 
            class="absolute inset-0 z-40 flex flex-col text-white bg-cover bg-center overflow-hidden"
@@ -668,6 +676,6 @@ const Lockscreen = {
         </transition>
       </div>
     </transition>
-  `
+  `,
 };
 window.Lockscreen = Lockscreen;

@@ -1,361 +1,349 @@
 const Instagram = {
-    name: 'Instagram',
-    props: ["userSettings", "photos", "t"],
-    emits: ["close", "take-photo"],
-    data() {
-        return {
-            currentView: 'login',
-            isLoggedIn: false,
-            currentUser: {
-                id: null,
-                username: '',
-                name: '',
-                bio: '',
-                avatar: '',
-                verified: false
-            },
-            posts: [],
-            stories: [],
-            newPostForm: {
-                image: '',
-                caption: '',
-                location: '',
-                type: 'post'
-            },
-            showCreatePost: false,
-            loading: false,
-            error: '',
-            success: '',
-            loginForm: {
-                username: '',
-                password: ''
-            },
-            registerForm: {
-                name: '',
-                username: '',
-                password: '',
-                confirmPassword: ''
-            }
-        };
-    },
-        methods: {
-            async login() {
-                if (!this.loginForm.username || !this.loginForm.password) {
-                    this.error = 'Por favor completa todos los campos';
-                    return;
-                }
-                
-                this.loading = true;
-                this.error = '';
-                
-                try {
-                    await fetch('https://bit-smartphone/instagramLogin', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.loginForm)
-                    });
-                } catch (error) {
-                    console.error('Error en login:', error);
-                    this.error = 'Error de conexión';
-                    this.loading = false;
-                }
-            },
-            
-            async register() {
-                if (!this.registerForm.name || !this.registerForm.username || !this.registerForm.password) {
-                    this.error = 'Por favor completa todos los campos';
-                    return;
-                }
-                
-                if (this.registerForm.password !== this.registerForm.confirmPassword) {
-                    this.error = 'Las contraseñas no coinciden';
-                    return;
-                }
-                
-                this.loading = true;
-                this.error = '';
-                
-                try {
-                    await fetch('https://bit-smartphone/instagramRegister', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.registerForm)
-                    });
-                } catch (error) {
-                    console.error('Error en registro:', error);
-                    this.error = 'Error de conexión';
-                    this.loading = false;
-                }
-            },
-            
-            logout() {
-                this.isLoggedIn = false;
-                this.currentUser = {
-                    id: null,
-                    username: '',
-                    name: '',
-                    bio: '',
-                    avatar: '',
-                    verified: false,
-                    private: false,
-                    followers_count: 0,
-                    following_count: 0,
-                    posts_count: 0
-                };
-                this.currentView = 'login';
-                this.posts = [];
-                this.stories = [];
-            },
-            
-            
-            async loadFeed() {
-                try {
-                    await fetch('https://bit-smartphone/loadInstagramFeed', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({})
-                    });
-                } catch (error) {
-                    console.error('Error cargando feed:', error);
-                }
-            },
-            
-            async loadStories() {
-                try {
-                    await fetch('https://bit-smartphone/loadInstagramStories', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({})
-                    });
-                } catch (error) {
-                    console.error('Error cargando historias:', error);
-                }
-            },
+	name: "Instashot",
+	props: ["userSettings", "photos", "t"],
+	emits: ["close", "take-photo"],
+	data() {
+		return {
+			currentView: "login",
+			isLoggedIn: false,
+			currentUser: {
+				id: null,
+				username: "",
+				name: "",
+				bio: "",
+				avatar: "",
+				verified: false,
+			},
+			posts: [],
+			stories: [],
+			newPostForm: {
+				image: "",
+				caption: "",
+				location: "",
+				type: "post",
+			},
+			showCreatePost: false,
+			loading: false,
+			error: "",
+			success: "",
+			loginForm: {
+				username: "",
+				password: "",
+			},
+			registerForm: {
+				name: "",
+				username: "",
+				password: "",
+				confirmPassword: "",
+			},
+		};
+	},
+	methods: {
+		async login() {
+			if (!this.loginForm.username || !this.loginForm.password) {
+				this.error = "Por favor completa todos los campos";
+				return;
+			}
 
-            async loadMessages() {
-                try {
-                    await fetch('https://bit-smartphone/loadInstagramMessages', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({})
-                    });
-                } catch (error) {
-                    console.error('Error cargando mensajes:', error);
-                }
-            },
+			this.loading = true;
+			this.error = "";
 
-            async loadProfile() {
-                try {
-                    await fetch('https://bit-smartphone/loadInstagramProfile', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({})
-                    });
-                } catch (error) {
-                    console.error('Error cargando perfil:', error);
-                }
-            },
-            
-            async createPost() {
-                if (!this.newPostForm.image || !this.newPostForm.caption.trim()) {
-                    this.error = 'Se requiere imagen y descripción';
-                    return;
-                }
-                
-                this.loading = true;
-                
-                try {
-                    await fetch('https://bit-smartphone/createInstagramPost', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(this.newPostForm)
-                    });
-                    
-                    this.showCreatePost = false;
-                    this.newPostForm = {
-                        image: '',
-                        caption: '',
-                        location: '',
-                        type: 'post'
-                    };
-                } catch (error) {
-                    console.error('Error creando post:', error);
-                    this.error = 'Error al publicar';
-                } finally {
-                    this.loading = false;
-                }
-            },
-            
-            async likePost(postId) {
-                try {
-                    await fetch('https://bit-smartphone/likeInstagramPost', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ postId })
-                    });
-                    
-                    
-                    const post = this.posts.find(p => p.id === postId);
-                    if (post) {
-                        post.liked = !post.liked;
-                        post.likes += post.liked ? 1 : -1;
-                    }
-                } catch (error) {
-                    console.error('Error con like:', error);
-                }
-            },
-            
-            openCamera() {
-                this.$emit('take-photo');
-            },
-            
-            
-            goToView(view) {
-                try {
-                    this.currentView = view;
-                    
-                    if (view === 'home' && this.isLoggedIn) {
-                        this.loadFeed();
-                        this.loadStories();
-                    } else if (view === 'messages' && this.isLoggedIn) {
-                        this.loadMessages();
-                    } else if (view === 'profile' && this.isLoggedIn) {
-                        this.loadProfile();
-                    }
-                } catch (e) {
-                    console.error('[Instagram] Error changing view:', e);
-                    
-                    this.currentView = 'home';
-                }
-            },
-            
-            
-            handleNUIMessage(event) {
-                try {
-                    if (!event || !event.data) return;
-                    
-                    const { action, data } = event.data;
-                    if (!action) return;
-                    
-                    switch (action) {
-                        case 'instagram:register_error':
-                        case 'instagram:login_error':
-                            this.error = data?.error || 'Error desconocido';
-                            this.loading = false;
-                            break;
-                            
-                        case 'instagram:register_success':
-                            this.success = data?.message || 'Registro exitoso';
-                            this.currentView = 'login';
-                            this.loading = false;
-                            break;
-                            
-                        case 'instagram:login_success':
-                            if (data) {
-                                this.currentUser = { ...this.currentUser, ...data };
-                                this.isLoggedIn = true;
-                                this.currentView = 'home';
-                                this.loadFeed();
-                                this.loadStories();
-                            }
-                            this.loading = false;
-                            break;
-                            
-                        case 'instagram:feed_data':
-                            if (data && Array.isArray(data.posts)) {
-                                this.posts = data.posts;
-                            }
-                            break;
-                            
-                        case 'instagram:stories_data':
-                            if (data && Array.isArray(data.stories)) {
-                                this.stories = data.stories;
-                            }
-                            break;
-                            
-                        case 'instagram:post_created':
-                            this.success = data?.message || 'Post creado';
-                            this.loadFeed();
-                            if (this.newPostForm.type === 'story') {
-                                this.loadStories();
-                            }
-                            break;
-                            
-                        case 'instagram:photo_taken':
-                            if (data?.imageUrl) {
-                                this.newPostForm.image = data.imageUrl;
-                                this.showCreatePost = true;
-                            }
-                            break;
+			try {
+				await fetch("https://bit-smartphone/instagramLogin", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(this.loginForm),
+				});
+			} catch (error) {
+				console.error("Error en login:", error);
+				this.error = "Error de conexión";
+				this.loading = false;
+			}
+		},
 
-                        case 'instagram:messages_data':
-                            
-                            
-                            break;
+		async register() {
+			if (!this.registerForm.name || !this.registerForm.username || !this.registerForm.password) {
+				this.error = "Por favor completa todos los campos";
+				return;
+			}
 
-                        case 'instagram:profile_data':
-                            
-                            if (data) {
-                                this.currentUser = { ...this.currentUser, ...data };
-                            }
-                            break;
-                            
-                        default:
-                            
-                    }
-                } catch (e) {
-                    console.error('[Instagram] Error handling NUI message:', e);
-                }
-            },
-            
-            formatTime(timestamp) {
-                const now = new Date();
-                const time = new Date(timestamp);
-                const diff = Math.floor((now - time) / 1000);
-                
-                if (diff < 60) return diff + 's';
-                if (diff < 3600) return Math.floor(diff / 60) + 'm';
-                if (diff < 86400) return Math.floor(diff / 3600) + 'h';
-                return Math.floor(diff / 86400) + 'd';
-            },
+			if (this.registerForm.password !== this.registerForm.confirmPassword) {
+				this.error = "Las contraseñas no coinciden";
+				return;
+			}
 
-            initializeDemoData() {
-                
-                
-            }
-        },
-    
-        mounted() {
-            try {
-                
-                window.__instagram_message_handler = (event) => {
-                    try {
-                        if (event.data && typeof event.data === 'object' && this.handleNUIMessage) {
-                            this.handleNUIMessage(event);
-                        }
-                    } catch (err) {
-                        console.error('[Instagram] Message handler error:', err);
-                    }
-                };
+			this.loading = true;
+			this.error = "";
 
-                window.addEventListener('message', window.__instagram_message_handler);
-            } catch (err) {
-                console.error('[Instagram] mounted setup failed', err);
-            }
-        },
-        
-        beforeUnmount() {
-            try {
-                if (typeof window !== 'undefined' && window.__instagram_message_handler) {
-                    window.removeEventListener('message', window.__instagram_message_handler);
-                    window.__instagram_message_handler = null;
-                }
-            } catch (err) {
-                console.error('Instagram beforeUnmount error', err);
-            }
-        },
-        
-        template: `
+			try {
+				await fetch("https://bit-smartphone/instagramRegister", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(this.registerForm),
+				});
+			} catch (error) {
+				console.error("Error en registro:", error);
+				this.error = "Error de conexión";
+				this.loading = false;
+			}
+		},
+
+		logout() {
+			this.isLoggedIn = false;
+			this.currentUser = {
+				id: null,
+				username: "",
+				name: "",
+				bio: "",
+				avatar: "",
+				verified: false,
+				private: false,
+				followers_count: 0,
+				following_count: 0,
+				posts_count: 0,
+			};
+			this.currentView = "login";
+			this.posts = [];
+			this.stories = [];
+		},
+
+		async loadFeed() {
+			try {
+				await fetch("https://bit-smartphone/loadInstagramFeed", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
+			} catch (error) {
+				console.error("Error cargando feed:", error);
+			}
+		},
+
+		async loadStories() {
+			try {
+				await fetch("https://bit-smartphone/loadInstagramStories", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
+			} catch (error) {
+				console.error("Error cargando historias:", error);
+			}
+		},
+
+		async loadMessages() {
+			try {
+				await fetch("https://bit-smartphone/loadInstagramMessages", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
+			} catch (error) {
+				console.error("Error cargando mensajes:", error);
+			}
+		},
+
+		async loadProfile() {
+			try {
+				await fetch("https://bit-smartphone/loadInstagramProfile", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
+			} catch (error) {
+				console.error("Error cargando perfil:", error);
+			}
+		},
+
+		async createPost() {
+			if (!this.newPostForm.image || !this.newPostForm.caption.trim()) {
+				this.error = "Se requiere imagen y descripción";
+				return;
+			}
+
+			this.loading = true;
+
+			try {
+				await fetch("https://bit-smartphone/createInstagramPost", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify(this.newPostForm),
+				});
+
+				this.showCreatePost = false;
+				this.newPostForm = {
+					image: "",
+					caption: "",
+					location: "",
+					type: "post",
+				};
+			} catch (error) {
+				console.error("Error creando post:", error);
+				this.error = "Error al publicar";
+			} finally {
+				this.loading = false;
+			}
+		},
+
+		async likePost(postId) {
+			try {
+				await fetch("https://bit-smartphone/likeInstagramPost", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ postId }),
+				});
+
+				const post = this.posts.find((p) => p.id === postId);
+				if (post) {
+					post.liked = !post.liked;
+					post.likes += post.liked ? 1 : -1;
+				}
+			} catch (error) {
+				console.error("Error con like:", error);
+			}
+		},
+
+		openCamera() {
+			this.$emit("take-photo");
+		},
+
+		goToView(view) {
+			try {
+				this.currentView = view;
+
+				if (view === "home" && this.isLoggedIn) {
+					this.loadFeed();
+					this.loadStories();
+				} else if (view === "messages" && this.isLoggedIn) {
+					this.loadMessages();
+				} else if (view === "profile" && this.isLoggedIn) {
+					this.loadProfile();
+				}
+			} catch (e) {
+				console.error("[Instashot] Error changing view:", e);
+
+				this.currentView = "home";
+			}
+		},
+
+		handleNUIMessage(event) {
+			try {
+				if (!event || !event.data) return;
+
+				const { action, data } = event.data;
+				if (!action) return;
+
+				switch (action) {
+					case "instagram:register_error":
+					case "instagram:login_error":
+						this.error = data?.error || "Error desconocido";
+						this.loading = false;
+						break;
+
+					case "instagram:register_success":
+						this.success = data?.message || "Registro exitoso";
+						this.currentView = "login";
+						this.loading = false;
+						break;
+
+					case "instagram:login_success":
+						if (data) {
+							this.currentUser = { ...this.currentUser, ...data };
+							this.isLoggedIn = true;
+							this.currentView = "home";
+							this.loadFeed();
+							this.loadStories();
+						}
+						this.loading = false;
+						break;
+
+					case "instagram:feed_data":
+						if (data && Array.isArray(data.posts)) {
+							this.posts = data.posts;
+						}
+						break;
+
+					case "instagram:stories_data":
+						if (data && Array.isArray(data.stories)) {
+							this.stories = data.stories;
+						}
+						break;
+
+					case "instagram:post_created":
+						this.success = data?.message || "Post creado";
+						this.loadFeed();
+						if (this.newPostForm.type === "story") {
+							this.loadStories();
+						}
+						break;
+
+					case "instagram:photo_taken":
+						if (data?.imageUrl) {
+							this.newPostForm.image = data.imageUrl;
+							this.showCreatePost = true;
+						}
+						break;
+
+					case "instagram:messages_data":
+						break;
+
+					case "instagram:profile_data":
+						if (data) {
+							this.currentUser = { ...this.currentUser, ...data };
+						}
+						break;
+
+					default:
+				}
+			} catch (e) {
+				console.error("[Instashot] Error handling NUI message:", e);
+			}
+		},
+
+		formatTime(timestamp) {
+			const now = new Date();
+			const time = new Date(timestamp);
+			const diff = Math.floor((now - time) / 1000);
+
+			if (diff < 60) return diff + "s";
+			if (diff < 3600) return Math.floor(diff / 60) + "m";
+			if (diff < 86400) return Math.floor(diff / 3600) + "h";
+			return Math.floor(diff / 86400) + "d";
+		},
+
+		initializeDemoData() {},
+	},
+
+	mounted() {
+		try {
+			window.__instagram_message_handler = (event) => {
+				try {
+					if (event.data && typeof event.data === "object" && this.handleNUIMessage) {
+						this.handleNUIMessage(event);
+					}
+				} catch (err) {
+					console.error("[Instashot] Message handler error:", err);
+				}
+			};
+
+			window.addEventListener("message", window.__instagram_message_handler);
+		} catch (err) {
+			console.error("[Instashot] mounted setup failed", err);
+		}
+	},
+
+	beforeUnmount() {
+		try {
+			if (typeof window !== "undefined" && window.__instagram_message_handler) {
+				window.removeEventListener("message", window.__instagram_message_handler);
+				window.__instagram_message_handler = null;
+			}
+		} catch (err) {
+			console.error("Instashot beforeUnmount error", err);
+		}
+	},
+
+	template: `
             <div class="h-full bg-black text-white flex flex-col" style="min-height:100%; display:flex; flex-direction:column;">
                 
                 <div v-if="currentView !== 'login' && currentView !== 'register'" 
@@ -367,7 +355,7 @@ const Instagram = {
                     </button>
                     
                     <h1 class="text-xl font-bold">
-                        <span v-if="currentView === 'home'">Instagram</span>
+                        <span v-if="currentView === 'home'">Instashot</span>
                         <span v-else-if="currentView === 'profile'">Perfil</span>
                         <span v-else-if="currentView === 'create'">Nueva publicación</span>
                         <span v-else-if="currentView === 'messages'">Mensajes</span>
@@ -394,7 +382,7 @@ const Instagram = {
                 <div v-if="currentView === 'login'" class="flex-1 flex items-center justify-center p-6">
                     <div class="w-full max-w-md space-y-6">
                         <div class="text-center">
-                            <h1 class="text-3xl font-bold mb-2">Instagram</h1>
+                            <h1 class="text-3xl font-bold mb-2">Instashot</h1>
                             <p class="text-gray-400">Inicia sesión para continuar</p>
                         </div>
                         
@@ -435,7 +423,7 @@ const Instagram = {
                     <div class="w-full max-w-md space-y-6">
                         <div class="text-center">
                             <h1 class="text-3xl font-bold mb-2">Crear Cuenta</h1>
-                            <p class="text-gray-400">Únete a Instagram</p>
+                            <p class="text-gray-400">Únete a Instashot</p>
                         </div>
                         
                         <div class="space-y-4">
@@ -739,16 +727,15 @@ const Instagram = {
                     </button>
                 </div>
             </div>
-        `
+        `,
 };
 
 window.Instagram = Instagram;
 
-
 try {
-    if (typeof window !== 'undefined') {
-        window.Instagram = window.Instagram || Instagram;
-    }
+	if (typeof window !== "undefined") {
+		window.Instagram = window.Instagram || Instagram;
+	}
 } catch (e) {
-    console.error('Failed to expose Instagram globally', e);
+	console.error("Failed to expose Instashot globally", e);
 }

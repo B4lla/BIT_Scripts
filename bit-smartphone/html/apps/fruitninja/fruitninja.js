@@ -76,7 +76,7 @@ const FruitNinja = {
           console.error(`[FruitNinja] Error loading image: ${src}`, error)
         }
       }
-      .length} images`)
+        console.log(`${imagesToLoad.length} images loaded`)
     }
 
     

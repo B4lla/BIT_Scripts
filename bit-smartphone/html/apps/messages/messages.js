@@ -1,613 +1,583 @@
 const icons = {
-  ArrowLeft: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
-  Search: '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',
-  Plus: '<path d="M12 5v14M5 12h14"/>',
-  X: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
-  ChevronRight: '<polyline points="9,18 15,12 9,6"/>',
-  Phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
-  Video: '<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>',
-  MoreVertical: '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
-  Send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
-  Mic: '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>',
-  Camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
-  MapPin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
-  Smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>',
-  Users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-  Pin: '<path d="M9 9l3 3m0 0l3-3m-3 3V2.5a2.5 2.5 0 0 1 2.5-2.5h2a2.5 2.5 0 0 1 2.5 2.5V9"/>',
-  Clock: '<circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>',
-  Check: '<polyline points="20,6 9,17 4,12"/>',
-  CheckCheck: '<path d="M9 12l2 2 4-4"/><path d="M21 12c.5 0 .9-.4.9-1s-.4-1-.9-1h-1c-.5 0-.9.4-.9 1s.4 1 .9 1h1z"/>',
-  Bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
-  Moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
-  Sun: '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
-  Trash2: '<polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
-  Play: '<polygon points="5 3 19 12 5 21 5 3"/>'
+	ArrowLeft: '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+	Search: '<circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/>',
+	Plus: '<path d="M12 5v14M5 12h14"/>',
+	X: '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+	ChevronRight: '<polyline points="9,18 15,12 9,6"/>',
+	Phone: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+	Video: '<polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>',
+	MoreVertical: '<circle cx="12" cy="12" r="1"/><circle cx="12" cy="5" r="1"/><circle cx="12" cy="19" r="1"/>',
+	Send: '<path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z"/>',
+	Mic: '<path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/>',
+	Camera: '<path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/>',
+	MapPin: '<path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>',
+	Smile: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>',
+	Users: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+	Pin: '<path d="M9 9l3 3m0 0l3-3m-3 3V2.5a2.5 2.5 0 0 1 2.5-2.5h2a2.5 2.5 0 0 1 2.5 2.5V9"/>',
+	Clock: '<circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/>',
+	Check: '<polyline points="20,6 9,17 4,12"/>',
+	CheckCheck: '<path d="M9 12l2 2 4-4"/><path d="M21 12c.5 0 .9-.4.9-1s-.4-1-.9-1h-1c-.5 0-.9.4-.9 1s.4 1 .9 1h1z"/>',
+	Bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+	Moon: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+	Sun: '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
+	Trash2: '<polyline points="3,6 5,6 21,6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+	Play: '<polygon points="5 3 19 12 5 21 5 3"/>',
 };
 
 const Icon = {
-  props: ['name', 'size'],
-  computed: {
-    iconPath() {
-      return icons[this.name] || '';
-    },
-    classList() {
-      const size = this.size || '5';
-      return `w-${size} h-${size}`;
-    }
-  },
-  template: `
+	props: ["name", "size"],
+	computed: {
+		iconPath() {
+			return icons[this.name] || "";
+		},
+		classList() {
+			const size = this.size || "5";
+			return `w-${size} h-${size}`;
+		},
+	},
+	template: `
     <svg :class="classList" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
       <g v-html="iconPath"></g>
     </svg>
   `,
-  data: () => ({ icons })
+	data: () => ({ icons }),
 };
 
 const Messages = {
-  name: 'Messages',
-  components: { Icon }, 
-  props: { t: { type: Function, default: () => key => key } },
-  emits: ['close', 'call', 'video-call', 'open-camera', 'request-location'],
-  data() {
-    return {
-      currentView: 'chats',
-      selectedChat: null,
-      searchQuery: '',
-      newMessage: '',
-      isDarkMode: false,
-      showMediaOptions: false,
-      showEmojiPicker: false,
-      showGifPicker: false,
-      showContactPicker: false,
-      showChatMenu: null,
-      showMessageActions: null,
-      isRecording: false,
-      recordingTime: 0,
-      recordingInterval: null,
-      activeEmojiTab: 'recent',
-      activeGifTab: 'trending',
-      isLoading: false,
-      chats: [],
-      contacts: [],
-      phoneContacts: [],
-      emojiCategories: {
-        recent: ['😊', '😂', '❤️', '👍', '🎉', '✨', '🔥', '💯'],
-        smileys: ['😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃', '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '☺️', '😚', '😙', '🥲', '😋', '😛', '😜', '🤪', '😝', '🤑'],
-        people: ['🤗', '🤭', '🤫', '🤔', '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮', '🤧', '🥵', '🥶', '🥴', '😵', '🤯'],
-        animals: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐷', '🐽', '🐸', '🐵', '🙈', '🙉', '🙊', '🐒', '🐔', '🐧', '🐦', '🐤', '🐣', '🐥', '🦆'],
-        hearts: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🤎', '🖤', '🤍', '💔', '❣️', '💕', '💞', '💓', '💗', '💖', '💘', '💝'],
-        gestures: ['👍', '👎', '👌', '🤌', '✌️', '🤞', '🤟', '🤘', '👋', '👏', '🙌', '👐', '🤲', '🤝', '🙏', '✊', '👊', '🤛', '🤜', '👈', '👉', '👆', '👇', '☝️', '✋', '🤚', '🖐️', '🖖'],
-        objects: ['📱', '💻', '⌨️', '🖥️', '🖨️', '🖱️', '💾', '💿', '📀', '📹', '📷', '📸', '📞', '☎️', '📟', '📠', '📺', '📻', '🎵', '🎶', '🎤', '🎧', '📢', '📣', '🔔', '🔕'],
-        activities: ['⚽', '🏀', '🏈', '⚾', '🥎', '🎾', '🏐', '🏉', '🥏', '🎱', '🪀', '🏓', '🏸', '🏒', '🏑', '🥍', '🏏', '🪃', '🥅', '⛳', '🪁', '🏹', '🎣', '🤿', '🥊', '🥋']
-      },
-      gifCategories: {
-        trending: [
-          { id: 1, url: 'https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif', keywords: ['thumbs up', 'good', 'approval'] },
-          { id: 2, url: 'https://media.giphy.com/media/l3q2XhfQ8oCkm1Ts4/giphy.gif', keywords: ['dance', 'happy', 'celebration'] },
-          { id: 3, url: 'https://media.giphy.com/media/26u4lOMA8JKSnL9Uk/giphy.gif', keywords: ['wave', 'hello', 'hi'] },
-          { id: 4, url: 'https://media.giphy.com/media/l1J9FiGxR61OcF2mI/giphy.gif', keywords: ['love', 'heart', 'kiss'] },
-          { id: 5, url: 'https://media.giphy.com/media/3oz8xZvvOZRmEay4De/giphy.gif', keywords: ['laugh', 'funny', 'lol'] }
-        ],
-        reactions: [
-          { id: 6, url: 'https://media.giphy.com/media/3o6Zt4HU9uwXmXSAuI/giphy.gif', keywords: ['shocked', 'surprise', 'wow'] },
-          { id: 7, url: 'https://media.giphy.com/media/l3q2K5jinAlChoCLS/giphy.gif', keywords: ['facepalm', 'disappointed'] },
-          { id: 8, url: 'https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif', keywords: ['applause', 'clap'] },
-          { id: 9, url: 'https://media.giphy.com/media/l1J9EdzfOSgfyueLm/giphy.gif', keywords: ['crying', 'sad'] },
-          { id: 10, url: 'https://media.giphy.com/media/l3q2XhfQ8oCkm1Ts4/giphy.gif', keywords: ['excited', 'happy'] }
-        ],
-        animals: [
-          { id: 11, url: 'https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif', keywords: ['cat', 'cute'] },
-          { id: 12, url: 'https://media.giphy.com/media/mCRJDo24UvJMA/giphy.gif', keywords: ['dog', 'puppy'] },
-          { id: 13, url: 'https://media.giphy.com/media/3o7aCRloybJlXpNjSU/giphy.gif', keywords: ['panda', 'cute'] }
-        ]
-      }
-    }
-  },
-  computed: {
-    filteredChats() {
-      if (!this.searchQuery) return this.chats
-      return this.chats.filter(chat => 
-        chat.name.toLowerCase().includes(this.searchQuery.toLowerCase())
-      )
-    },
-    
-    pinnedChats() {
-      return this.filteredChats.filter(chat => chat.pinned)
-    },
-    
-    regularChats() {
-      return this.filteredChats.filter(chat => !chat.pinned)
-    },
+	name: "Messages",
+	components: { Icon },
+	props: { t: { type: Function, default: () => (key) => key } },
+	emits: ["close", "call", "video-call", "open-camera", "request-location"],
+	data() {
+		return {
+			currentView: "chats",
+			selectedChat: null,
+			searchQuery: "",
+			newMessage: "",
+			isDarkMode: false,
+			showMediaOptions: false,
+			showEmojiPicker: false,
+			showGifPicker: false,
+			showContactPicker: false,
+			showChatMenu: null,
+			showMessageActions: null,
+			isRecording: false,
+			recordingTime: 0,
+			recordingInterval: null,
+			activeEmojiTab: "recent",
+			activeGifTab: "trending",
+			isLoading: false,
+			chats: [],
+			contacts: [],
+			phoneContacts: [],
+			emojiCategories: {
+				recent: ["😊", "😂", "❤️", "👍", "🎉", "✨", "🔥", "💯"],
+				smileys: ["😀", "😃", "😄", "😁", "😆", "😅", "🤣", "😂", "🙂", "🙃", "😉", "😊", "😇", "🥰", "😍", "🤩", "😘", "😗", "☺️", "😚", "😙", "🥲", "😋", "😛", "😜", "🤪", "😝", "🤑"],
+				people: ["🤗", "🤭", "🤫", "🤔", "🤐", "🤨", "😐", "😑", "😶", "😏", "😒", "🙄", "😬", "🤥", "😔", "😪", "🤤", "😴", "😷", "🤒", "🤕", "🤢", "🤮", "🤧", "🥵", "🥶", "🥴", "😵", "🤯"],
+				animals: ["🐶", "🐱", "🐭", "🐹", "🐰", "🦊", "🐻", "🐼", "🐨", "🐯", "🦁", "🐮", "🐷", "🐽", "🐸", "🐵", "🙈", "🙉", "🙊", "🐒", "🐔", "🐧", "🐦", "🐤", "🐣", "🐥", "🦆"],
+				hearts: ["❤️", "🧡", "💛", "💚", "💙", "💜", "🤎", "🖤", "🤍", "💔", "❣️", "💕", "💞", "💓", "💗", "💖", "💘", "💝"],
+				gestures: ["👍", "👎", "👌", "🤌", "✌️", "🤞", "🤟", "🤘", "👋", "👏", "🙌", "👐", "🤲", "🤝", "🙏", "✊", "👊", "🤛", "🤜", "👈", "👉", "👆", "👇", "☝️", "✋", "🤚", "🖐️", "🖖"],
+				objects: ["📱", "💻", "⌨️", "🖥️", "🖨️", "🖱️", "💾", "💿", "📀", "📹", "📷", "📸", "📞", "☎️", "📟", "📠", "📺", "📻", "🎵", "🎶", "🎤", "🎧", "📢", "📣", "🔔", "🔕"],
+				activities: ["⚽", "🏀", "🏈", "⚾", "🥎", "🎾", "🏐", "🏉", "🥏", "🎱", "🪀", "🏓", "🏸", "🏒", "🏑", "🥍", "🏏", "🪃", "🥅", "⛳", "🪁", "🏹", "🎣", "🤿", "🥊", "🥋"],
+			},
+			gifCategories: {
+				trending: [
+					{ id: 1, url: "https://media.giphy.com/media/3o7abKhOpu0NwenH3O/giphy.gif", keywords: ["thumbs up", "good", "approval"] },
+					{ id: 2, url: "https://media.giphy.com/media/l3q2XhfQ8oCkm1Ts4/giphy.gif", keywords: ["dance", "happy", "celebration"] },
+					{ id: 3, url: "https://media.giphy.com/media/26u4lOMA8JKSnL9Uk/giphy.gif", keywords: ["wave", "hello", "hi"] },
+					{ id: 4, url: "https://media.giphy.com/media/l1J9FiGxR61OcF2mI/giphy.gif", keywords: ["love", "heart", "kiss"] },
+					{ id: 5, url: "https://media.giphy.com/media/3oz8xZvvOZRmEay4De/giphy.gif", keywords: ["laugh", "funny", "lol"] },
+				],
+				reactions: [
+					{ id: 6, url: "https://media.giphy.com/media/3o6Zt4HU9uwXmXSAuI/giphy.gif", keywords: ["shocked", "surprise", "wow"] },
+					{ id: 7, url: "https://media.giphy.com/media/l3q2K5jinAlChoCLS/giphy.gif", keywords: ["facepalm", "disappointed"] },
+					{ id: 8, url: "https://media.giphy.com/media/26u4cqiYI30juCOGY/giphy.gif", keywords: ["applause", "clap"] },
+					{ id: 9, url: "https://media.giphy.com/media/l1J9EdzfOSgfyueLm/giphy.gif", keywords: ["crying", "sad"] },
+					{ id: 10, url: "https://media.giphy.com/media/l3q2XhfQ8oCkm1Ts4/giphy.gif", keywords: ["excited", "happy"] },
+				],
+				animals: [
+					{ id: 11, url: "https://media.giphy.com/media/JIX9t2j0ZTN9S/giphy.gif", keywords: ["cat", "cute"] },
+					{ id: 12, url: "https://media.giphy.com/media/mCRJDo24UvJMA/giphy.gif", keywords: ["dog", "puppy"] },
+					{ id: 13, url: "https://media.giphy.com/media/3o7aCRloybJlXpNjSU/giphy.gif", keywords: ["panda", "cute"] },
+				],
+			},
+		};
+	},
+	computed: {
+		filteredChats() {
+			if (!this.searchQuery) return this.chats;
+			return this.chats.filter((chat) => chat.name.toLowerCase().includes(this.searchQuery.toLowerCase()));
+		},
 
-    totalUnread() {
-      return this.chats.reduce((total, chat) => total + (chat.unread || 0), 0)
-    }
-  },
-  methods: {
-    
-    async loadChats() {
-      this.isLoading = true
-      try {
-        await fetch('https://bit-smartphone/messages:getChats', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        })
-      } catch (error) {
-        console.error('Error loading chats:', error)
-      } finally {
-        this.isLoading = false
-      }
-    },
+		pinnedChats() {
+			return this.filteredChats.filter((chat) => chat.pinned);
+		},
 
-    async loadContacts() {
-      try {
-        await fetch('https://bit-smartphone/loadContactsMessages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        })
-      } catch (error) {
-        console.error('Error loading contacts:', error)
-      }
-    },
+		regularChats() {
+			return this.filteredChats.filter((chat) => !chat.pinned);
+		},
 
-    async loadPhoneContacts() {
-      try {
-        await fetch('https://bit-smartphone/messages:getContacts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({})
-        })
-      } catch (error) {
-        console.error('Error loading phone contacts:', error)
-      }
-    },
+		totalUnread() {
+			return this.chats.reduce((total, chat) => total + (chat.unread || 0), 0);
+		},
+	},
+	methods: {
+		async loadChats() {
+			this.isLoading = true;
+			try {
+				await fetch("https://bit-smartphone/messages:getChats", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
+			} catch (error) {
+				console.error("Error loading chats:", error);
+			} finally {
+				this.isLoading = false;
+			}
+		},
 
-    showNewChatModal() {
-      this.showContactPicker = true
-      this.loadPhoneContacts()
-    },
+		async loadContacts() {
+			try {
+				await fetch("https://bit-smartphone/loadContactsMessages", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
+			} catch (error) {
+				console.error("Error loading contacts:", error);
+			}
+		},
 
-    selectContactForChat(contact) {
-      
-      const existingChat = this.chats.find(chat => chat.phoneNumber === contact.number)
-      if (existingChat) {
-        this.openChat(existingChat)
-      } else {
-        
-        const newChat = {
-          id: 'temp_' + Date.now(),
-          name: contact.name,
-          avatar: contact.avatar || './assets/avatars/default.png',
-          contactId: contact.number, 
-          phoneNumber: contact.number,
-          lastMessage: '',
-          timestamp: Date.now(),
-          unread: 0,
-          messages: [],
-          status: 'offline'
-        }
-        this.chats.unshift(newChat)
-        this.openChat(newChat)
-      }
-      this.showContactPicker = false
-    },
+		async loadPhoneContacts() {
+			try {
+				await fetch("https://bit-smartphone/messages:getContacts", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({}),
+				});
+			} catch (error) {
+				console.error("Error loading phone contacts:", error);
+			}
+		},
 
-    async openChat(chat) {
-      this.selectedChat = chat
-      this.currentView = 'chat'
-      this.isLoading = true
-      
-      try {
-        
-        await fetch('https://bit-smartphone/messages:openChat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            chatId: chat.phoneNumber || chat.contactId || chat.id 
-          })
-        })
-        
-        await fetch('https://bit-smartphone/markAsRead', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId: chat.id })
-        })
-        
-        chat.unread = 0
-      } catch (error) {
-        console.error('Error opening chat:', error)
-      } finally {
-        this.isLoading = false
-      }
-      
-      this.$nextTick(() => {
-        this.scrollToBottom()
-      })
-    },
+		showNewChatModal() {
+			this.showContactPicker = true;
+			this.loadPhoneContacts();
+		},
 
-    async sendMessage() {
-      if (!this.newMessage.trim() || !this.selectedChat) return
-      
-      const messageContent = this.newMessage.trim()
-      const targetPhoneNumber = this.selectedChat.phoneNumber || this.selectedChat.contactId
-      this.newMessage = ''
-      
-      try {
-        await fetch('https://bit-smartphone/messages:sendMessage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chatId: targetPhoneNumber,
-            type: 'text',
-            content: messageContent
-          })
-        })
-      } catch (error) {
-        console.error('Error sending message:', error)
-        this.newMessage = messageContent 
-      }
-    },
+		selectContactForChat(contact) {
+			const existingChat = this.chats.find((chat) => chat.phoneNumber === contact.number);
+			if (existingChat) {
+				this.openChat(existingChat);
+			} else {
+				const newChat = {
+					id: "temp_" + Date.now(),
+					name: contact.name,
+					avatar: contact.avatar || "./assets/avatars/default.png",
+					contactId: contact.number,
+					phoneNumber: contact.number,
+					lastMessage: "",
+					timestamp: Date.now(),
+					unread: 0,
+					messages: [],
+					status: "offline",
+				};
+				this.chats.unshift(newChat);
+				this.openChat(newChat);
+			}
+			this.showContactPicker = false;
+		},
 
-    async addReaction(message, emoji) {
-      if (!message || !emoji) return
-      
-      try {
-        await fetch('https://bit-smartphone/reactToMessage', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            messageId: message.id,
-            emoji: emoji
-          })
-        })
-      } catch (error) {
-        console.error('Error adding reaction:', error)
-      }
-    },
+		async openChat(chat) {
+			this.selectedChat = chat;
+			this.currentView = "chat";
+			this.isLoading = true;
 
-    async pinChat(chat) {
-      if (!chat) return
-      
-      try {
-        await fetch('https://bit-smartphone/togglePin', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId: chat.id })
-        })
-      } catch (error) {
-        console.error('Error toggling pin:', error)
-      }
-    },
+			try {
+				await fetch("https://bit-smartphone/messages:openChat", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						chatId: chat.phoneNumber || chat.contactId || chat.id,
+					}),
+				});
 
-    async muteChat(chat) {
-      if (!chat) return
-      
-      try {
-        await fetch('https://bit-smartphone/toggleMute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId: chat.id })
-        })
-      } catch (error) {
-        console.error('Error toggling mute:', error)
-      }
-    },
+				await fetch("https://bit-smartphone/markAsRead", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ chatId: chat.id }),
+				});
 
-    async deleteChat(chat) {
-      if (!chat) return
-      
-      try {
-        await fetch('https://bit-smartphone/deleteChat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ chatId: chat.id })
-        })
-      } catch (error) {
-        console.error('Error deleting chat:', error)
-      }
-    },
+				chat.unread = 0;
+			} catch (error) {
+				console.error("Error opening chat:", error);
+			} finally {
+				this.isLoading = false;
+			}
 
-    
-    formatTime(timestamp) {
-      const date = new Date(timestamp)
-      const now = new Date()
-      const diff = now - date
-      const minutes = Math.floor(diff / 60000)
-      const hours = Math.floor(diff / 3600000)
-      const days = Math.floor(diff / 86400000)
-      
-      if (minutes < 1) return 'ahora'
-      if (minutes < 60) return minutes + 'm'
-      if (hours < 24) return hours + 'h'
-      if (days < 7) return days + 'd'
-      return date.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit' })
-    },
+			this.$nextTick(() => {
+				this.scrollToBottom();
+			});
+		},
 
-    formatMessageTime(timestamp) {
-      const date = new Date(timestamp)
-      return date.toLocaleTimeString('es-ES', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      })
-    },
+		async sendMessage() {
+			if (!this.newMessage.trim() || !this.selectedChat) return;
 
-    goBack() {
-      this.currentView = 'chats'
-      this.selectedChat = null
-      this.showMessageActions = null
-    },
+			const messageContent = this.newMessage.trim();
+			const targetPhoneNumber = this.selectedChat.phoneNumber || this.selectedChat.contactId;
+			this.newMessage = "";
 
-    scrollToBottom() {
-      if (this.$refs.messagesContainer) {
-        this.$refs.messagesContainer.scrollTop = this.$refs.messagesContainer.scrollHeight
-      }
-    },
+			try {
+				await fetch("https://bit-smartphone/messages:sendMessage", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						chatId: targetPhoneNumber,
+						type: "text",
+						content: messageContent,
+					}),
+				});
+			} catch (error) {
+				console.error("Error sending message:", error);
+				this.newMessage = messageContent;
+			}
+		},
 
-    handleKeyPress(event) {
-      if (event.key === 'Enter' && !event.shiftKey) {
-        event.preventDefault()
-        this.sendMessage()
-      }
-    },
+		async addReaction(message, emoji) {
+			if (!message || !emoji) return;
 
-    startVoiceRecording() {
-      this.isRecording = true
-      this.recordingTime = 0
-      this.recordingInterval = setInterval(() => {
-        this.recordingTime++
-      }, 1000)
-    },
+			try {
+				await fetch("https://bit-smartphone/reactToMessage", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({
+						messageId: message.id,
+						emoji: emoji,
+					}),
+				});
+			} catch (error) {
+				console.error("Error adding reaction:", error);
+			}
+		},
 
-    stopVoiceRecording() {
-      this.isRecording = false
-      if (this.recordingInterval) {
-        clearInterval(this.recordingInterval)
-      }
-      
-      this.recordingTime = 0
-    },
+		async pinChat(chat) {
+			if (!chat) return;
 
-    cancelVoiceRecording() {
-      this.isRecording = false
-      this.recordingTime = 0
-      if (this.recordingInterval) {
-        clearInterval(this.recordingInterval)
-      }
-    },
+			try {
+				await fetch("https://bit-smartphone/togglePin", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ chatId: chat.id }),
+				});
+			} catch (error) {
+				console.error("Error toggling pin:", error);
+			}
+		},
 
-    handleMediaAction(action) {
-      this.showMediaOptions = false
-      
-      if (!this.selectedChat) return
-      
-      switch (action) {
-        case 'camera':
-          this.$emit('open-camera')
-          break
-        case 'location':
-          this.$emit('request-location')
-          break
-      }
-    },
+		async muteChat(chat) {
+			if (!chat) return;
 
-    addEmoji(emoji) {
-      this.newMessage += emoji
-      this.showEmojiPicker = false
-      
-      const recentEmojis = this.emojiCategories.recent
-      if (!recentEmojis.includes(emoji)) {
-        recentEmojis.unshift(emoji)
-        if (recentEmojis.length > 24) {
-          recentEmojis.pop()
-        }
-      }
-    },
+			try {
+				await fetch("https://bit-smartphone/toggleMute", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ chatId: chat.id }),
+				});
+			} catch (error) {
+				console.error("Error toggling mute:", error);
+			}
+		},
 
-    addGif(gif) {
-      if (!this.selectedChat) return
-      
-      const targetPhoneNumber = this.selectedChat.phoneNumber || this.selectedChat.contactId
-      
-      fetch('https://bit-smartphone/messages:sendMessage', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chatId: targetPhoneNumber,
-          type: 'gif',
-          content: gif.url
-        })
-      }).catch(error => {
-        console.error('Error sending GIF:', error)
-      })
-      
-      this.showGifPicker = false
-    },
+		async deleteChat(chat) {
+			if (!chat) return;
 
-    searchGifs(query) {
-      if (!query) return this.gifCategories.trending
-      
-      const allGifs = Object.values(this.gifCategories).flat()
-      return allGifs.filter(gif => 
-        gif.keywords.some(keyword => 
-          keyword.toLowerCase().includes(query.toLowerCase())
-        )
-      )
-    },
+			try {
+				await fetch("https://bit-smartphone/deleteChat", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ chatId: chat.id }),
+				});
+			} catch (error) {
+				console.error("Error deleting chat:", error);
+			}
+		},
 
-    toggleDarkMode() {
-      this.isDarkMode = !this.isDarkMode
-      document.documentElement.classList.toggle('dark', this.isDarkMode)
-    },
+		formatTime(timestamp) {
+			const date = new Date(timestamp);
+			const now = new Date();
+			const diff = now - date;
+			const minutes = Math.floor(diff / 60000);
+			const hours = Math.floor(diff / 3600000);
+			const days = Math.floor(diff / 86400000);
 
-    
-    handleNUIMessage(event) {
-      const data = event.data;
-      switch (data.action) {
-        case 'updateChats':
-          this.chats = data.data || []
-          break
+			if (minutes < 1) return "ahora";
+			if (minutes < 60) return minutes + "m";
+			if (hours < 24) return hours + "h";
+			if (days < 7) return days + "d";
+			return date.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
+		},
 
-        case 'updateChatMessages':
-          if (this.selectedChat) {
-            this.selectedChat.messages = data.data || []
-            this.$nextTick(() => this.scrollToBottom())
-          }
-          break
-          
-        case 'receiveNewMessage':
-          const { chatId, message } = data.data
-          
-          let chatIndex = this.chats.findIndex(c => 
-            c.contactId === chatId || 
-            c.phoneNumber === chatId || 
-            c.id === chatId
-          )
-          
-          if (chatIndex !== -1) {
-            this.chats[chatIndex].lastMessage = message.content
-            this.chats[chatIndex].timestamp = message.timestamp
-            if (message.senderId !== 'me') {
-              this.chats[chatIndex].unread = (this.chats[chatIndex].unread || 0) + 1
-            }
-          }
-          
-          if (this.selectedChat && (
-            this.selectedChat.contactId === chatId ||
-            this.selectedChat.phoneNumber === chatId ||
-            this.selectedChat.id === chatId
-          )) {
-            if (!this.selectedChat.messages) this.selectedChat.messages = []
-            this.selectedChat.messages.push(message)
-            this.$nextTick(() => {
-              this.scrollToBottom()
-            })
-          }
-          break
-          
-        case 'updateContacts':
-          this.contacts = data.data || []
-          this.phoneContacts = data.data || [] 
-          break
-          
-        case 'updatePhoneContacts':
-          this.phoneContacts = data.data || []
-          break
-          
-        case 'updateMessageStatus':
-          const { chatId: updateChatId, tempId, newMessage } = data.data
+		formatMessageTime(timestamp) {
+			const date = new Date(timestamp);
+			return date.toLocaleTimeString("es-ES", {
+				hour: "2-digit",
+				minute: "2-digit",
+			});
+		},
 
-          if (this.selectedChat && (
-            this.selectedChat.contactId === updateChatId ||
-            this.selectedChat.phoneNumber === updateChatId ||
-            this.selectedChat.id === updateChatId
-          )) {
-            const msgIndex = this.selectedChat.messages.findIndex(m => m.id === tempId)
-            if (msgIndex !== -1) {
-              this.selectedChat.messages[msgIndex] = newMessage
-            }
-          }
-          break
-          
-        case 'messageError':
-          const { chatId: errorChatId, tempId: errorTempId, error } = data.data
-          
-          if (this.selectedChat && (
-            this.selectedChat.contactId === errorChatId ||
-            this.selectedChat.phoneNumber === errorChatId ||
-            this.selectedChat.id === errorChatId
-          )) {
-            const msgIndex = this.selectedChat.messages.findIndex(m => m.id === errorTempId)
-            if (msgIndex !== -1) {
-              this.selectedChat.messages[msgIndex].status = 'error'
-            }
-          }
-          break
-          
-        case 'chatPinToggled':
-          const pinnedChatIndex = this.chats.findIndex(c => c.id === data.data.chatId)
-          if (pinnedChatIndex !== -1) {
-            this.chats[pinnedChatIndex].pinned = !this.chats[pinnedChatIndex].pinned
-          }
-          break
-          
-        case 'chatMuteToggled':
-          const mutedChatIndex = this.chats.findIndex(c => c.id === data.data.chatId)
-          if (mutedChatIndex !== -1) {
-            this.chats[mutedChatIndex].muted = !this.chats[mutedChatIndex].muted
-          }
-          break
-          
-        case 'chatDeleted':
-          const deletedChatIndex = this.chats.findIndex(c => c.id === data.data.chatId)
-          if (deletedChatIndex !== -1) {
-            this.chats.splice(deletedChatIndex, 1)
-          }
-          if (this.selectedChat && this.selectedChat.id === data.data.chatId) {
-            this.goBack()
-          }
-          break
-      }
-    },
+		goBack() {
+			this.currentView = "chats";
+			this.selectedChat = null;
+			this.showMessageActions = null;
+		},
 
-    
-    startCall(contact) {
-      if (!contact || !contact.id) return
-      
-      fetch('https://bit-smartphone/call:start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetId: contact.id || contact.contactId,
-          type: 'audio'
-        })
-      }).catch(error => {
-        console.error('Error making call:', error)
-      })
-    },
+		scrollToBottom() {
+			if (this.$refs.messagesContainer) {
+				this.$refs.messagesContainer.scrollTop = this.$refs.messagesContainer.scrollHeight;
+			}
+		},
 
-    startVideoCall(contact) {
-      if (!contact || !contact.id) return
-      
-      fetch('https://bit-smartphone/call:start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          targetId: contact.id || contact.contactId,
-          type: 'video'
-        })
-      }).catch(error => {
-        console.error('Error making video call:', error)
-      })
-    }
-  },
+		handleKeyPress(event) {
+			if (event.key === "Enter" && !event.shiftKey) {
+				event.preventDefault();
+				this.sendMessage();
+			}
+		},
 
-  mounted() {
-    if (localStorage.getItem('darkMode') === 'true') {
-      this.isDarkMode = true
-      document.documentElement.classList.add('dark')
-    }
-    
-    this.loadChats()
-    this.loadContacts()
-    this.loadPhoneContacts() 
-    
-    window.__bit_dispatch = this.handleNUIMessage;
-    window.addEventListener('message', this.handleNUIMessage)
-  },
+		startVoiceRecording() {
+			this.isRecording = true;
+			this.recordingTime = 0;
+			this.recordingInterval = setInterval(() => {
+				this.recordingTime++;
+			}, 1000);
+		},
 
-  beforeUnmount() {
-    if (this.recordingInterval) {
-      clearInterval(this.recordingInterval)
-    }
-    
-    
-    window.removeEventListener('message', this.handleNUIMessage)
-  },
+		stopVoiceRecording() {
+			this.isRecording = false;
+			if (this.recordingInterval) {
+				clearInterval(this.recordingInterval);
+			}
 
-  template: `
-    <div class="h-full w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-gray-900 dark:to-indigo-950 font-sans relative overflow-hidden">
+			this.recordingTime = 0;
+		},
+
+		cancelVoiceRecording() {
+			this.isRecording = false;
+			this.recordingTime = 0;
+			if (this.recordingInterval) {
+				clearInterval(this.recordingInterval);
+			}
+		},
+
+		handleMediaAction(action) {
+			this.showMediaOptions = false;
+
+			if (!this.selectedChat) return;
+
+			switch (action) {
+				case "camera":
+					this.$emit("open-camera");
+					break;
+				case "location":
+					this.$emit("request-location");
+					break;
+			}
+		},
+
+		addEmoji(emoji) {
+			this.newMessage += emoji;
+			this.showEmojiPicker = false;
+
+			const recentEmojis = this.emojiCategories.recent;
+			if (!recentEmojis.includes(emoji)) {
+				recentEmojis.unshift(emoji);
+				if (recentEmojis.length > 24) {
+					recentEmojis.pop();
+				}
+			}
+		},
+
+		addGif(gif) {
+			if (!this.selectedChat) return;
+
+			const targetPhoneNumber = this.selectedChat.phoneNumber || this.selectedChat.contactId;
+
+			fetch("https://bit-smartphone/messages:sendMessage", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					chatId: targetPhoneNumber,
+					type: "gif",
+					content: gif.url,
+				}),
+			}).catch((error) => {
+				console.error("Error sending GIF:", error);
+			});
+
+			this.showGifPicker = false;
+		},
+
+		searchGifs(query) {
+			if (!query) return this.gifCategories.trending;
+
+			const allGifs = Object.values(this.gifCategories).flat();
+			return allGifs.filter((gif) => gif.keywords.some((keyword) => keyword.toLowerCase().includes(query.toLowerCase())));
+		},
+
+		toggleDarkMode() {
+			this.isDarkMode = !this.isDarkMode;
+			document.documentElement.classList.toggle("dark", this.isDarkMode);
+		},
+
+		handleNUIMessage(event) {
+			const data = event.data;
+			switch (data.action) {
+				case "updateChats":
+					this.chats = data.data || [];
+					break;
+
+				case "updateChatMessages":
+					if (this.selectedChat) {
+						this.selectedChat.messages = data.data || [];
+						this.$nextTick(() => this.scrollToBottom());
+					}
+					break;
+
+				case "receiveNewMessage":
+					const { chatId, message } = data.data;
+
+					let chatIndex = this.chats.findIndex((c) => c.contactId === chatId || c.phoneNumber === chatId || c.id === chatId);
+
+					if (chatIndex !== -1) {
+						this.chats[chatIndex].lastMessage = message.content;
+						this.chats[chatIndex].timestamp = message.timestamp;
+						if (message.senderId !== "me") {
+							this.chats[chatIndex].unread = (this.chats[chatIndex].unread || 0) + 1;
+						}
+					}
+
+					if (this.selectedChat && (this.selectedChat.contactId === chatId || this.selectedChat.phoneNumber === chatId || this.selectedChat.id === chatId)) {
+						if (!this.selectedChat.messages) this.selectedChat.messages = [];
+						this.selectedChat.messages.push(message);
+						this.$nextTick(() => {
+							this.scrollToBottom();
+						});
+					}
+					break;
+
+				case "updateContacts":
+					this.contacts = data.data || [];
+					this.phoneContacts = data.data || [];
+					break;
+
+				case "updatePhoneContacts":
+					this.phoneContacts = data.data || [];
+					break;
+
+				case "updateMessageStatus":
+					const { chatId: updateChatId, tempId, newMessage } = data.data;
+
+					if (this.selectedChat && (this.selectedChat.contactId === updateChatId || this.selectedChat.phoneNumber === updateChatId || this.selectedChat.id === updateChatId)) {
+						const msgIndex = this.selectedChat.messages.findIndex((m) => m.id === tempId);
+						if (msgIndex !== -1) {
+							this.selectedChat.messages[msgIndex] = newMessage;
+						}
+					}
+					break;
+
+				case "messageError":
+					const { chatId: errorChatId, tempId: errorTempId, error } = data.data;
+
+					if (this.selectedChat && (this.selectedChat.contactId === errorChatId || this.selectedChat.phoneNumber === errorChatId || this.selectedChat.id === errorChatId)) {
+						const msgIndex = this.selectedChat.messages.findIndex((m) => m.id === errorTempId);
+						if (msgIndex !== -1) {
+							this.selectedChat.messages[msgIndex].status = "error";
+						}
+					}
+					break;
+
+				case "chatPinToggled":
+					const pinnedChatIndex = this.chats.findIndex((c) => c.id === data.data.chatId);
+					if (pinnedChatIndex !== -1) {
+						this.chats[pinnedChatIndex].pinned = !this.chats[pinnedChatIndex].pinned;
+					}
+					break;
+
+				case "chatMuteToggled":
+					const mutedChatIndex = this.chats.findIndex((c) => c.id === data.data.chatId);
+					if (mutedChatIndex !== -1) {
+						this.chats[mutedChatIndex].muted = !this.chats[mutedChatIndex].muted;
+					}
+					break;
+
+				case "chatDeleted":
+					const deletedChatIndex = this.chats.findIndex((c) => c.id === data.data.chatId);
+					if (deletedChatIndex !== -1) {
+						this.chats.splice(deletedChatIndex, 1);
+					}
+					if (this.selectedChat && this.selectedChat.id === data.data.chatId) {
+						this.goBack();
+					}
+					break;
+			}
+		},
+
+		startCall(contact) {
+			if (!contact || !contact.id) return;
+
+			fetch("https://bit-smartphone/call:start", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					targetId: contact.id || contact.contactId,
+					type: "audio",
+				}),
+			}).catch((error) => {
+				console.error("Error making call:", error);
+			});
+		},
+
+		startVideoCall(contact) {
+			if (!contact || !contact.id) return;
+
+			fetch("https://bit-smartphone/call:start", {
+				method: "POST",
+				headers: { "Content-Type": "application/json" },
+				body: JSON.stringify({
+					targetId: contact.id || contact.contactId,
+					type: "video",
+				}),
+			}).catch((error) => {
+				console.error("Error making video call:", error);
+			});
+		},
+	},
+
+	mounted() {
+		if (localStorage.getItem("darkMode") === "true") {
+			this.isDarkMode = true;
+			document.documentElement.classList.add("dark");
+		}
+
+		this.loadChats();
+		this.loadContacts();
+		this.loadPhoneContacts();
+
+		window.__bit_dispatch = this.handleNUIMessage;
+		window.addEventListener("message", this.handleNUIMessage);
+	},
+
+	beforeUnmount() {
+		if (this.recordingInterval) {
+			clearInterval(this.recordingInterval);
+		}
+
+		window.removeEventListener("message", this.handleNUIMessage);
+	},
+
+	template: `
+    <div class="h-full pt-12 w-full bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-gray-900 dark:to-indigo-950 font-sans relative overflow-hidden">
             <div class="absolute inset-0 opacity-30 dark:opacity-10">
         <svg class="absolute top-0 left-0 w-full h-full" viewBox="0 0 400 400" fill="none">
           <defs>
@@ -953,7 +923,7 @@ const Messages = {
         </div>
       </div>
      </div>
-  `
-}
+  `,
+};
 
 window.Messages = window.Messages || Messages;
