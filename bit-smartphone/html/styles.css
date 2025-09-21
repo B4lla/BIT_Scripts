@@ -1,3 +1,10 @@
+:root {
+  --phone-font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --accent-color: #3b82f6;
+  --border-radius: 12px;
+  --animation-duration: 0.3s;
+}
+
 * {
   box-sizing: border-box;
   -webkit-touch-callout: none;
@@ -9,7 +16,7 @@
 }
 
 body {
-  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--phone-font-family);
   margin: 0;
   padding: 0;
   min-height: 100vh;
@@ -136,6 +143,18 @@ body {
 .slide-down-leave-to {
   transform: translateY(-100%);
   opacity: 0;
+}
+
+.notification-fade-enter-active {
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+}
+.notification-fade-leave-active {
+  transition: opacity 160ms ease-in, transform 160ms ease-in;
+}
+.notification-fade-enter-from,
+.notification-fade-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
 }
 
 .pin-unlock-enter-active,
@@ -2286,4 +2305,51 @@ input[type="range"]::-moz-range-thumb {
     opacity: 1;
     transform: translateY(0);
   }
+}
+
+.app-icon,
+.notification-card,
+.settings-card {
+  border-radius: var(--border-radius) !important;
+  transition: all var(--animation-duration) ease !important;
+}
+
+.phone-app {
+  font-family: var(--phone-font-family) !important;
+}
+
+.accent-primary {
+  color: var(--accent-color) !important;
+}
+
+.accent-bg {
+  background-color: var(--accent-color) !important;
+}
+
+.accent-border {
+  border-color: var(--accent-color) !important;
+}
+
+.phone-container.bg-gradient-dynamic {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.phone-container.bg-pattern-dots {
+  background-image: radial-gradient(circle, #e5e7eb 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+.phone-container.bg-pattern-lines {
+  background-image: linear-gradient(45deg, #f3f4f6 25%, transparent 25%), 
+                    linear-gradient(-45deg, #f3f4f6 25%, transparent 25%);
+  background-size: 30px 30px;
+}
+
+.phone-container.bg-minimalist {
+  background: #ffffff;
+}
+
+.phone-container.bg-dark-glass {
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(10px);
 }

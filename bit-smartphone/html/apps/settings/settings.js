@@ -10,11 +10,12 @@ const Settings = {
       customImageUrl: '',
       tempProfile: {
         name: this.userSettings?.profileName || this.t('settings.profile.defaultUser'),
-        avatar: this.userSettings?.profileAvatar || "./assets/avatars/default1.jpg",
+        avatar: this.userSettings?.profileAvatar || "./assets/avatars/default.svg",
       },
       
       
       defaultAvatars: [
+        "./assets/avatars/default.svg",
         "./assets/avatars/default1.jpg",
         "./assets/avatars/default2.jpg", 
         "./assets/avatars/default3.jpg",
@@ -29,7 +30,13 @@ const Settings = {
         clickSound: this.userSettings?.clickSound || 'default',
         customNotificationUrl: this.userSettings?.customNotificationUrl || '',
         customClickUrl: this.userSettings?.customClickUrl || '',
-        fontSize: this.userSettings?.fontSize || 'medium'
+        fontSize: this.userSettings?.fontSize || 'medium',
+        fontFamily: this.userSettings?.fontFamily || 'system',
+        wallpaperStyle: this.userSettings?.wallpaperStyle || 'default',
+        iconStyle: this.userSettings?.iconStyle || 'default',
+        animationSpeed: this.userSettings?.animationSpeed || 'normal',
+        accentColor: this.userSettings?.accentColor || 'blue',
+        borderRadius: this.userSettings?.borderRadius || 'medium'
       }
     }
   },
@@ -49,19 +56,62 @@ const Settings = {
     
     availableFonts() {
       return [
-        { id: 'system', name: 'Sistema (SF Pro Display)', family: 'var(--font-sf-pro-display)' },
-        { id: 'inter', name: 'Inter', family: 'var(--font-inter)' },
-        { id: 'roboto', name: 'Roboto', family: 'var(--font-roboto)' },
-        { id: 'poppins', name: 'Poppins', family: 'var(--font-poppins)' },
-        { id: 'playfair', name: 'Playfair Display', family: 'var(--font-playfair)' },
-        { id: 'crimson', name: 'Crimson Text', family: 'var(--font-crimson)' },
-        { id: 'dancing', name: 'Dancing Script', family: 'var(--font-dancing)' },
-        { id: 'pacifico', name: 'Pacifico', family: 'var(--font-pacifico)' },
-        { id: 'caveat', name: 'Caveat', family: 'var(--font-caveat)' },
-        { id: 'bangers', name: 'Bangers', family: 'var(--font-bangers)' },
-        { id: 'orbitron', name: 'Orbitron', family: 'var(--font-orbitron)' },
-        { id: 'fredoka', name: 'Fredoka One', family: 'var(--font-fredoka)' },
-        { id: 'abril', name: 'Abril Fatface', family: 'var(--font-abril)' },
+        { id: 'system', name: 'SF Pro Display (Sistema)', family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' },
+        { id: 'inter', name: 'Inter', family: 'Inter, sans-serif' },
+        { id: 'roboto', name: 'Roboto', family: 'Roboto, sans-serif' },
+        { id: 'poppins', name: 'Poppins', family: 'Poppins, sans-serif' },
+        { id: 'playfair', name: 'Playfair Display', family: 'Playfair Display, serif' },
+        { id: 'crimson', name: 'Crimson Text', family: 'Crimson Text, serif' },
+        { id: 'dancing', name: 'Dancing Script', family: 'Dancing Script, cursive' },
+        { id: 'pacifico', name: 'Pacifico', family: 'Pacifico, cursive' },
+        { id: 'caveat', name: 'Caveat', family: 'Caveat, cursive' },
+        { id: 'bangers', name: 'Bangers', family: 'Bangers, cursive' },
+        { id: 'orbitron', name: 'Orbitron', family: 'Orbitron, monospace' },
+        { id: 'fredoka', name: 'Fredoka One', family: 'Fredoka One, cursive' },
+        { id: 'abril', name: 'Abril Fatface', family: 'Abril Fatface, cursive' },
+      ]
+    },
+
+    availableAccentColors() {
+      return [
+        { id: 'blue', name: 'Azul', value: '#007AFF', description: 'Azul clásico de iOS' },
+        { id: 'green', name: 'Verde', value: '#34C759', description: 'Verde vibrante' },
+        { id: 'red', name: 'Rojo', value: '#FF3B30', description: 'Rojo intenso' },
+        { id: 'orange', name: 'Naranja', value: '#FF9500', description: 'Naranja enérgico' },
+        { id: 'purple', name: 'Morado', value: '#AF52DE', description: 'Morado elegante' },
+        { id: 'pink', name: 'Rosa', value: '#FF2968', description: 'Rosa vibrante' },
+        { id: 'teal', name: 'Turquesa', value: '#5AC8FA', description: 'Turquesa refrescante' },
+        { id: 'yellow', name: 'Amarillo', value: '#FFCC00', description: 'Amarillo brillante' }
+      ]
+    },
+
+    availableBorderRadius() {
+      return [
+        { id: 'sharp', name: 'Angulado', value: '4px', preview: '4px', description: 'Bordes afilados' },
+        { id: 'small', name: 'Pequeño', value: '8px', preview: '8px', description: 'Ligeramente redondeado' },
+        { id: 'medium', name: 'Medio', value: '12px', preview: '12px', description: 'Equilibrio perfecto' },
+        { id: 'large', name: 'Grande', value: '16px', preview: '16px', description: 'Notablemente redondeado' },
+        { id: 'extra', name: 'Extra', value: '24px', preview: '24px', description: 'Muy redondeado' }
+      ]
+    },
+
+    availableWallpaperStyles() {
+      return [
+        { id: 'default', name: 'Por defecto', preview: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)', size: 'cover', repeat: 'no-repeat', position: 'center', description: 'Gradiente azul-morado' },
+        { id: 'minimal', name: 'Minimalista', preview: 'linear-gradient(to bottom, #f8f9fa, #e9ecef)', size: 'cover', repeat: 'no-repeat', position: 'center', description: 'Limpio y simple' },
+        { id: 'dark', name: 'Oscuro', preview: 'linear-gradient(135deg, #1a1a1a 0%, #2d2d2d 100%)', size: 'cover', repeat: 'no-repeat', position: 'center', description: 'Tema oscuro elegante' },
+        { id: 'nature', name: 'Naturaleza', preview: 'linear-gradient(135deg, #74b9ff 0%, #0984e3 100%)', size: 'cover', repeat: 'no-repeat', position: 'center', description: 'Inspirado en la naturaleza' },
+        { id: 'sunset', name: 'Atardecer', preview: 'linear-gradient(135deg, #fab1a0 0%, #e17055 100%)', size: 'cover', repeat: 'no-repeat', position: 'center', description: 'Colores cálidos del atardecer' },
+        { id: 'ocean', name: 'Océano', preview: 'linear-gradient(135deg, #74b9ff 0%, #0984e3 100%)', size: 'cover', repeat: 'no-repeat', position: 'center', description: 'Azules profundos del océano' }
+      ]
+    },
+
+    availableAnimationSpeeds() {
+      return [
+        { id: 'slow', name: 'Lenta', value: '0.5s', duration: 2, description: 'Animaciones pausadas y relajantes' },
+        { id: 'normal', name: 'Normal', value: '0.3s', duration: 1, description: 'Velocidad estándar recomendada' },
+        { id: 'fast', name: 'Rápida', value: '0.15s', duration: 0.5, description: 'Animaciones ágiles y dinámicas' },
+        { id: 'instant', name: 'Instantánea', value: '0.05s', duration: 0.2, description: 'Cambios casi inmediatos' }
       ]
     },
 
@@ -113,9 +163,24 @@ const Settings = {
               name: this.t('settings.display.brightness'),
               subtitle: (this.userSettings.brightness || 75) + '%',
               icon: 'sun',
-              iconBgColor: 'bg-teal-500',
+              iconBgColor: 'bg-yellow-500',
               action: 'navigate'
             },
+            {
+              id: 'wallpaper-style',
+              name: 'Estilo de Fondo',
+              subtitle: this.getWallpaperStyleLabel(this.tempSettings.wallpaperStyle),
+              icon: 'image',
+              iconBgColor: 'bg-green-500',
+              action: 'navigate'
+            }
+          ]
+        },
+        {
+          id: 'typography',
+          name: 'Tipografía',
+          icon: 'type',
+          items: [
             {
               id: 'text-size',
               name: this.t('settings.display.textSize'),
@@ -124,6 +189,45 @@ const Settings = {
               iconBgColor: 'bg-gray-500',
               action: 'navigate'
             },
+            {
+              id: 'font-family',
+              name: 'Fuente',
+              subtitle: this.getFontFamilyLabel(this.tempSettings.fontFamily),
+              icon: 'edit-3',
+              iconBgColor: 'bg-purple-500',
+              action: 'navigate'
+            }
+          ]
+        },
+        {
+          id: 'appearance',
+          name: 'Apariencia',
+          icon: 'palette',
+          items: [
+            {
+              id: 'accent-color',
+              name: 'Color de Acento',
+              subtitle: this.getAccentColorLabel(this.tempSettings.accentColor),
+              icon: 'circle',
+              iconBgColor: 'bg-blue-500',
+              action: 'navigate'
+            },
+            {
+              id: 'border-radius',
+              name: 'Bordes Redondeados',
+              subtitle: this.getBorderRadiusLabel(this.tempSettings.borderRadius),
+              icon: 'square',
+              iconBgColor: 'bg-cyan-500',
+              action: 'navigate'
+            },
+            {
+              id: 'animation-speed',
+              name: 'Velocidad de Animación',
+              subtitle: this.getAnimationSpeedLabel(this.tempSettings.animationSpeed),
+              icon: 'zap',
+              iconBgColor: 'bg-orange-500',
+              action: 'navigate'
+            }
           ]
         },
         {
@@ -262,20 +366,73 @@ const Settings = {
     updateFontFamily(fontId) {
       this.tempSettings.fontFamily = fontId
       this.$emit('update-setting', 'fontFamily', fontId)
+      this.applyFontFamily(fontId)
+    },
+
+    updateAccentColor(colorId) {
+      this.tempSettings.accentColor = colorId
+      this.$emit('update-setting', 'accentColor', colorId)
+      this.applyAccentColor(colorId)
+    },
+
+    updateBorderRadius(radiusId) {
+      this.tempSettings.borderRadius = radiusId
+      this.$emit('update-setting', 'borderRadius', radiusId)
+      this.applyBorderRadius(radiusId)
+    },
+
+    updateWallpaperStyle(styleId) {
+      this.tempSettings.wallpaperStyle = styleId
+      this.$emit('update-setting', 'wallpaperStyle', styleId)
+      this.applyWallpaperStyle(styleId)
+    },
+
+    updateAnimationSpeed(speedId) {
+      this.tempSettings.animationSpeed = speedId
+      this.$emit('update-setting', 'animationSpeed', speedId)
+      this.applyAnimationSpeed(speedId)
+    },
+
+    applyFontFamily(fontId) {
+      const selectedFont = this.availableFonts.find(f => f.id === fontId)
+      if (selectedFont) {
+        document.documentElement.style.setProperty('--phone-font-family', selectedFont.family)
+      }
+    },
+
+    applyAccentColor(colorId) {
+      const selectedColor = this.availableAccentColors.find(c => c.id === colorId)
+      if (selectedColor) {
+        document.documentElement.style.setProperty('--accent-color', selectedColor.value)
+      }
+    },
+
+    applyBorderRadius(radiusId) {
+      const selectedRadius = this.availableBorderRadius.find(r => r.id === radiusId)
+      if (selectedRadius) {
+        document.documentElement.style.setProperty('--border-radius', selectedRadius.value)
+      }
+    },
+
+    applyWallpaperStyle(styleId) {
+      const selectedStyle = this.availableWallpaperStyles.find(s => s.id === styleId)
+      if (selectedStyle) {
+        const phoneContainer = document.querySelector('.phone-container')
+        if (phoneContainer) {
+          phoneContainer.className = `phone-container ${selectedStyle.preview}`
+        }
+      }
+    },
+
+    applyAnimationSpeed(speedId) {
+      const selectedSpeed = this.availableAnimationSpeeds.find(s => s.id === speedId)
+      if (selectedSpeed) {
+        document.documentElement.style.setProperty('--animation-duration', selectedSpeed.value)
+      }
     },
 
     previewFont(fontId) {
-      
-      const phoneContainer = document.querySelector('.iphone-container')
-      if (phoneContainer) {
-        this.availableFonts.forEach(font => {
-          phoneContainer.classList.remove(font.cssClass)
-        })
-        const selectedFont = this.availableFonts.find(f => f.id === fontId)
-        if (selectedFont) {
-          phoneContainer.classList.add(selectedFont.cssClass)
-        }
-      }
+      this.applyFontFamily(fontId)
     },
 
     
@@ -298,6 +455,26 @@ const Settings = {
       return font ? font.name : 'Sistema'
     },
 
+    getAccentColorLabel(colorId) {
+      const color = this.availableAccentColors.find(c => c.id === colorId)
+      return color ? color.name : 'Azul'
+    },
+
+    getBorderRadiusLabel(radiusId) {
+      const radius = this.availableBorderRadius.find(r => r.id === radiusId)
+      return radius ? radius.name : 'Medio'
+    },
+
+    getWallpaperStyleLabel(styleId) {
+      const style = this.availableWallpaperStyles.find(s => s.id === styleId)
+      return style ? style.name : 'Por defecto'
+    },
+
+    getAnimationSpeedLabel(speedId) {
+      const speed = this.availableAnimationSpeeds.find(s => s.id === speedId)
+      return speed ? speed.name : 'Normal'
+    },
+
     playSound(url) {
       if (url) {
         const audio = new Audio(url)
@@ -307,7 +484,7 @@ const Settings = {
     },
 
     resetSettings() {
-      if (confirm(this.t('settings.general.resetConfirm'))) {
+      if (confirm(this.t('settings.general.resetConfirm') || '¿Restablecer todas las configuraciones a los valores predeterminados?')) {
         const defaultSettings = {
           brightness: 75,
           volume: 60,
@@ -322,35 +499,96 @@ const Settings = {
           fontFamily: "system",
           fontSize: "medium",
           notificationSound: 'default',
-          clickSound: 'default'
+          clickSound: 'default',
+          customNotificationUrl: '',
+          customClickUrl: '',
+          wallpaperStyle: 'default',
+          iconStyle: 'default',
+          animationSpeed: 'normal',
+          accentColor: 'blue',
+          borderRadius: 'medium',
+          profileName: this.t('settings.profile.defaultUser') || 'Usuario',
+          profileAvatar: './assets/avatars/default.svg'
         }
+        
+        Object.keys(this.tempSettings).forEach(key => {
+          if (defaultSettings[key] !== undefined) {
+            this.tempSettings[key] = defaultSettings[key]
+          }
+        })
+        
+        this.tempProfile.name = defaultSettings.profileName
+        this.tempProfile.avatar = defaultSettings.profileAvatar
         
         Object.entries(defaultSettings).forEach(([key, value]) => {
           this.$emit('update-setting', key, value)
         })
         
+        this.$emit('update-profile', {
+          name: defaultSettings.profileName,
+          avatar: defaultSettings.profileAvatar
+        })
+        
         this.goBack()
+        
+        setTimeout(() => {
+          this.showNotification('Configuraciones restablecidas correctamente', 'success')
+        }, 100)
       }
+    },
+    
+    showNotification(message, type = 'info') {
+      console.log(`[${type.toUpperCase()}] ${message}`)
     }
   },
 
   template: `
     <div class="app-container h-full flex flex-col overflow-hidden" :class="themeClasses.container">
       
-      <div class="sticky top-0 z-20 backdrop-blur-md flex-shrink-0" :class="[themeClasses.header, 'border-b']">
-        <div class="flex items-center justify-between p-4 pt-16">
-          <button v-if="currentSection" @click="goBack" class="flex items-center text-blue-500 text-lg">
-            <svg class="w-6 h-6 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+      <div class="sticky top-0 z-20 flex-shrink-0" :class="[themeClasses.header]">
+        <div class="flex items-center justify-between px-6 pt-3 pb-1">
+          <div class="flex items-center space-x-1">
+            <span class="text-sm font-semibold">{{ currentTime }}</span>
+          </div>
+          
+          <div class="flex items-center space-x-1">
+            <div class="flex items-center space-x-1">
+              <div class="w-1 h-2 bg-current rounded-full"></div>
+              <div class="w-1 h-3 bg-current rounded-full"></div>
+              <div class="w-1 h-4 bg-current rounded-full"></div>
+              <div class="w-1 h-4 bg-current rounded-full opacity-30"></div>
+            </div>
+            
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.07 2.93 1 9zm8 8l3 3 3-3c-1.65-1.66-4.34-1.66-6 0zm-4-4l2 2c2.76-2.76 7.24-2.76 10 0l2-2C15.14 9.14 8.87 9.14 5 13z"/>
+            </svg>
+            
+            <div class="flex items-center">
+              <div class="w-6 h-3 border border-current rounded-sm relative">
+                <div class="absolute inset-0.5 bg-current rounded-sm" :style="{width: (userSettings.battery || 85) + '%'}"></div>
+              </div>
+              <div class="w-0.5 h-1.5 bg-current rounded-r-full ml-px"></div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="flex items-center justify-between px-4 pb-4">
+          <button v-if="currentSection" @click="goBack" class="flex items-center text-blue-500 text-lg font-medium">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/>
             </svg>
             {{ t('common.back') }}
           </button>
-          <h1 class="text-xl font-bold flex-1 text-center pr-6">
+          <div v-else class="w-16"></div>
+          
+          <h1 class="text-xl font-bold text-center flex-1">
             {{ currentSection ? currentSection.name : t('settings.title') }}
           </h1>
-          <button v-if="!currentSection" @click="$emit('close')" class="text-blue-500 text-lg">
+          
+          <button v-if="!currentSection" @click="$emit('close')" class="text-blue-500 text-lg font-medium">
             {{ t('common.done') }}
           </button>
+          <div v-else class="w-16"></div>
         </div>
       </div>
 
@@ -481,9 +719,18 @@ const Settings = {
                   {{ t('settings.display.fontSize.preview') }}
                 </p>
               </div>
-              <svg v-if="tempSettings.fontSize === size" class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M20.285 2l-11.285 11.567-5.286-5.011-3.714 3.716 9 8.728 15-15.285z"/>
-              </svg>
+              <div class="flex items-center space-x-2">
+                <svg class="text-blue-400" :class="{
+                  'w-4 h-4': size === 'small',
+                  'w-5 h-5': size === 'medium',
+                  'w-6 h-6': size === 'large'
+                }" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M2.5 4v3h5v12h3V7h5V4h-13zm17.5 8v-2h-5v2h1.5v6h2v-6h1.5z"/>
+                </svg>
+                <svg v-if="tempSettings.fontSize === size" class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M20.285 2l-11.285 11.567-5.286-5.011-3.714 3.716 9 8.728 15-15.285z"/>
+                </svg>
+              </div>
             </div>
           </div>
         </div>
@@ -514,6 +761,156 @@ const Settings = {
                 </p>
               </div>
               <svg v-if="tempSettings.fontFamily === font.id" class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.285 2l-11.285 11.567-5.286-5.011-3.714 3.716 9 8.728 15-15.285z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div v-else-if="currentSection.id === 'accent-color'" class="flex-1 overflow-y-auto p-4 scrollbar-hide">
+        <div class="space-y-4 mt-4">
+          <div
+            v-for="color in availableAccentColors"
+            :key="color.id"
+            @click="updateAccentColor(color.id)"
+            class="rounded-xl p-4 cursor-pointer transition-colors"
+            :class="[
+              themeClasses.card,
+              themeClasses.cardHover,
+              tempSettings.accentColor === color.id ? 'ring-2 ring-blue-500' : ''
+            ]"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div
+                  class="w-8 h-8 rounded-full"
+                  :style="{ backgroundColor: color.value }"
+                ></div>
+                <div>
+                  <h3 class="font-medium">{{ color.name }}</h3>
+                  <p class="text-sm" :class="themeClasses.textSecondary">
+                    {{ color.description }}
+                  </p>
+                </div>
+              </div>
+              <svg v-if="tempSettings.accentColor === color.id" class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.285 2l-11.285 11.567-5.286-5.011-3.714 3.716 9 8.728 15-15.285z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div v-else-if="currentSection.id === 'border-radius'" class="flex-1 overflow-y-auto p-4 scrollbar-hide">
+        <div class="space-y-4 mt-4">
+          <div
+            v-for="radius in availableBorderRadius"
+            :key="radius.id"
+            @click="updateBorderRadius(radius.id)"
+            class="rounded-xl p-4 cursor-pointer transition-colors"
+            :class="[
+              themeClasses.card,
+              themeClasses.cardHover,
+              tempSettings.borderRadius === radius.id ? 'ring-2 ring-blue-500' : ''
+            ]"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div
+                  class="w-12 h-8 bg-blue-500"
+                  :style="{ borderRadius: radius.preview }"
+                ></div>
+                <div>
+                  <h3 class="font-medium">{{ radius.name }}</h3>
+                  <p class="text-sm" :class="themeClasses.textSecondary">
+                    {{ radius.description }}
+                  </p>
+                </div>
+              </div>
+              <svg v-if="tempSettings.borderRadius === radius.id" class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.285 2l-11.285 11.567-5.286-5.011-3.714 3.716 9 8.728 15-15.285z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div v-else-if="currentSection.id === 'wallpaper-style'" class="flex-1 overflow-y-auto p-4 scrollbar-hide">
+        <div class="space-y-4 mt-4">
+          <div
+            v-for="style in availableWallpaperStyles"
+            :key="style.id"
+            @click="updateWallpaperStyle(style.id)"
+            class="rounded-xl p-4 cursor-pointer transition-colors"
+            :class="[
+              themeClasses.card,
+              themeClasses.cardHover,
+              tempSettings.wallpaperStyle === style.id ? 'ring-2 ring-blue-500' : ''
+            ]"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div
+                  class="w-12 h-8 rounded border-2 border-gray-300"
+                  :style="{ 
+                    backgroundImage: style.preview,
+                    backgroundSize: style.size,
+                    backgroundRepeat: style.repeat,
+                    backgroundPosition: style.position
+                  }"
+                ></div>
+                <div>
+                  <h3 class="font-medium">{{ style.name }}</h3>
+                  <p class="text-sm" :class="themeClasses.textSecondary">
+                    {{ style.description }}
+                  </p>
+                </div>
+              </div>
+              <svg v-if="tempSettings.wallpaperStyle === style.id" class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M20.285 2l-11.285 11.567-5.286-5.011-3.714 3.716 9 8.728 15-15.285z"/>
+              </svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      
+      <div v-else-if="currentSection.id === 'animation-speed'" class="flex-1 overflow-y-auto p-4 scrollbar-hide">
+        <div class="space-y-4 mt-4">
+          <div
+            v-for="speed in availableAnimationSpeeds"
+            :key="speed.id"
+            @click="updateAnimationSpeed(speed.id)"
+            class="rounded-xl p-4 cursor-pointer transition-colors"
+            :class="[
+              themeClasses.card,
+              themeClasses.cardHover,
+              tempSettings.animationSpeed === speed.id ? 'ring-2 ring-blue-500' : ''
+            ]"
+          >
+            <div class="flex items-center justify-between">
+              <div class="flex items-center space-x-3">
+                <div class="relative w-12 h-8 bg-gray-200 rounded overflow-hidden">
+                  <div
+                    class="absolute top-0 left-0 h-full bg-blue-500 rounded animate-pulse"
+                    :style="{ 
+                      width: '30%',
+                      animationDuration: speed.duration + 's'
+                    }"
+                  ></div>
+                </div>
+                <div>
+                  <h3 class="font-medium">{{ speed.name }}</h3>
+                  <p class="text-sm" :class="themeClasses.textSecondary">
+                    {{ speed.description }}
+                  </p>
+                </div>
+              </div>
+              <svg v-if="tempSettings.animationSpeed === speed.id" class="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
                 <path d="M20.285 2l-11.285 11.567-5.286-5.011-3.714 3.716 9 8.728 15-15.285z"/>
               </svg>
             </div>

@@ -178,81 +178,12 @@ function addMoney(playerID, amount, account)
 end
 
 
-function GetPlayerVehicles(playerID)
-    if not Config.Garage.enabled then
-        return {}
+function giveVehicleKeys(vehicle, plate)
+    if not Config.Garage.useKeys then
+        return
     end
-
-    local identifier
-    if Config.Framework == 'esx' then
-        local xPlayer = ESX.GetPlayerFromId(playerID)
-        if xPlayer then identifier = xPlayer.identifier end
-    elseif Config.Framework == 'qb' or Config.Framework == 'qbox' then
-        local Player = QBCore.Functions.GetPlayer(playerID)
-        if Player then identifier = Player.PlayerData.citizenid end
+    
+    if Config.Garage.giveKeysEvent and Config.Garage.giveKeysEvent ~= "" then
+        TriggerEvent(Config.Garage.giveKeysEvent, plate or GetVehicleNumberPlateText(vehicle))
     end
-    if not identifier then return {} end
-
-    local vehicles = {}
-
-    if Config.Framework == 'esx' then
-        local tableName = Config.Garage.vehicleTable or 'owned_vehicles'
-        local query = ('SELECT plate, vehicle, parking FROM %s WHERE owner = @identifier'):format(tableName)
-        local rows = SqlFunc(Config.Mysql, 'fetchAll', query, { ['@identifier'] = identifier })
-        if rows and type(rows) == 'table' then
-            for i = 1, #rows do
-                local row = rows[i]
-                local vehicleData = {}
-                if row.vehicle and type(row.vehicle) == 'string' then
-                    local ok, parsed = pcall(json.decode, row.vehicle)
-                    if ok and parsed then vehicleData = parsed end
-                elseif type(row.vehicle) == 'table' then
-                    vehicleData = row.vehicle
-                end
-
-                local plate = row.plate or row.Plate or 'UNKNOWN'
-                local label = tostring(vehicleData.model or vehicleData.name or vehicleData.displayName or plate)
-                local parking = row.parking or row.location or 'Unknown'
-                local fuel = math.floor(vehicleData.fuelLevel or vehicleData.fuel or 0)
-
-                table.insert(vehicles, {
-                    plate = plate,
-                    label = label,
-                    location = parking,
-                    fuel = fuel
-                })
-            end
-        end
-
-    elseif Config.Framework == 'qb' or Config.Framework == 'qbox' then
-        local tableName = Config.Garage.vehicleTable or 'player_vehicles'
-        local query = ('SELECT plate, vehicle, parking FROM %s WHERE citizenid = @identifier'):format(tableName)
-        local rows = SqlFunc(Config.Mysql, 'fetchAll', query, { ['@identifier'] = identifier })
-        if rows and type(rows) == 'table' then
-            for i = 1, #rows do
-                local row = rows[i]
-                local vehicleData = {}
-                if row.vehicle and type(row.vehicle) == 'string' then
-                    local ok, parsed = pcall(json.decode, row.vehicle)
-                    if ok and parsed then vehicleData = parsed end
-                elseif type(row.vehicle) == 'table' then
-                    vehicleData = row.vehicle
-                end
-
-                local plate = row.plate or row.Plate or 'UNKNOWN'
-                local label = tostring(vehicleData.model or vehicleData.name or vehicleData.displayName or plate)
-                local parking = row.parking or row.location or 'Unknown'
-                local fuel = math.floor(vehicleData.fuelLevel or vehicleData.fuel or 0)
-
-                table.insert(vehicles, {
-                    plate = plate,
-                    label = label,
-                    location = parking,
-                    fuel = fuel
-                })
-            end
-        end
-    end
-
-    return vehicles
 end

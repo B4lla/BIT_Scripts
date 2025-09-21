@@ -7,11 +7,18 @@ local chargingProgress = 0
 
 
 Citizen.CreateThread(function()
-    if not Config.ChargingStations.enabled then return end
+    if not Config.ChargingStations.enabled then 
+        DebugPrint("CHARGING", "Charging stations disabled in config")
+        return 
+    end
     
     Wait(2000)
     
+    DebugPrint("CHARGING", "Creating charging stations", {count = #Config.ChargingStations.stations})
+    
     for k, station in pairs(Config.ChargingStations.stations) do
+        DebugPrint("CHARGING", "Creating station", {id = station.id, label = station.label, coords = station.coords})
+        
         if Config.ChargingStations.blipSettings.enabled then
             local blip = AddBlipForCoord(station.coords.x, station.coords.y, station.coords.z)
             SetBlipSprite(blip, Config.ChargingStations.blipSettings.sprite)
@@ -67,9 +74,9 @@ Citizen.CreateThread(function()
 
         if nearStation and not isChargingPhone then
             if Config.ChargingStations.interactionType == "drawtext" then
-                local costText = nearStation.free and "Gratis" or "$" .. nearStation.cost
+                local costText = nearStation.free and "Free" or "$" .. nearStation.cost
                 DrawText3D(nearStation.coords.x, nearStation.coords.y, nearStation.coords.z + 1.2, 
-                    "[~g~E~w~] " .. nearStation.label .. "\n~y~Costo: " .. costText)
+                    "[~g~E~w~] " .. nearStation.label .. "\n~y~Price: " .. costText)
                 
                 if IsControlJustPressed(0, 38) then -- E
                     StartCharging(nearStation)
@@ -81,7 +88,15 @@ Citizen.CreateThread(function()
             local chargingDistance = #(playerCoords - currentCharging.coords)
             
             if chargingDistance > Config.ChargingStations.charging.maxDistance then
-                StopCharging("Te alejaste demasiado de la estación de carga")
+                StopCharging("No near charging station")
+            end
+
+            if Config.ChargingStations.interactionType == "drawtext" then
+                DrawText3D(currentCharging.coords.x, currentCharging.coords.y, currentCharging.coords.z + 1.25,
+                    "[~r~E~w~] Detener carga\n~g~Progreso: " .. math.floor(chargingProgress) .. "%")
+                if IsControlJustPressed(0, 38) then -- E
+                    StopCharging("Carga detenida por el usuario")
+                end
             end
         end
         
@@ -105,37 +120,66 @@ Citizen.CreateThread(function()
             chargingProgress = chargingProgress + (100 / (Config.ChargingStations.charging.chargingTime / 1000))
 
             if newBatteryLevel >= 100 then
-                StopCharging("¡Carga completa!")
+                StopCharging("¡Charging complete!")
             end
 
             SendNUIMessage({
                 action = "updateBattery",
                 battery = newBatteryLevel,
-                charging = true
+                charging = true,
+                chargingProgress = chargingProgress
             })
         end
     end
 end)
 
 function StartCharging(station)
-    if isChargingPhone then return end
+    DebugPrint("CHARGING", "Attempting to start charging", {station_id = station.id, label = station.label, is_free = station.free, cost = station.cost})
+    
+    if isChargingPhone then 
+        DebugPrint("CHARGING", "Already charging, ignoring request")
+        return 
+    end
 
     if not station.free then
         local hasEnough = false
-        if Config.Framework == "esx" then
-            hasEnough = ESX.GetPlayerData().money >= station.cost
-        elseif Config.Framework == "qb" then
-            hasEnough = QBCore.Functions.GetPlayerData().money.cash >= station.cost
+        if Config.Framework == "esx" and ESX then
+            local playerData = ESX.GetPlayerData()
+            if playerData then
+                local cash = playerData.money or 0
+                local bank = 0
+                if playerData.accounts then
+                    for i=1, #playerData.accounts do
+                        if playerData.accounts[i].name == 'bank' then
+                            bank = playerData.accounts[i].money
+                            break
+                        end
+                    end
+                end
+                hasEnough = (cash >= station.cost) or (bank >= station.cost)
+            end
+        elseif Config.Framework == "qb" and QBCore then
+            local playerData = QBCore.Functions.GetPlayerData()
+            if playerData and playerData.money then
+                hasEnough = (playerData.money.cash >= station.cost) or (playerData.money.bank >= station.cost)
+            end
         end
         
         if not hasEnough then
-            PhoneNotify('charging.notEnoughMoney', {cost = station.cost}, 'system')
+            if Config.Notifications == 'codem' then
+                exports['codem-notification']:SendNotification("Sistema", "No tienes suficiente dinero ($" .. station.cost .. ")", "error", 3000)
+            else
+                TriggerEvent('esx:showNotification', "No tienes suficiente dinero ($" .. station.cost .. ")", "error")
+            end
             return
         end
 
+        print("[CHARGING] Enviando pago al servidor: $" .. station.cost)
         TriggerServerEvent('bit-smartphone:server:payCharging', station.cost)
+    else
+        print("[CHARGING] Estación gratuita, sin pago requerido")
     end
-    
+
     isChargingPhone = true
     currentCharging = station
     chargingProgress = 0
@@ -150,9 +194,15 @@ function StartCharging(station)
     
     TaskPlayAnim(playerPed, "amb@prop_human_atm@male@idle_a", "idle_b", 8.0, -8.0, -1, 1, 0, false, false, false)
     
-    PhoneNotify('charging.chargingStarted', {}, 'system')
+    if Config.Notifications == 'codem' then
+        exports['codem-notification']:SendNotification("Sistema", "Carga iniciada en " .. station.label, "success", 3000)
+    else
+        TriggerEvent('esx:showNotification', "Carga iniciada en " .. station.label, "success")
+    end
 
     PlaySoundFrontend(-1, "PHONE_GENERIC_KEY_TONE", "HUD_FRONTEND_DEFAULT_SOUNDSET", false)
+
+    SendNUIMessage({ action = "chargingStarted", data = { stationId = station.id } })
 end
 
 function StopCharging(reason)
@@ -170,15 +220,13 @@ function StopCharging(reason)
     end
     
     if reason then
-        PhoneNotify('charging.chargingStopped', {reason = reason}, 'system')
+        PhoneNotify('charging.chargingStopped', {reason}, 'system')
     end
     
     currentCharging = nil
 
-    SendNUIMessage({
-        action = "updateBattery",
-        charging = false
-    })
+    SendNUIMessage({ action = "updateBattery", data = { charging = false } })
+    SendNUIMessage({ action = "chargingStopped", data = { reason = reason or "" } })
 
     PlaySoundFrontend(-1, "PHONE_GENERIC_KEY_TONE", "HUD_FRONTEND_DEFAULT_SOUNDSET", false)
 end
@@ -210,10 +258,10 @@ function DrawText3D(x, y, z, text)
     
     SetTextScale(0.35, 0.35)
     SetTextFont(4)
-    SetTextProportional(1)
+    SetTextProportional(true)
     SetTextColour(255, 255, 255, 215)
     SetTextEntry("STRING")
-    SetTextCentre(1)
+    SetTextCentre(true)
     AddTextComponentString(text)
     DrawText(_x, _y)
     
@@ -283,4 +331,12 @@ AddEventHandler('onResourceStop', function(resourceName)
     if chargingCableEntity and DoesEntityExist(chargingCableEntity) then
         DeleteEntity(chargingCableEntity)
     end
+end)
+
+exports('IsPhoneCharging', function()
+    return isChargingPhone
+end)
+
+exports('GetChargingProgress', function()
+    return chargingProgress
 end)

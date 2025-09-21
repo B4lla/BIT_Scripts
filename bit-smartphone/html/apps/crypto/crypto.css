@@ -1,5 +1,7 @@
 .crypto-app {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  height: 100%;
+  overflow: hidden;
 }
 
 
@@ -240,4 +242,22 @@
 
 .crypto-scrollbar::-webkit-scrollbar-thumb:hover {
   background: rgba(59, 130, 246, 0.5);
+}
+
+.crypto-main-container {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-height: 0; 
+}
+
+.crypto-content-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  height: 0;
+  min-height: 0; 
+  scroll-behavior: smooth; 
+  -webkit-overflow-scrolling: touch;
 }

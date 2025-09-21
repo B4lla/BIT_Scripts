@@ -24,7 +24,146 @@ const BitLove = {
     const cameraMode = ref('front');
     const cameraPreviewUrl = ref('');
     const capturedPhoto = ref('');
+    const capturedPhotoId = ref('');
     const isTakingPhoto = ref(false);
+
+    const handleNuiMessage = (event) => {
+      const payload = (event && event.data) || {};
+      const action = payload.action;
+      const data = payload;
+      switch (action) {
+        case 'bitlove:newMessage':
+          if (data.matchId === currentChatId.value) {
+            messages.value.push(data.message);
+            nextTick(() => scrollToBottom());
+          }
+          loadMatches();
+          break;
+        case 'bitlove:newMatch':
+          matchedProfile.value = data.profile;
+          showMatchOverlay.value = true;
+          loadMatches();
+          break;
+        case 'bitlove:profileUpdated':
+          myProfile.value = data.profile;
+          break;
+        case 'bitlove:profilesLoaded':
+          profiles.value = data.profiles || [];
+          profileQueue.value = profiles.value;
+          currentProfileIndex.value = 0;
+          loading.value = false;
+          break;
+        case 'bitlove:profileLoaded':
+          if (data.success && data.profile) {
+            console.log('[BitLove] Profile loaded:', data.profile);
+            try {
+              if (typeof data.profile.photos === 'string') {
+                const parsed = JSON.parse(data.profile.photos);
+                if (Array.isArray(parsed)) data.profile.photos = parsed;
+              }
+            } catch (e) {
+              console.warn('[BitLove] No se pudo parsear photos en NUI:', e);
+            }
+            console.log('[BitLove] Photos array:', data.profile.photos);
+            myProfile.value = data.profile;
+            Object.assign(profileForm, data.profile);
+            const empty = (!data.profile.name || data.profile.name === '') && (!data.profile.bio || data.profile.bio === '') && (!data.profile.age || data.profile.age == '');
+            showProfileEditor.value = empty;
+            loadMyPhotos();
+            loadProfiles();
+          } else {
+            console.log('[BitLove] Profile loading failed or no profile data');
+            showProfileEditor.value = true;
+          }
+          break;
+        case 'bitlove:myPhotosLoaded':
+          if (data.success) {
+            const existing = Array.isArray(myProfile.value?.photos) ? myProfile.value.photos.slice() : [];
+            const incoming = Array.isArray(data.photos) ? data.photos : [];
+            const seen = new Set(existing);
+            for (const url of incoming) {
+              if (typeof url === 'string' && url && !seen.has(url)) {
+                existing.unshift(url);
+                seen.add(url);
+              }
+            }
+            myProfile.value.photos = existing.slice(0, 30);
+          }
+          break;
+        case 'bitlove:profileSaved':
+          if (data.success) {
+            loadProfile();
+            showNotification('Perfil guardado', 'success');
+          }
+          break;
+        case 'bitlove:photoSaved':
+          if (data.success) {
+            sendInternalNotification('bitlove.camera.photoSaved', {}, 'system');
+            capturedPhoto.value = '';
+            capturedPhotoId.value = '';
+            if (showCameraModal.value) closeCameraModal();
+            loadProfile();
+          } else {
+            sendInternalNotification('bitlove.camera.photoError', { error: data.error || 'Error al guardar' }, 'system');
+          }
+          break;
+        case 'bitlove:matchesLoaded':
+          if (data.success) {
+            matches.value = data.matches || [];
+          }
+          break;
+        case 'bitlove:messagesLoaded':
+          if (data.success) {
+            messages.value = data.messages || [];
+            nextTick(() => scrollToBottom());
+          }
+          break;
+        case 'bitlove:swipeResult':
+          if (data.success && data.match) {
+            matchedProfile.value = currentProfileData.value;
+            showMatchOverlay.value = true;
+            loadMatches();
+          }
+          break;
+        case 'bitlove:profileCreated':
+          if (data.success) {
+            loadProfile();
+            showNotification('Perfil creado exitosamente');
+          }
+          break;
+        case 'bitlove:photoTaken':
+          if (data.success) {
+            const url = data.photoUrl || (data.photo && data.photo.url) || (data.photos && data.photos[0]) || '';
+            if (url) capturedPhoto.value = url;
+            if (data.photoId) capturedPhotoId.value = data.photoId;
+            sendInternalNotification('bitlove.photoTaken', {}, 'system');
+          } else {
+            sendInternalNotification('bitlove.photoError', { error: data.error }, 'system');
+          }
+          break;
+        case 'bitlove:messageReceived':
+          if (data.matchId === currentChatId.value) {
+            messages.value.push(data.message);
+            nextTick(() => scrollToBottom());
+          }
+          break;
+        default:
+          break;
+      }
+    };
+
+    onMounted(async () => {
+      try {
+        if (window.__bitloveMessageHandler) {
+          window.removeEventListener('message', window.__bitloveMessageHandler);
+        }
+        window.__bitloveMessageHandler = handleNuiMessage;
+        window.addEventListener('message', handleNuiMessage);
+      } catch (e) {
+        console.error('[BitLove] Error registrando listener NUI', e);
+      }
+      await loadProfile();
+    });
     
     const profiles = ref([]);
     const matches = ref([]);
@@ -104,13 +243,32 @@ const BitLove = {
     
     const loadProfile = async () => {
       try {
-        if (window.invokeNative) {
-          window.invokeNative('sendNuiMessage', JSON.stringify({ action: 'bitlove:getProfile' }));
-        }
+        console.log('[BitLove] Loading profile...');
+        await fetch('https://bit-smartphone/bitlove:getProfile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        }).catch(() => {});
       } catch (error) {
+        console.error('[BitLove] Error loading profile:', error);
       }
     };
 
+    const loadMyPhotos = async () => {
+      try {
+        await fetch('https://bit-smartphone/bitlove:getMyPhotos', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        }).catch(() => {});
+      } catch (e) {
+        console.warn('[BitLove] Error requesting my photos:', e);
+      }
+    };
+
+    const lastPhotoTime = ref(0);
+    const PHOTO_COOLDOWN = 5000;
+    
     const takePhoto = async () => {
       try {
         if (!isFiveMEnvironment()) {
@@ -118,46 +276,80 @@ const BitLove = {
           showCameraModal.value = false;
           return;
         }
-        
+
+        const now = Date.now();
+        if (now - lastPhotoTime.value < PHOTO_COOLDOWN) {
+          sendInternalNotification('bitlove.camera.cooldown', {
+            remainingTime: Math.ceil((PHOTO_COOLDOWN - (now - lastPhotoTime.value)) / 1000)
+          }, 'system');
+          return;
+        }
+
         isTakingPhoto.value = true;
-        
+        lastPhotoTime.value = now;
+
         const wasActive = cameraActive.value;
         cameraActive.value = false;
-        
-        const response = await fetch('https://bit-smartphone/bitlove:takePhoto', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            type: 'bitlove_profile',
-            metadata: { 
-              profileId: myProfile.value?.id || 'unknown',
-              timestamp: Date.now(),
-              cameraMode: cameraMode.value
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        try {
+          const response = await fetch('https://bit-smartphone/bitlove:takePhoto', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              photoType: 'profile',
+              metadata: {
+                profileId: myProfile.value?.id || 'unknown',
+                timestamp: now,
+                cameraMode: cameraMode.value
+              }
+            }),
+            signal: controller.signal
+          });
+
+          clearTimeout(timeoutId);
+
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.photoUrl) {
+              if (result.photoUrl.length > 2000) {
+                throw new Error('URL de foto demasiado larga');
+              }
+              capturedPhoto.value = result.photoUrl;
+              if (result.photoId) capturedPhotoId.value = result.photoId;
+              isTakingPhoto.value = false;
+              sendInternalNotification('bitlove.camera.photoTaken', {}, 'system');
+            } else {
+              throw new Error(result.error || 'Error desconocido al tomar foto');
             }
-          })
-        });
-        
-        if (response.ok) {
-          const result = await response.json();
-          
-          if (result.success && result.photoUrl) {
-            capturedPhoto.value = result.photoUrl;
-            isTakingPhoto.value = false;
-            sendInternalNotification('bitlove.camera.photoTaken', {}, 'system');
           } else {
-            isTakingPhoto.value = false;
-            cameraActive.value = wasActive;
-            sendInternalNotification('bitlove.camera.photoError', {error: result.error || 'Error desconocido'}, 'system');
+            throw new Error(`Error HTTP: ${response.status}`);
           }
-        } else {
-          isTakingPhoto.value = false;
-          cameraActive.value = wasActive;
-          sendInternalNotification('bitlove.camera.photoError', {error: 'Error de conexión'}, 'system');
+        } catch (fetchError) {
+          clearTimeout(timeoutId);
+          if (fetchError.name === 'AbortError') {
+            throw new Error('Timeout: La foto tardó demasiado en procesarse');
+          } else {
+            throw fetchError;
+          }
         }
       } catch (error) {
+        console.error('[BitLove] Error taking photo:', error);
         isTakingPhoto.value = false;
-        cameraActive.value = true;
-        sendInternalNotification('bitlove.camera.photoError', {error: error.message}, 'system');
+        const wasActive = cameraActive.value; 
+        cameraActive.value = wasActive;
+
+        let errorMessage = 'Error al tomar la foto';
+        if (error.message && error.message.includes('Timeout')) {
+          errorMessage = 'La foto tardó demasiado en procesarse. Intenta de nuevo.';
+        } else if (error.message && error.message.includes('demasiado larga')) {
+          errorMessage = 'Error: foto demasiado grande';
+        } else if (error.message && error.message.includes('HTTP')) {
+          errorMessage = 'Error de conexión con el servidor';
+        }
+        sendInternalNotification('bitlove.camera.photoError', { error: errorMessage }, 'system');
       }
     };
 
@@ -223,39 +415,29 @@ const BitLove = {
 
     const savePhoto = async () => {
       try {
-        stopCameraPreview();
-        
-        const response = await fetch('https://bit-smartphone/bitlove:capturePhoto', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            photoType: 'bitlove_profile',
-            metadata: {
-              profileId: myProfile.value?.id || 'unknown',
-              cameraMode: cameraMode.value,
-              timestamp: Date.now()
-            }
-          })
-        });
-        
-        
-        
-        if (response.ok) {
-          const result = await response.json();
-          
-          
-          if (result && result.success) {
-            
-            sendInternalNotification('bitlove.camera.photoSaved', {}, 'system');
-            closeCameraModal();
-            await loadProfile();
-          } else {
-            
-            sendInternalNotification('bitlove.camera.photoError', {error: result?.error || 'Error al capturar'}, 'system');
+        if (!capturedPhoto.value) {
+          sendInternalNotification('bitlove.camera.noPhoto', {}, 'system');
+          return;
+        }
+
+        const savingNotificationKey = 'bitlove.camera.saving';
+        sendInternalNotification('bitlove.photoProcessing', {}, 'system');
+
+        try {
+          await processPhotoForBitLove(capturedPhoto.value, capturedPhotoId.value || undefined);
+          sendInternalNotification('bitlove.camera.photoSaved', {}, 'system');
+
+          if (myProfile.value) {
+            if (!myProfile.value.photos) myProfile.value.photos = [];
+            myProfile.value.photos.unshift(capturedPhoto.value);
+            if (myProfile.value.photos.length > 6) myProfile.value.photos = myProfile.value.photos.slice(0, 6);
           }
-        } else {
-          
-          sendInternalNotification('bitlove.camera.photoError', {error: 'Error de comunicación'}, 'system');
+
+          closeCameraModal();
+          await loadProfile();
+        } catch (err) {
+          console.error('[BitLove] Error saving photo to server:', err);
+          sendInternalNotification('bitlove.camera.photoError', { error: err.message || 'Error al guardar' }, 'system');
         }
       } catch (error) {
         console.error('[BitLove] Error saving photo:', error);
@@ -283,8 +465,14 @@ const BitLove = {
         if (!response.ok) {
           throw new Error('Error al guardar la foto en el perfil');
         }
-        
-        return await response.json();
+
+        try {
+          const json = await response.json();
+          return json;
+        } catch (e) {
+          const text = await response.text().catch(() => null);
+          return { ok: true, text };
+        }
       } catch (error) {
         console.error('Error processing photo for BitLove:', error);
         throw error;
@@ -325,17 +513,29 @@ const BitLove = {
       if (cameraActive.value) {
         stopCamera();
       }
+      if (window.__bitloveMessageHandler) {
+        window.removeEventListener('message', window.__bitloveMessageHandler);
+        window.__bitloveMessageHandler = null;
+      }
     });
 
     const updateProfile = async () => {
       try {
-        if (window.invokeNative) {
-          window.invokeNative('sendNuiMessage', JSON.stringify({ 
-            action: 'bitlove:saveProfile',
-            profile: myProfile.value
-          }));
-        }
+        const payload = {
+          name: myProfile.value?.name || '',
+          age: myProfile.value?.age || 18,
+          bio: myProfile.value?.bio || '',
+          photos: myProfile.value?.photos || []
+        };
+        const likelyExists = !!(myProfile.value && (myProfile.value.id || myProfile.value.identifier || myProfile.value.created_at));
+        const endpoint = likelyExists ? 'bitlove:saveProfile' : 'bitlove:createProfile';
+        await fetch(`https://bit-smartphone/${endpoint}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(() => {});
       } catch (error) {
+        console.error('[BitLove] Error updating profile:', error);
       }
     };
 
@@ -364,7 +564,7 @@ const BitLove = {
       if (!profile || loading.value) return;
 
       
-      swipeAnimation.value = action === 'like' ? 'swipe-right' : 'swipe-left';
+      swipeAnimation.value = action === 'like' ? 'like' : 'nope';
       
       if (isSuperLike && stats.value.superLikesLeft <= 0) {
         showNotification('Sin Super Likes disponibles', 'error');
@@ -375,7 +575,7 @@ const BitLove = {
         if (window.invokeNative) {
           window.invokeNative('sendNuiMessage', JSON.stringify({
             action: 'bitlove:swipeProfile',
-            targetId: profile.id,
+            targetIdentifier: profile.identifier || profile.id,
             action: action,
             isSuperLike: isSuperLike
           }));
@@ -589,7 +789,15 @@ const BitLove = {
       setTimeout(() => {
         notification.classList.add('translate-x-full');
         setTimeout(() => {
-          document.body.removeChild(notification);
+          try {
+            if (notification && notification.parentNode) {
+              notification.parentNode.removeChild(notification);
+            } else if (notification && document.body.contains(notification)) {
+              document.body.removeChild(notification);
+            }
+          } catch (e) {
+            console.error('[bitlove] remove notification failed', e);
+          }
         }, 300);
       }, 3000);
     };
@@ -664,131 +872,7 @@ const BitLove = {
       emit('close');
     };
 
-    
-    onMounted(async () => {
-      await loadProfile();
-      
-      if (myProfile.value) {
-        await loadProfiles();
-      } else {
-        showProfileEditor.value = true;
-      }
-      
-      
-      window.addEventListener('message', (event) => {
-        const { action, data } = event.data;
-        
-        switch (action) {
-          case 'bitlove:newMessage':
-            if (data.matchId === currentChatId.value) {
-              messages.value.push(data.message);
-              nextTick(() => scrollToBottom());
-            }
-            
-            loadMatches();
-            break;
-            
-          case 'bitlove:newMatch':
-            matchedProfile.value = data.profile;
-            showMatchOverlay.value = true;
-            loadMatches();
-            break;
-            
-          case 'bitlove:profileUpdated':
-            myProfile.value = data.profile;
-            break;
-            
-          case 'bitlove:profilesLoaded':
-            profileQueue.value = data.profiles || [];
-            currentProfileIndex.value = 0;
-            loading.value = false;
-            break;
-            
-          case 'bitlove:profileLoaded':
-            if (data.success && data.profile) {
-              myProfile.value = data.profile;
-              Object.assign(profileForm, data.profile);
-            }
-            break;
-            
-          case 'bitlove:profileSaved':
-            if (data.success) {
-            }
-            break;
-            
-          case 'bitlove:photoSaved':
-            if (data.success) {
-              sendInternalNotification('bitlove.camera.photoSaved', {}, 'system');
-              loadProfile(); 
-            } else {
-              sendInternalNotification('bitlove.camera.photoError', {error: data.error || 'Error al guardar'}, 'system');
-            }
-            break;
-            
-          case 'bitlove:matchesLoaded':
-            if (data.success) {
-              matches.value = data.matches || [];
-            }
-            break;
-            
-          case 'bitlove:messagesLoaded':
-            if (data.success) {
-              messages.value = data.messages || [];
-              nextTick(() => scrollToBottom());
-            }
-            break;
-            
-          case 'bitlove:swipeResult':
-            if (data.success && data.match) {
-              matchedProfile.value = currentProfileData.value;
-              showMatchOverlay.value = true;
-              loadMatches();
-            }
-            break;
-            
-          case 'bitlove:profileCreated':
-            if (data.success) {
-              myProfile.value = data.profile;
-              showNotification('Perfil creado exitosamente');
-            }
-            break;
-            
-          case 'bitlove:photoSaved':
-            if (data.success) {
-              showNotification('Foto guardada correctamente', 'success');
-              loadProfile();
-            } else {
-              showNotification('Error al guardar la foto', 'error');
-            }
-            break;
-            
-          case 'bitlove:photoTaken':
-            if (data.success) {
-              showCameraModal.value = false;
-              
-              if (myProfile.value && data.photos) {
-                myProfile.value.photos = data.photos;
-              }
-              
-              sendInternalNotification('bitlove.photoSaved', {}, 'system');
-              
-              loadProfile();
-            } else {
-              sendInternalNotification('bitlove.photoError', {error: data.error}, 'system');
-            }
-            break;
-            
-          case 'bitlove:messageReceived':
-            if (data.matchId === currentChatId.value) {
-              messages.value.push(data.message);
-              nextTick(() => scrollToBottom());
-            }
-            break;
-        }
-      });
-    });
-
-    
+   
     onUnmounted(() => {
       isComponentMounted.value = false;
     });
@@ -951,24 +1035,26 @@ const BitLove = {
                 Mis Fotos
               </h3>
               
-              <div class="grid grid-cols-3 gap-3 mb-4">
-                <div v-for="(photo, index) in myProfile?.photos || []" :key="index"
-                     class="relative aspect-square bg-gray-200 rounded-xl overflow-hidden">
-                  <img :src="photo" :alt="'Foto ' + (index + 1)" class="w-full h-full object-cover">
-                  <button @click="removePhoto(index)" 
-                          class="absolute top-1 right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">
-                    ×
+              <div class="mb-4 overflow-x-auto">
+                <div class="flex items-center space-x-3 snap-x snap-mandatory pr-2">
+                  <div v-for="(photo, index) in myProfile?.photos || []" :key="index"
+                       class="relative w-24 h-24 min-w-[6rem] rounded-xl overflow-hidden bg-gray-200 snap-start">
+                    <img :src="typeof photo === 'string' ? photo : (photo && photo.url)" 
+                         :alt="'Foto ' + (index + 1)" class="w-full h-full object-cover">
+                    <button @click="removePhoto(index)" 
+                            class="absolute top-1 right-1 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs">
+                      ×
+                    </button>
+                  </div>
+                  
+                  <button @click="showCameraModal = true; startCamera()" 
+                          class="w-24 h-24 min-w-[6rem] rounded-xl flex flex-col items-center justify-center text-white/70 hover:bg-white/30 transition-all duration-300 border-2 border-dashed border-white/30 bg-white/20">
+                    <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span class="text-xs">Agregar</span>
                   </button>
                 </div>
-                
-                
-                <button @click="showCameraModal = true; startCamera()" 
-                        class="aspect-square bg-white/20 rounded-xl flex flex-col items-center justify-center text-white/70 hover:bg-white/30 transition-all duration-300 border-2 border-dashed border-white/30">
-                  <svg class="w-8 h-8 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                  </svg>
-                  <span class="text-xs">Agregar</span>
-                </button>
               </div>
             </div>
             

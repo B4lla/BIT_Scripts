@@ -64,12 +64,13 @@ const Music = {
         else localState.volume.value = v;
       }
     });
-    const currentTime = computed({
-      get: () => props.musicState ? (props.musicState.track?.currentTime || 0) : localState.currentTime.value,
-      set: v => {
-        if (props.musicState) emit('set-music-progress', v);
-        else localState.currentTime.value = v;
+    const currentTime = computed(() => {
+      if (props.musicState) {
+        const progressPercent = props.musicState.progress || 0;
+        const duration = props.musicState.duration || 0;
+        return (progressPercent / 100) * duration;
       }
+      return localState.currentTime.value;
     });
 
     
@@ -107,33 +108,148 @@ const Music = {
     });
 
     const extractYouTubeVideoId = (url) => {
-      const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-      const match = url.match(regExp);
-      return (match && match[2].length === 11) ? match[2] : null;
+      if (!url || typeof url !== 'string') return null;
+      
+      url = url.trim();
+      
+      const patterns = [
+        /(?:https?:\/\/)?(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/|youtube\.com\/v\/|youtube\.com\/watch\?.*&v=)([a-zA-Z0-9_-]{11})/,
+        /^([a-zA-Z0-9_-]{11})$/ 
+      ];
+      
+      for (const pattern of patterns) {
+        const match = url.match(pattern);
+        if (match && match[1] && match[1].length === 11) {
+          return match[1];
+        }
+      }
+      
+      return null;
     };
 
     const fetchYouTubeInfo = async (videoId) => {
       try {
         const youTubeUrl = `https://www.youtube.com/watch?v=${videoId}`;
-        const response = await fetch(
-          `https://noembed.com/embed?url=${encodeURIComponent(youTubeUrl)}`
-        );
-        const data = await response.json();
-        if (data.error) throw new Error(data.error);
+        
+        let data = null;
+        
+        try {
+          const noembedUrl = `https://noembed.com/embed?url=${encodeURIComponent(youTubeUrl)}`;
+          const response = await fetch(noembedUrl);
+          if (response.ok) {
+            data = await response.json();
+            if (data.error) throw new Error(data.error);
+          }
+        } catch (e) {
+          console.warn('Noembed failed, trying direct approach:', e.message);
+        }
+        
+        if (!data || !data.title) {
+          try {
+            const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(youTubeUrl)}&format=json`;
+            const response = await fetch(oembedUrl);
+            if (response.ok) {
+              data = await response.json();
+            }
+          } catch (e) {
+            console.warn('YouTube oembed failed:', e.message);
+          }
+        }
+        
+        if (!data || !data.title) {
+          data = {
+            title: 'Canción de YouTube',
+            author_name: 'YouTube',
+            thumbnail_url: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`
+          };
+        }
+        
+        const title = data.title || 'Título desconocido';
+        let artist = data.author_name || 'Artista desconocido';
+        
+        if (title.includes(' - ') && !artist.includes(' - ')) {
+          const parts = title.split(' - ');
+          if (parts.length >= 2) {
+            artist = parts[0].trim();
+          }
+        }
+        
+        let coverImage = './assets/icons/music.png';
+        if (data.thumbnail_url) {
+          coverImage = data.thumbnail_url
+            .replace('hqdefault.jpg', 'maxresdefault.jpg')
+            .replace('mqdefault.jpg', 'maxresdefault.jpg')
+            .replace('default.jpg', 'maxresdefault.jpg');
+        } else if (videoId) {
+          coverImage = `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`;
+        }
+        
+        const validateImage = async (url) => {
+          try {
+            const response = await fetch(url, { method: 'HEAD' });
+            return response.ok;
+          } catch {
+            return false;
+          }
+        };
+        
+        if (videoId && !coverImage.includes('assets/icons')) {
+          try {
+            const isValid = await validateImage(coverImage);
+            if (!isValid) {
+              coverImage = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+            }
+          } catch {
+            coverImage = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+          }
+        }
+        
         return {
-          title: data.title || '',
-          artist: data.author_name || '',
-          duration: '', 
-          cover_image: data.thumbnail_url || './assets/cover.jpg',
+          title: title,
+          artist: artist,
+          duration: data.duration || extractDurationFromTitle(title) || '0:00', 
+          cover_image: coverImage,
           year: new Date().getFullYear(),
-          genre: '',
+          genre: detectGenreFromTitle(title),
           description: data.html || '',
-          viewCount: null
+          viewCount: null,
+          url: youTubeUrl
         };
       } catch (error) {
         console.error('Error fetching YouTube info:', error);
-        throw error;
+        return {
+          title: 'Canción de YouTube',
+          artist: 'YouTube',
+          duration: '0:00',
+          cover_image: `https://img.youtube.com/vi/${videoId}/maxresdefault.jpg`,
+          year: new Date().getFullYear(),
+          genre: 'YouTube',
+          description: '',
+          viewCount: null,
+          url: `https://www.youtube.com/watch?v=${videoId}`
+        };
       }
+    };
+
+    const extractDurationFromTitle = (title) => {
+      const durationMatch = title.match(/\((\d{1,2}:\d{2})\)|\[(\d{1,2}:\d{2})\]/);
+      if (durationMatch) {
+        return durationMatch[1] || durationMatch[2];
+      }
+      return ''; 
+    };
+
+    const detectGenreFromTitle = (title) => {
+      const lowerTitle = title.toLowerCase();
+      
+      if (lowerTitle.includes('remix') || lowerTitle.includes('mix')) return 'Electronic';
+      if (lowerTitle.includes('acoustic') || lowerTitle.includes('unplugged')) return 'Acoustic';
+      if (lowerTitle.includes('live') || lowerTitle.includes('concert')) return 'Live';
+      if (lowerTitle.includes('cover')) return 'Cover';
+      if (lowerTitle.includes('instrumental')) return 'Instrumental';
+      if (lowerTitle.includes('karaoke')) return 'Karaoke';
+      
+      return ''; 
     };
 
     const formatYouTubeDuration = (isoDuration) => {
@@ -150,11 +266,14 @@ const Music = {
     };
 
     const processYouTubeUrl = async () => {
-      if (!newSongData.value.youtubeUrl.trim()) return;
+      if (!newSongData.value.youtubeUrl.trim()) {
+        youtubeError.value = 'Por favor introduce una URL de YouTube';
+        return;
+      }
       
       const videoId = extractYouTubeVideoId(newSongData.value.youtubeUrl);
       if (!videoId) {
-        youtubeError.value = 'URL de YouTube inválida';
+        youtubeError.value = 'URL de YouTube inválida. Asegúrate de usar un enlace válido de YouTube.';
         return;
       }
 
@@ -170,10 +289,12 @@ const Music = {
         newSongData.value.cover_image = videoInfo.cover_image;
         newSongData.value.year = videoInfo.year;
         newSongData.value.genre = videoInfo.genre;
-        newSongData.value.file_url = `https://www.youtube.com/watch?v=${videoId}`;
+        newSongData.value.file_url = videoInfo.url;
+
         
       } catch (error) {
-        youtubeError.value = 'Error al obtener información del video';
+        console.error('Error processing YouTube URL:', error);
+        youtubeError.value = error.message || 'Error al obtener información del video. Verifica que el enlace sea válido y el video esté disponible.';
       } finally {
         isLoadingYouTube.value = false;
       }
@@ -189,14 +310,70 @@ const Music = {
     };
 
     const formatTime = (seconds) => {
+      if (!seconds || isNaN(seconds)) return '0:00';
       const hours = Math.floor(seconds / 3600);
       const mins = Math.floor((seconds % 3600) / 60);
-      const secs = seconds % 60;
+      const secs = Math.floor(seconds % 60);
       
       if (hours > 0) {
         return `${hours}:${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
       }
       return `${mins}:${secs.toString().padStart(2, '0')}`;
+    };
+
+    const timeToSeconds = (timeStr) => {
+      if (!timeStr || typeof timeStr !== 'string') return 0;
+      const parts = timeStr.split(':');
+      if (parts.length !== 2) return 0;
+      const mins = parseInt(parts[0]) || 0;
+      const secs = parseInt(parts[1]) || 0;
+      return mins * 60 + secs;
+    };
+
+    const ensureYouTubeContainer = () => {
+      let container = document.getElementById('bit-smartphone-youtube-player');
+      if (!container) {
+        container = document.createElement('div');
+        container.id = 'bit-smartphone-youtube-player';
+        container.style.display = 'none';
+        container.style.position = 'absolute';
+        container.style.top = '-1000px';
+        container.style.left = '-1000px';
+        document.body.appendChild(container);
+      }
+      return container;
+    };
+
+    const sanitizeMusicData = (data) => {
+      if (!data || typeof data !== 'object') return null;
+      
+      return {
+        title: String(data.title || 'Sin título'),
+        artist: String(data.artist || 'Artista desconocido'),
+        duration: data.duration || '0:00',
+        cover_image: String(data.cover_image || data.thumbnail_url || './assets/icons/music.png'),
+        thumbnail_url: String(data.thumbnail_url || data.cover_image || './assets/icons/music.png'),
+        file_url: String(data.file_url || ''),
+        progress: Math.max(0, Math.min(100, Number(data.progress) || 0)),
+        currentTime: Math.max(0, Number(data.currentTime) || 0),
+        isPlaying: Boolean(data.isPlaying),
+        volume: Math.max(0, Math.min(100, Number(data.volume) || 50))
+      };
+    };
+
+    const formatNumber = (num) => {
+      if (!num) return '';
+      
+      if (num >= 1000000000) {
+        return (num / 1000000000).toFixed(1) + 'B';
+      }
+      if (num >= 1000000) {
+        return (num / 1000000).toFixed(1) + 'M';
+      }
+      if (num >= 1000) {
+        return (num / 1000).toFixed(1) + 'K';
+      }
+      return num.toString();
     };
 
     const togglePlay = async () => {
@@ -231,6 +408,39 @@ const Music = {
       }
     };
 
+    const updateExistingSongInfo = async (song) => {
+      if (!song.file_url || !song.file_url.includes('youtube.com/watch')) return song;
+      
+      const videoId = extractYouTubeVideoId(song.file_url);
+      if (!videoId) return song;
+      
+      try {
+        const videoInfo = await fetchYouTubeInfo(videoId);
+        
+        const updatedSong = { ...song };
+        
+        if (!song.cover_image || song.cover_image === './assets/cover.jpg' || song.cover_image === './assets/icons/music.png') {
+          updatedSong.cover_image = videoInfo.cover_image;
+        }
+        
+        if (!song.genre || song.genre === '') {
+          updatedSong.genre = videoInfo.genre;
+        }
+        
+        if (song.artist === 'Artista desconocido' || !song.artist) {
+          updatedSong.artist = videoInfo.artist;
+        }
+        
+        if (!song.duration && videoInfo.duration) {
+          updatedSong.duration = videoInfo.duration;
+        }
+        
+        return updatedSong;
+      } catch (error) {
+        console.warn('Could not update song info for:', song.title, error.message);
+        return song;
+      }
+    };
     
     const loadMusicData = async () => {
       loading.value = true;
@@ -243,12 +453,46 @@ const Music = {
         const result = await response.json();
         
         if (result.success) {
-          songs.value = result.data.songs || [];
+          let loadedSongs = result.data.songs || [];
           playlists.value = result.data.playlists || [];
           favorites.value = result.data.favorites || [];
           recentlyPlayed.value = result.data.recentPlays || [];
           playlistSongs.value = result.data.playlistSongs || {};
           
+          if (loadedSongs.length > 0) {
+            const youtubeSongs = loadedSongs.filter(song => 
+              song.file_url && song.file_url.includes('youtube.com/watch') && 
+              (!song.cover_image || song.cover_image === './assets/cover.jpg' || !song.genre)
+            );
+            
+            if (youtubeSongs.length > 0) {
+
+              const batchSize = 3;
+              for (let i = 0; i < youtubeSongs.length; i += batchSize) {
+                const batch = youtubeSongs.slice(i, i + batchSize);
+                const promises = batch.map(song => updateExistingSongInfo(song));
+                
+                try {
+                  const updatedBatch = await Promise.all(promises);
+                  
+                  updatedBatch.forEach(updatedSong => {
+                    const index = loadedSongs.findIndex(s => s.id === updatedSong.id);
+                    if (index !== -1) {
+                      loadedSongs[index] = updatedSong;
+                    }
+                  });
+                  
+                  if (i + batchSize < youtubeSongs.length) {
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                  }
+                } catch (error) {
+                  console.warn('Error updating batch:', error);
+                }
+              }
+            }
+          }
+          
+          songs.value = loadedSongs;
           
           const colors = [
             "from-purple-500 via-pink-500 to-red-500",
@@ -361,6 +605,227 @@ const Music = {
       
       await playSong(songList[prevIndex]);
     };
+
+    let ytPlayer = null;
+    let ytVideoId = null;
+    let ytReady = false;
+
+    const loadYouTubeAPI = () => {
+      if (window.YT) return Promise.resolve();
+      return new Promise((resolve) => {
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.body.appendChild(tag);
+        window.onYouTubeIframeAPIReady = () => {
+          resolve();
+        };
+      });
+    };
+
+    const createYouTubePlayer = async (videoId, volume = 50) => {
+      await loadYouTubeAPI();
+      ytVideoId = videoId;
+      if (ytPlayer) {
+        ytPlayer.loadVideoById(videoId);
+        return;
+      }
+      const container = ensureYouTubeContainer();
+      if (!container) return;
+      ytPlayer = new YT.Player(container, {
+        height: '160',
+        width: '280',
+        videoId: videoId,
+        playerVars: { 'playsinline': 1, 'controls': 0 },
+        events: {
+          onReady: (e) => {
+            ytReady = true;
+            e.target.setVolume(volume);
+            sendYoutubeStateToClient();
+            
+            if (window.ytProgressInterval) {
+              clearInterval(window.ytProgressInterval);
+            }
+            window.ytProgressInterval = setInterval(() => {
+              if (ytPlayer && ytReady) {
+                sendYoutubeStateToClient();
+              }
+            }, 1000); 
+          },
+          onStateChange: (e) => {
+            sendYoutubeStateToClient();
+            
+            if (e.data === 0) {
+              window.SendNuiMessage(JSON.stringify({ type: 'musicYoutubeEnded' }));
+            } else if (e.data === 1) {
+
+            } else if (e.data === 2) {
+
+            }
+          },
+          onError: (e) => {
+            console.error('YouTube Player Error:', e);
+            youtubeError.value = 'Error en el reproductor de YouTube. Intenta con otro video.';
+          }
+        }
+      });
+    };
+
+    const sendYoutubeStateToClient = () => {
+      if (!ytPlayer || !ytReady) return;
+      try {
+        const state = ytPlayer.getPlayerState();
+        const isPlaying = state === 1;
+        const position = Math.floor(Number(ytPlayer.getCurrentTime()) || 0);
+        const duration = Math.floor(Number(ytPlayer.getDuration()) || 0);
+        const volume = Number(ytPlayer.getVolume()) / 100 || 0;
+        
+        const validPosition = isNaN(position) ? 0 : Math.max(0, position);
+        const validDuration = isNaN(duration) ? 0 : Math.max(0, duration);
+        const validVolume = isNaN(volume) ? 0 : Math.max(0, Math.min(1, volume));
+        
+        if (validDuration > 0) {
+          progress.value = (validPosition / validDuration) * 100;
+          currentTime.value = validPosition;
+          
+          if (currentSong.value) {
+            currentSong.value.duration = formatTime(validDuration);
+            currentSong.value.durationSeconds = validDuration;
+          }
+        }
+        
+        isPlaying.value = isPlaying;
+        
+        updateProgressUI(validPosition, validDuration);
+        
+        fetch('https://bit-smartphone/music:updateYoutubeState', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            isPlaying, 
+            position: validPosition, 
+            duration: validDuration, 
+            volume: validVolume 
+          })
+        });
+      } catch (error) {
+        console.error('Error sending YouTube state to client:', error);
+      }
+    };
+
+    const updateProgressUI = (position, duration) => {
+      if (duration > 0 && position >= 0) {
+      }
+    };
+
+    window.musicYoutubePlay = async (videoUrl, songData, volume) => {
+      const id = extractYouTubeVideoId(videoUrl);
+      if (!id) return;
+      await createYouTubePlayer(id, Math.floor((volume || 0.5) * 100));
+      if (ytPlayer && ytReady) {
+        ytPlayer.playVideo();
+      }
+      sendYoutubeStateToClient();
+    };
+
+    window.musicYoutubePause = () => {
+      try {
+        if (ytPlayer && ytReady && typeof ytPlayer.pauseVideo === 'function') {
+          ytPlayer.pauseVideo();
+        }
+        sendYoutubeStateToClient();
+      } catch (error) {
+        console.error('Error pausing YouTube player:', error);
+      }
+    };
+
+    window.musicYoutubeResume = () => {
+      try {
+        if (ytPlayer && ytReady && typeof ytPlayer.playVideo === 'function') {
+          ytPlayer.playVideo();
+        }
+        sendYoutubeStateToClient();
+      } catch (error) {
+        console.error('Error resuming YouTube player:', error);
+      }
+    };
+
+    window.musicYoutubeStop = () => {
+      if (window.ytProgressInterval) {
+        clearInterval(window.ytProgressInterval);
+        window.ytProgressInterval = null;
+      }
+      
+      if (ytPlayer) {
+        ytPlayer.stopVideo();
+        try { ytPlayer.destroy(); } catch (e) {}
+        ytPlayer = null;
+        ytReady = false;
+      }
+      fetch('https://bit-smartphone/music:updateYoutubeState', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isPlaying: false, position: 0, duration: 0, volume: 0 })
+      });
+    };
+
+    window.musicYoutubeSetVolume = (v) => {
+      try {
+        if (ytPlayer && ytReady && typeof ytPlayer.setVolume === 'function') {
+          const volume = Math.max(0, Math.min(100, Math.floor(v * 100)));
+          ytPlayer.setVolume(volume);
+        }
+        sendYoutubeStateToClient();
+      } catch (error) {
+        console.error('Error setting YouTube volume:', error);
+      }
+    };
+
+    window.musicYoutubeSetPosition = (p) => {
+      try {
+        if (ytPlayer && ytReady && typeof ytPlayer.seekTo === 'function') {
+          const position = Math.max(0, Number(p));
+          ytPlayer.seekTo(position, true);
+        }
+        sendYoutubeStateToClient();
+      } catch (error) {
+        console.error('Error seeking YouTube player:', error);
+      }
+    };
+
+    window.addEventListener('message', (event) => {
+      const message = event.data;
+      if (!message || !message.type) return;
+      switch (message.type) {
+        case 'musicYoutubePlay':
+          window.musicYoutubePlay(message.data.videoUrl, message.data.songData, message.data.volume);
+          break;
+        case 'musicYoutubePause':
+          window.musicYoutubePause();
+          break;
+        case 'musicYoutubeResume':
+          window.musicYoutubeResume();
+          break;
+        case 'musicYoutubeStop':
+          window.musicYoutubeStop();
+          break;
+        case 'musicYoutubeSetVolume':
+          window.musicYoutubeSetVolume(message.data.volume);
+          break;
+        case 'musicYoutubeSetPosition':
+          window.musicYoutubeSetPosition(message.data.position);
+          break;
+      }
+    });
+
+    onMounted(() => {
+      let c = document.getElementById('bit-smartphone-youtube-player');
+      if (!c) {
+        c = document.createElement('div');
+        c.id = 'bit-smartphone-youtube-player';
+        c.style.cssText = 'position: absolute; left: -9999px; top: -9999px; width: 280px; height: 160px;';
+        document.body.appendChild(c);
+      }
+    });
 
     const stopMusic = async () => {
       try {
@@ -657,16 +1122,69 @@ const Music = {
     onMounted(() => {
       loadMusicData();
       
+      try {
+        let ytContainer = document.getElementById('bit-smartphone-youtube-player');
+        if (!ytContainer) {
+          ytContainer = document.createElement('div');
+          ytContainer.id = 'bit-smartphone-youtube-player';
+          ytContainer.style.cssText = 'position: absolute; left: -9999px; top: -9999px; width: 280px; height: 160px; z-index: -1; visibility: hidden;';
+          document.body.appendChild(ytContainer);
+
+        }
+      } catch (error) {
+        console.error('Error creating YouTube container:', error);
+      }
+      
+      window.progressInterval = setInterval(async () => {
+        if (currentSong.value && isPlaying.value && !props.musicState) {
+          try {
+            const info = await getMusicInfo();
+            if (info) {
+              if (info.progress !== undefined && info.progress !== null) {
+                const progressNum = Number(info.progress);
+                if (!isNaN(progressNum)) {
+                  localState.progress.value = Math.max(0, Math.min(100, progressNum));
+                }
+              }
+              
+              if (info.currentTime !== undefined && info.currentTime !== null) {
+                const timeNum = Number(info.currentTime);
+                if (!isNaN(timeNum)) {
+                  localState.currentTime.value = Math.max(0, timeNum);
+                }
+              }
+              
+              if (typeof info.isPlaying === 'boolean') {
+                localState.isPlaying.value = info.isPlaying;
+              }
+            }
+          } catch (error) {
+          }
+        }
+      }, 1000);
+      
       window.addEventListener('message', (event) => {
         if (event.data.type === 'musicUpdate') {
           const data = event.data.data;
-          if (!props.musicState) {
-            localState.isPlaying.value = data.isPlaying;
-            localState.volume.value = data.volume * 100;
-            localState.currentTime.value = data.position;
+          if (!props.musicState && data) {
+            if (typeof data.isPlaying === 'boolean') {
+              localState.isPlaying.value = data.isPlaying;
+            }
             
-            if (data.duration > 0) {
-              localState.progress.value = (data.position / data.duration) * 100;
+            const volume = Number(data.volume);
+            if (!isNaN(volume)) {
+              localState.volume.value = Math.max(0, Math.min(100, volume * 100));
+            }
+            
+            const position = Number(data.position);
+            if (!isNaN(position)) {
+              localState.currentTime.value = Math.max(0, position);
+            }
+            
+            const duration = Number(data.duration);
+            if (!isNaN(duration) && duration > 0) {
+              const progress = (position / duration) * 100;
+              localState.progress.value = Math.max(0, Math.min(100, progress));
             }
           }
         } else if (event.data.type === 'musicEnded') {
@@ -678,6 +1196,7 @@ const Music = {
             }
           } else {
             isPlaying.value = false;
+            localState.isPlaying.value = false;
           }
         }
       });
@@ -686,6 +1205,11 @@ const Music = {
     onUnmounted(() => {
       if (window.progressInterval) {
         clearInterval(window.progressInterval);
+      }
+      
+      if (window.ytProgressInterval) {
+        clearInterval(window.ytProgressInterval);
+        window.ytProgressInterval = null;
       }
     });
 
@@ -740,6 +1264,7 @@ const Music = {
       setVolume,
       setMusicProgress,
       formatTime,
+      formatNumber,
       parseDuration,
       closeApp,
       getPlaylistSongs,
@@ -1072,9 +1597,13 @@ const Music = {
           </div>
 
           <div class="mb-2">
+            <div class="flex items-center justify-between text-xs text-white/60 mb-1">
+              <span>{{ formatTime(Math.floor(currentTime)) }}</span>
+              <span>{{ currentSong?.duration || (currentSong?.durationSeconds ? formatTime(currentSong.durationSeconds) : '0:00') }}</span>
+            </div>
             <div class="bg-white/20 rounded-full h-1 cursor-pointer" @click="handleProgressClick">
               <div class="bg-gradient-to-r from-purple-500 to-pink-500 h-full rounded-full transition-all duration-300" 
-                   :style="{width: progress + '%'}"></div>
+                   :style="{width: Math.max(0, Math.min(100, progress)) + '%'}"></div>
             </div>
           </div>
 
@@ -1125,7 +1654,7 @@ const Music = {
               <label class="text-white block mb-3 font-semibold">URL de portada (opcional)</label>
               <input v-model="newPlaylistCover" 
                      type="url" 
-                     placeholder="https://ejemplo.com/imagen.jpg"
+                     placeholder="./assets/image.png"
                      class="w-full bg-white/10 border border-white/20 rounded-2xl px-4 py-4 text-white placeholder-white/50 outline-none focus:border-purple-400 focus:bg-white/15 transition-all duration-300">
             </div>
           </div>

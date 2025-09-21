@@ -33,68 +33,123 @@ local function UpdateCryptoPrices()
 end
 
 local function GetUserHoldings(identifier)
-    local query = "SELECT crypto_symbol, amount, total_invested FROM bit_phone_crypto_holdings WHERE user_id = @user_id"
-    local holdings = SqlFunc(Config.Mysql, 'fetchAll', query, { ['@user_id'] = identifier })
     local result = {}
-    
-    if holdings then
-        for _, holding in ipairs(holdings) do
-            result[holding.crypto_symbol] = {
-                amount = tonumber(holding.amount) or 0,
-                totalInvested = tonumber(holding.total_invested) or 0
+
+    local ok, holdings = pcall(function()
+        local query = "SELECT crypto_symbol, amount, average_buy_price FROM bit_phone_crypto_holdings WHERE `user_id` = ?"
+        return SqlFunc(Config.Mysql, 'fetchAll', query, { identifier })
+    end)
+
+    if not ok or not holdings then
+        print('[Crypto] Warning: unable to fetch holdings for user ' .. tostring(identifier))
+        return result
+    end
+
+    for _, holding in ipairs(holdings or {}) do
+        local symbol = holding.crypto_symbol
+        local amt = tonumber(holding.amount) or 0
+        local avg = tonumber(holding.average_buy_price) or 0
+
+        if symbol then
+            result[tostring(symbol)] = {
+                amount = amt,
+                averageBuyPrice = avg,
+                totalInvested = amt * avg
             }
         end
     end
-    
+
     return result
 end
 
-local function UpdateHolding(identifier, cryptoSymbol, amount, totalInvested)
-    local query = [[
-        INSERT INTO bit_phone_crypto_holdings (user_id, crypto_symbol, amount, total_invested) 
-        VALUES (@user_id, @crypto_symbol, @amount, @total_invested)
+local function UpdateHolding(identifier, cryptoSymbol, amount, averageBuyPrice)
+    local query = [[ 
+        INSERT INTO bit_phone_crypto_holdings (`user_id`, `crypto_symbol`, `amount`, `average_buy_price`) 
+        VALUES (?, ?, ?, ?) 
         ON DUPLICATE KEY UPDATE 
-        amount = @amount, 
-        total_invested = @total_invested,
+        amount = ?, 
+        average_buy_price = ?,
         updated_at = CURRENT_TIMESTAMP
     ]]
-    
-    SqlFunc(Config.Mysql, 'execute', query, {
-        ['@user_id'] = identifier,
-        ['@crypto_symbol'] = cryptoSymbol,
-        ['@amount'] = amount,
-        ['@total_invested'] = totalInvested
-    })
+
+    SqlFunc(Config.Mysql, 'execute', query, { identifier, cryptoSymbol, amount, averageBuyPrice, amount, averageBuyPrice })
 end
 
 local function AddTransaction(identifier, cryptoSymbol, transactionType, amount, pricePerUnit, totalValue, paymentMethod)
-    local query = [[
+    local normalizedType = 'buy'
+    if transactionType == 'sell' then normalizedType = 'sell' end
+
+    local query = [[ 
         INSERT INTO bit_phone_crypto_transactions 
-        (user_id, crypto_symbol, transaction_type, amount, price_per_unit, total_value, payment_method) 
-        VALUES (@user_id, @crypto_symbol, @transaction_type, @amount, @price_per_unit, @total_value, @payment_method)
+        (`user_id`, `crypto_symbol`, `transaction_type`, `amount`, `price_per_unit`, `total_value`, `payment_method`) 
+        VALUES (?, ?, ?, ?, ?, ?, ?) 
     ]]
-    
-    SqlFunc(Config.Mysql, 'execute', query, {
-        ['@user_id'] = identifier,
-        ['@crypto_symbol'] = cryptoSymbol,
-        ['@transaction_type'] = transactionType,
-        ['@amount'] = amount,
-        ['@price_per_unit'] = pricePerUnit,
-        ['@total_value'] = totalValue,
-        ['@payment_method'] = paymentMethod
-    })
+
+    SqlFunc(Config.Mysql, 'execute', query, { identifier, cryptoSymbol, normalizedType, amount, pricePerUnit, totalValue, paymentMethod })
 end
 
 local function GetUserTransactions(identifier)
     local query = [[
         SELECT crypto_symbol, transaction_type, amount, price_per_unit, total_value, payment_method, created_at 
         FROM bit_phone_crypto_transactions 
-        WHERE user_id = @user_id 
+        WHERE `user_id` = ? 
         ORDER BY created_at DESC 
-        LIMIT 50
+        LIMIT 10
     ]]
-    
-    return SqlFunc(Config.Mysql, 'fetchAll', query, { ['@user_id'] = identifier }) or {}
+
+    local ok, rows = pcall(function()
+        return SqlFunc(Config.Mysql, 'fetchAll', query, { identifier })
+    end)
+
+    if ok and rows then
+        return rows or {}
+    end
+
+    print('[Crypto] Warning: unable to fetch transactions for user ' .. tostring(identifier))
+    return {}
+end
+
+function Crypto_GetUserBalance(identifier, cryptoSymbol)
+    local holdings = GetUserHoldings(identifier)
+    if not cryptoSymbol then
+        return holdings
+    end
+    return (holdings[cryptoSymbol] and tonumber(holdings[cryptoSymbol].amount)) or 0
+end
+
+function Crypto_ModifyUserBalance(identifier, cryptoSymbol, deltaAmount, transactionType, pricePerUnit, totalValue, paymentMethod)
+    if not identifier or not cryptoSymbol or not deltaAmount then
+        return false, 'Invalid arguments'
+    end
+
+    local currentHoldings = GetUserHoldings(identifier)
+    local current = currentHoldings[cryptoSymbol] or { amount = 0, averageBuyPrice = 0 }
+    local deltaNum = tonumber(deltaAmount) or 0
+    local newAmount = tonumber(current.amount) + deltaNum
+    if newAmount < 0 then
+        return false, 'Insufficient crypto balance'
+    end
+
+    UpdateHolding(identifier, cryptoSymbol, newAmount, current.averageBuyPrice)
+    local tnorm = 'buy'
+    if deltaNum < 0 then tnorm = 'sell' else tnorm = 'buy' end
+    AddTransaction(identifier, cryptoSymbol, tnorm, math.abs(deltaNum), pricePerUnit or 0, totalValue or 0, paymentMethod or 'server')
+
+    return true
+end
+
+function Crypto_GetUserTransactions(identifier, cryptoSymbol)
+    local all = GetUserTransactions(identifier)
+    if not cryptoSymbol then
+        return all
+    end
+    local filtered = {}
+    for _, t in ipairs(all) do
+        if t.crypto_symbol == cryptoSymbol then
+            table.insert(filtered, t)
+        end
+    end
+    return filtered
 end
 
 RegisterNetEvent('smartphone:crypto:requestData')
@@ -146,12 +201,17 @@ AddEventHandler('smartphone:crypto:buyCrypto', function(data)
     end
     
     local currentHoldings = GetUserHoldings(identifier)
-    local currentHolding = currentHoldings[cryptoSymbol] or { amount = 0, totalInvested = 0 }
+    local currentHolding = currentHoldings[cryptoSymbol] or { amount = 0, averageBuyPrice = 0 }
+    
+    currentHolding.amount = tonumber(currentHolding.amount) or 0
+    currentHolding.averageBuyPrice = tonumber(currentHolding.averageBuyPrice) or 0
     
     local newAmount = currentHolding.amount + amount
-    local newTotalInvested = currentHolding.totalInvested + totalCost
+    local currentTotalInvested = currentHolding.amount * currentHolding.averageBuyPrice
+    local newTotalInvested = currentTotalInvested + totalCost
+    local newAverageBuyPrice = newAmount > 0 and (newTotalInvested / newAmount) or 0
     
-    UpdateHolding(identifier, cryptoSymbol, newAmount, newTotalInvested)
+    UpdateHolding(identifier, cryptoSymbol, newAmount, newAverageBuyPrice)
     AddTransaction(identifier, cryptoSymbol, 'buy', amount, currentPrice, totalCost, paymentMethod)
     
     local updatedHoldings = GetUserHoldings(identifier)
@@ -194,17 +254,22 @@ AddEventHandler('smartphone:crypto:sellCrypto', function(data)
         return
     end
     
+    currentHolding.amount = tonumber(currentHolding.amount) or 0
+    currentHolding.averageBuyPrice = tonumber(currentHolding.averageBuyPrice) or 0
+    
     local totalReceived = amount * currentPrice
     local newAmount = currentHolding.amount - amount
     local proportionSold = amount / currentHolding.amount
-    local newTotalInvested = currentHolding.totalInvested * (1 - proportionSold)
+    local currentTotalInvested = currentHolding.amount * currentHolding.averageBuyPrice
+    local newTotalInvested = currentTotalInvested * (1 - proportionSold)
+    local newAverageBuyPrice = newAmount > 0 and (newTotalInvested / newAmount) or 0
     
     if newAmount <= 0.00000001 then
         newAmount = 0
-        newTotalInvested = 0
+        newAverageBuyPrice = 0
     end
     
-    UpdateHolding(identifier, cryptoSymbol, newAmount, newTotalInvested)
+    UpdateHolding(identifier, cryptoSymbol, newAmount, newAverageBuyPrice)
     AddTransaction(identifier, cryptoSymbol, 'sell', amount, currentPrice, totalReceived, paymentMethod)
     
     addMoney(src, totalReceived, paymentMethod)
@@ -281,7 +346,7 @@ AddEventHandler('crypto:getPrices', function()
     
     TriggerClientEvent('phone:sendNUIMessage', source, {
         action = 'crypto:prices_updated',
-        data = { prices = cryptoPricesCache }
+        data = { prices = cryptoPrices }
     })
 end)
 

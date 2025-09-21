@@ -26,6 +26,7 @@ const AppStore = {
 		const loadAvailableApps = async () => {
 			try {
 				loading.value = true;
+				availableApps.value = []; 
 
 				const response = await fetch("https://bit-smartphone/appstore:getApps", {
 					method: "POST",
@@ -33,18 +34,61 @@ const AppStore = {
 					body: JSON.stringify({}),
 				});
 
-				if (response.ok) {
-					const data = await response.json();
+				setTimeout(() => {
+					if (loading.value === true && availableApps.value.length === 0) {
+						console.warn("[AppStore] Timeout waiting for server response, retrying...");
+						loading.value = false;
+						setTimeout(() => {
+							if (availableApps.value.length === 0) {
+								loadAvailableApps();
+							}
+						}, 1000);
+					}
+				}, 3000);
 
-					availableApps.value = data.apps || data || [];
-				} else {
+				if (!response.ok) {
+					console.error("[AppStore] Failed to request apps from server");
+					loading.value = false;
 					availableApps.value = [];
 				}
 			} catch (e) {
-				availableApps.value = [];
-			} finally {
+				console.error("[AppStore] Error requesting apps:", e);
 				loading.value = false;
+				availableApps.value = [];
 			}
+		};
+
+		const iconErrorCache = ref({});
+
+		const resolveIcon = (app) => {
+			if (!app) return null;
+			const key = app.id || app.app || app.label;
+			if (key && iconErrorCache.value[key]) return null;
+			if (app.image && typeof app.image === 'string' && app.image.trim() !== '' && app.image !== 'https:') {
+				return app.image;
+			}
+			const id = app.id || app.app || (app.label && app.label.toLowerCase());
+			if (!id) return null;
+			return `assets/icons/apps/${id}.svg`;
+		};
+
+		const handleIconError = (event, app) => {
+			try {
+				const key = app.id || app.app || app.label;
+				if (key) {
+					iconErrorCache.value = { ...iconErrorCache.value, [key]: true };
+				}
+			} catch (e) {}
+			event && event.target && (event.target.style.display = 'none');
+		};
+
+		const lucideName = (app) => {
+			if (!app || !app.icon) return 'package';
+			let name = app.icon;
+			name = name.replace(/^fas-/, '');
+			name = name.replace(/-icon$/, '');
+			name = name.replace(/_/g, '-');
+			return name || 'package';
 		};
 
 		const featuredApps = computed(() => {
@@ -131,8 +175,20 @@ const AppStore = {
 
 			switch (action) {
 				case "appstore:appsLoaded":
-					availableApps.value = apps || [];
+					console.log("[AppStore] Received apps from server:", apps?.length || 0);
+					
+					const validApps = (apps || []).filter(app => {
+						return app && 
+							   typeof app === 'object' && 
+							   app.id && 
+							   app.label && 
+							   app.description;
+					});
+					
+					availableApps.value = validApps;
 					loading.value = false;
+					
+					console.log("[AppStore] Loaded", validApps.length, "valid apps");
 					break;
 
 				case "appstore:downloadResult":
@@ -172,10 +228,17 @@ const AppStore = {
 		};
 
 		onMounted(() => {
-			loadAvailableApps();
-
 			window.__appstore_message_handler = handleServerMessage;
+			
+			setTimeout(() => {
+				loadAvailableApps();
+			}, 100);
 		});
+
+		const refreshApps = () => {
+			console.log("[AppStore] Manual refresh requested");
+			loadAvailableApps();
+		};
 
 		return {
 			searchQuery,
@@ -190,15 +253,24 @@ const AppStore = {
 			isInstalled,
 			formatPrice,
 			isDownloading,
+			resolveIcon,
+			handleIconError,
+			lucideName,
+			refreshApps,
 		};
 	},
 	template: `
     <div class="flex flex-col h-full bg-white text-black">
       <div class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-500 to-purple-600 text-white">
         <h1 class="text-xl font-bold">App Store</h1>
-        <button @click="$emit('close')" class="p-2 hover:bg-white/20 rounded-full transition-colors">
-          <i data-lucide="x" class="w-5 h-5"></i>
-        </button>
+        <div class="flex items-center space-x-2">
+          <button @click="refreshApps" class="p-2 hover:bg-white/20 rounded-full transition-colors" title="Refrescar aplicaciones">
+            <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+          </button>
+          <button @click="$emit('close')" class="p-2 hover:bg-white/20 rounded-full transition-colors">
+            <i data-lucide="x" class="w-5 h-5"></i>
+          </button>
+        </div>
       </div>
 
       <div class="p-4 bg-gray-50 border-b">
@@ -213,7 +285,7 @@ const AppStore = {
         </div>
       </div>
 
-      /* <div class="flex overflow-x-auto p-4 space-x-3 bg-white border-b">
+      <!-- <div class="flex overflow-x-auto p-4 space-x-3 bg-white border-b">
         <button
           v-for="category in categories"
           :key="category.id"
@@ -228,7 +300,7 @@ const AppStore = {
           <i :data-lucide="category.icon" class="w-4 h-4"></i>
           <span class="text-sm font-medium">{{ category.name }}</span>
         </button>
-      </div> */
+      </div> -->
 
       <div class="flex-1 overflow-y-auto bg-gray-50">
         <div v-if="loading" class="flex items-center justify-center p-12">
@@ -256,8 +328,8 @@ const AppStore = {
               <div class="p-5">
                 <div class="flex items-start space-x-4">
                   <div class="w-16 h-16 rounded-2xl overflow-hidden bg-gradient-to-br from-blue-100 to-purple-100 flex items-center justify-center flex-shrink-0">
-                    <img v-if="app.image" :src="app.image" alt="{{ app.label }}" class="w-full h-full object-contain">
-                    <i v-else :data-lucide="app.icon" class="w-8 h-8 text-blue-600"></i>
+                    <img v-if="resolveIcon(app)" :src="resolveIcon(app)" :alt="app.label" class="w-full h-full object-contain" @error="(e) => handleIconError(e, app)">
+                    <i v-else :data-lucide="lucideName(app)" class="w-8 h-8 text-blue-600"></i>
                   </div>
 
                   <div class="flex-1 min-w-0">

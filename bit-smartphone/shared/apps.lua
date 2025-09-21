@@ -51,7 +51,7 @@ Apps.appStore = {
         jobBlacklist = {},
         ageRating = 12,
         headerColor = "#E1306C",
-        image = "https:"
+        image = "assets/icons/apps/instagram.svg"
     },
     ['youtube'] = {
         label = "YouTube",
@@ -64,7 +64,7 @@ Apps.appStore = {
         jobBlacklist = {},
         ageRating = 4,
         headerColor = "#FF0000",
-        image = "https:"
+        image = "assets/icons/apps/youtube.svg"
     },
     ['pacman'] = {
         label = "PAC-MAN",
@@ -77,7 +77,7 @@ Apps.appStore = {
         jobBlacklist = {},
         ageRating = 3,
         headerColor = "#FFFF00",
-        image = "https:"
+        image = "assets/icons/apps/pacman.svg"
     },
     ['stack'] = {
         label = "Stack",
@@ -90,7 +90,7 @@ Apps.appStore = {
         jobBlacklist = {},
         ageRating = 3,
         headerColor = "#667eea",
-        image = "https:"
+        image = "assets/icons/apps/stack.svg"
     },
     ['fruitninja'] = {
         label = "Fruit Ninja",
@@ -207,7 +207,7 @@ Apps.appStore = {
         jobBlacklist = {},
         ageRating = 3,
         headerColor = "#00C853",
-        image = "https:"
+        image = "assets/icons/apps/pong.svg"
     },
     ['translator'] = {
         label = "Translator",
@@ -220,6 +220,6 @@ Apps.appStore = {
         jobBlacklist = {},
         ageRating = 4,
         headerColor = "#6200EA",
-        image = "https:"
+        image = "assets/icons/apps/translator.svg"
     },
 }

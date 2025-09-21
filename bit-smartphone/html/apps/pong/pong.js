@@ -546,3 +546,6 @@ const Pong = {
     </div>
   `
 }
+
+window.Pong = Pong;
+window.Pong = window.Pong || Pong;

@@ -59,6 +59,7 @@ const CallComponent = {
       localStream: null,
       remoteStream: null,
       peerConnection: null,
+      iceCandidatesQueue: [],
       
       controls: {
         muted: false,
@@ -106,29 +107,36 @@ const CallComponent = {
     },
 
     async initializeCall() {
+      console.log('[CallComponent] Initializing call:', this.callData);
       
       try {
         this.turnConfig = window.phoneConfig?.videoCalls?.rtcConfig || {
           iceServers: [
-            { urls: 'stun:stun.l.google.com:19302' },
+            { urls: 'stun:stun.relay.metered.ca:80' },
             {
               urls: 'turn:global.relay.metered.ca:80',
-              username: window.phoneConfig?.videoCalls?.rtcConfig?.iceServers?.[1]?.username || 'your_username',
-              credential: window.phoneConfig?.videoCalls?.rtcConfig?.iceServers?.[1]?.credential || 'your_credential'
+              username: '8236c324acc46422b0c2a481',
+              credential: 'wIgbfMWQ3LJUBuHN'
+            },
+            {
+              urls: 'turn:global.relay.metered.ca:80?transport=tcp',
+              username: '8236c324acc46422b0c2a481', 
+              credential: 'wIgbfMWQ3LJUBuHN'
             }
           ]
         };
-        
         
         if (this.callData.direction === 'incoming' || this.callData.isIncoming === true) {
           this.isIncoming = true;
           this.callStatus = 'incoming';
           this.playRingTone();
+          console.log('[CallComponent] Incoming call setup complete');
         } else {
           this.isIncoming = false;
           this.callStatus = 'ringing';
           this.playRingTone();
           await this.startCall();
+          console.log('[CallComponent] Outgoing call setup complete');
         }
       } catch (error) {
         console.error('[CallComponent] Error initializing call:', error);
@@ -198,14 +206,15 @@ const CallComponent = {
 
     async startCall() {
       try {
-        if (this.isVideoCall) {
-          await this.initializeWebRTC();
-        } else {
-          this.sendNUICallback('call:start', {
-            targetId: this.callData.targetId,
-            type: 'audio'
-          });
-        }
+        console.log('[CallComponent] Starting call, type:', this.callData.type);
+        
+        this.sendNUICallback('call:start', {
+          targetId: this.callData.targetId,
+          type: this.callData.type
+        });
+        
+        console.log('[CallComponent] Call initiation sent to server');
+        
       } catch (error) {
         console.error('Error starting call:', error);
         this.callStatus = 'failed';
@@ -215,15 +224,18 @@ const CallComponent = {
     
     async initializeWebRTC() {
       try {
+        console.log('[CallComponent] Initializing WebRTC with config:', this.turnConfig);
         this.peerConnection = new RTCPeerConnection(this.turnConfig);
         
         this.peerConnection.onicecandidate = (event) => {
           if (event.candidate) {
-            this.sendSignalingMessage('webrtc-ice-candidate', event.candidate);
+            console.log('[CallComponent] Sending ICE candidate');
+            this.sendWebRTCMessage('webrtc-ice-candidate', event.candidate);
           }
         };
         
         this.peerConnection.ontrack = (event) => {
+          console.log('[CallComponent] Remote track received');
           this.remoteStream = event.streams[0];
           if (this.$refs.remoteVideo) {
             this.$refs.remoteVideo.srcObject = this.remoteStream;
@@ -232,25 +244,26 @@ const CallComponent = {
         
         this.peerConnection.onconnectionstatechange = () => {
           const state = this.peerConnection.connectionState;
+          console.log('[CallComponent] Connection state changed:', state);
           if (state === 'connected') {
             this.callStatus = 'connected';
             this.startDurationTimer();
           } else if (state === 'disconnected' || state === 'failed') {
+            console.error('[CallComponent] WebRTC connection failed');
             this.endCall();
           }
         };
         
-        await this.getUserMedia();
+        this.peerConnection.onicegatheringstatechange = () => {
+          console.log('[CallComponent] ICE gathering state:', this.peerConnection.iceGatheringState);
+        };
         
-        if (this.callData.direction === 'outgoing') {
-          const offer = await this.peerConnection.createOffer();
-          await this.peerConnection.setLocalDescription(offer);
-          this.sendSignalingMessage('offer', offer);
-        }
+        console.log('[CallComponent] WebRTC initialized successfully');
         
       } catch (error) {
-        console.error('Error starting call:', error);
+        console.error('[CallComponent] Error initializing WebRTC:', error);
         this.callStatus = 'failed';
+        throw error;
       }
     },
     
@@ -261,22 +274,42 @@ const CallComponent = {
           video: this.isVideoCall && !this.controls.videoMuted
         };
         
+        console.log('[CallComponent] Requesting getUserMedia with constraints:', constraints);
+        console.log('[CallComponent] Is video call:', this.isVideoCall);
+        console.log('[CallComponent] Video muted:', this.controls.videoMuted);
+        
         this.localStream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('[CallComponent] Successfully got user media stream');
         
         if (this.$refs.localVideo && this.isVideoCall) {
           this.$refs.localVideo.srcObject = this.localStream;
+          console.log('[CallComponent] Set local video element source');
         }
         
         this.localStream.getTracks().forEach(track => {
           this.peerConnection.addTrack(track, this.localStream);
+          console.log('[CallComponent] Added track to peer connection:', track.kind);
         });
         
         this.controls.videoEnabled = this.isVideoCall;
+        console.log('[CallComponent] Video enabled control set to:', this.controls.videoEnabled);
         
       } catch (error) {
-        console.error('Error accessing media devices:', error);
+        console.error('[CallComponent] Error accessing media devices:', error);
+        console.error('[CallComponent] Error name:', error.name);
+        console.error('[CallComponent] Error message:', error.message);
+        
+        if (error.name === 'NotAllowedError') {
+          console.error('[CallComponent] Permission denied for camera/microphone');
+        } else if (error.name === 'NotFoundError') {
+          console.error('[CallComponent] Camera/microphone not found');
+        } else if (error.name === 'NotReadableError') {
+          console.error('[CallComponent] Camera/microphone already in use');
+        }
+        
         if (this.isVideoCall) {
           this.controls.videoMuted = true;
+          console.log('[CallComponent] Video muted due to error');
         }
       }
     },
@@ -287,11 +320,18 @@ const CallComponent = {
         this.isIncoming = false;
         this.callStatus = 'connecting';
         
+        console.log('[CallComponent] Sending call:accept with data:', {
+          callId: this.callData.id,
+          targetId: this.callData.targetId
+        });
         
-        if (this.isVideoCall) {
-          await this.startCall();
-        }
-        this.sendSignalingMessage('call-accepted');
+        this.sendNUICallback('call:accept', {
+          callId: this.callData.id,
+          targetId: this.callData.targetId
+        });
+        
+        console.log('[CallComponent] Call accepted, waiting for WebRTC negotiation...');
+        
       } catch (error) {
         console.error('Error accepting call:', error);
         this.endCall();
@@ -300,7 +340,12 @@ const CallComponent = {
     
     rejectCall() {
       this.stopRingTone();
-      this.sendSignalingMessage('call-rejected');
+      
+      this.sendNUICallback('call:reject', {
+        callId: this.callData.id,
+        targetId: this.callData.targetId
+      });
+      
       this.endCall();
     },
     
@@ -308,9 +353,7 @@ const CallComponent = {
       this.callStatus = 'ended';
       this.stopRingTone();
       
-      
       if (this.durationInterval) {
-        
         clearInterval(this.durationInterval);
         this.durationInterval = null;
       }
@@ -325,7 +368,11 @@ const CallComponent = {
         this.peerConnection = null;
       }
       
-      this.sendSignalingMessage('call-ended');
+      this.iceCandidatesQueue = [];
+      
+      this.sendNUICallback('call:end', {
+        callId: this.callData.id
+      });
       
       setTimeout(() => {
         this.$emit('end-call');
@@ -414,19 +461,21 @@ const CallComponent = {
     },
     
     sendSignalingMessage(type, data = null) {
-      
       let outType = type;
       if (type === 'offer' || type === 'answer' || type === 'ice-candidate') {
         outType = 'webrtc-' + type;
       }
       
-      
-      this.sendNUICallback('call:signaling', {
-        callId: this.callData.id,
-        type: outType,
-        data: data,
-        targetId: this.callData.targetId
-      });
+      this.sendWebRTCMessage(outType, data);
+    },
+
+    getCallId() {
+      try {
+        if (!this.callData) return null;
+        return this.callData.id || this.callData.callId || null;
+      } catch (e) {
+        return null;
+      }
     },
     
     sendNUICallback(action, data) {
@@ -453,6 +502,7 @@ const CallComponent = {
             await this.handleIceCandidate(message.data);
             break;
           case 'call-accepted':
+            console.log('[CallComponent] Call accepted');
             this.stopRingTone();
             if (this.isVideoCall) {
               this.callStatus = 'connecting';
@@ -465,6 +515,7 @@ const CallComponent = {
             } else {
               this.callStatus = 'connected';
               this.startDurationTimer();
+              console.log('[CallComponent] Audio call connected');
             }
             break;
           case 'call-rejected':
@@ -484,21 +535,27 @@ const CallComponent = {
         return;
       }
 
-      if (!this.peerConnection) {
-        await this.startCall();
+      try {
+        if (!this.peerConnection) {
+          await this.initializeWebRTC();
+          await this.getUserMedia();
+        }
+
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+
+        const answer = await this.peerConnection.createAnswer();
+        await this.peerConnection.setLocalDescription(answer);
+
+        this.sendSignalingMessage('answer', answer);
+
+        this.iceCandidatesQueue.forEach(candidate => {
+          this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        });
+        this.iceCandidatesQueue = [];
+      } catch (error) {
+        console.error('Error handling offer:', error);
+        this.callStatus = 'failed';
       }
-
-      await this.peerConnection.setRemoteDescription(offer);
-
-      const answer = await this.peerConnection.createAnswer();
-      await this.peerConnection.setLocalDescription(answer);
-
-      this.sendSignalingMessage('answer', answer);
-
-      this.iceCandidatesQueue.forEach(candidate => {
-        this.peerConnection.addIceCandidate(candidate);
-      });
-      this.iceCandidatesQueue = [];
     },
     
     async handleAnswer(answer) {
@@ -506,12 +563,17 @@ const CallComponent = {
         return;
       }
 
-      await this.peerConnection.setRemoteDescription(answer);
+      try {
+        await this.peerConnection.setRemoteDescription(new RTCSessionDescription(answer));
 
-      this.iceCandidatesQueue.forEach(candidate => {
-        this.peerConnection.addIceCandidate(candidate);
-      });
-      this.iceCandidatesQueue = [];
+        this.iceCandidatesQueue.forEach(candidate => {
+          this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        });
+        this.iceCandidatesQueue = [];
+      } catch (error) {
+        console.error('Error handling answer:', error);
+        this.callStatus = 'failed';
+      }
     },
     
     async handleIceCandidate(candidate) {
@@ -519,29 +581,132 @@ const CallComponent = {
         return;
       }
 
-      if (this.peerConnection && this.peerConnection.remoteDescription) {
-        await this.peerConnection.addIceCandidate(candidate);
-      } else {
-        this.iceCandidatesQueue.push(candidate);
+      try {
+        if (this.peerConnection && this.peerConnection.remoteDescription) {
+          await this.peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+          this.iceCandidatesQueue.push(candidate);
+        }
+      } catch (error) {
+        console.error('Error handling ICE candidate:', error);
       }
     },
     
     handleNUIMessage(event) {
       const { action, data } = event.data;
       
-      if (action === 'call:signaling' && data.callId === this.callData.id) {
+      console.log('[CallComponent] NUI Message:', action, data);
+      
+      const localCallId = this.getCallId();
+      
+      if (action === 'call:signaling' && data.callId === localCallId) {
         this.handleSignalingMessage(data);
-      } else if (action === 'call:connected' && data.callId === this.callData.id) {
+      } else if (action === 'call:connected' && data.callId === localCallId) {
+        console.log('[CallComponent] Call connected from NUI');
         this.callStatus = 'connected';
         this.stopRingTone();
         this.startDurationTimer();
+      } else if (action === 'call:ended' && data.callId === localCallId) {
+        console.log('[CallComponent] Call ended from NUI');
+        this.endCall();
+      } else if (action === 'webrtc:start-negotiation' && data.callId === localCallId) {
+        console.log('[CallComponent] Starting WebRTC negotiation, isInitiator:', data.isInitiator);
+        this.startWebRTCNegotiation(data.isInitiator, data.rtcConfig, data.constraints);
+      } else if (action === 'webrtc:message' && data.callId === localCallId) {
+        console.log('[CallComponent] WebRTC message received:', data.type);
+        this.handleWebRTCMessage(data.type, data.data);
       }
+    },
+
+    async startWebRTCNegotiation(isInitiator, rtcConfig, constraints) {
+      try {
+        console.log('[CallComponent] Starting WebRTC with config:', rtcConfig);
+        
+        this.turnConfig = rtcConfig || this.turnConfig;
+        
+        if (!this.peerConnection) {
+          await this.initializeWebRTC();
+        }
+        
+        const mediaConstraints = {
+          audio: constraints?.audio || { echoCancellation: true, noiseSuppression: true },
+          video: this.isVideoCall ? (constraints?.video || { width: 640, height: 480 }) : false
+        };
+        
+        this.localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
+        
+        if (this.$refs.localVideo && this.isVideoCall) {
+          this.$refs.localVideo.srcObject = this.localStream;
+        }
+        
+        this.localStream.getTracks().forEach(track => {
+          this.peerConnection.addTrack(track, this.localStream);
+        });
+        
+        if (isInitiator) {
+          const offer = await this.peerConnection.createOffer();
+          await this.peerConnection.setLocalDescription(offer);
+          
+          this.sendWebRTCMessage('webrtc-offer', offer);
+        }
+        
+      } catch (error) {
+        console.error('[CallComponent] Error in WebRTC negotiation:', error);
+        this.callStatus = 'failed';
+      }
+    },
+
+    async handleWebRTCMessage(type, data) {
+      try {
+        if (!this.peerConnection) {
+          console.warn('[CallComponent] No peer connection for WebRTC message:', type);
+          return;
+        }
+        
+        switch (type) {
+          case 'webrtc-offer':
+            await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+            const answer = await this.peerConnection.createAnswer();
+            await this.peerConnection.setLocalDescription(answer);
+            this.sendWebRTCMessage('webrtc-answer', answer);
+            break;
+            
+          case 'webrtc-answer':
+            await this.peerConnection.setRemoteDescription(new RTCSessionDescription(data));
+            break;
+            
+          case 'webrtc-ice-candidate':
+            await this.peerConnection.addIceCandidate(new RTCIceCandidate(data));
+            break;
+            
+          default:
+            console.warn('[CallComponent] Unknown WebRTC message type:', type);
+        }
+      } catch (error) {
+        console.error('[CallComponent] Error handling WebRTC message:', error);
+      }
+    },
+
+    sendWebRTCMessage(type, data) {
+      fetch('https://bit-smartphone/call:signaling', {
+        method: 'POST',
+        body: JSON.stringify({
+          callId: this.getCallId(),
+          type: type,
+          data: data
+        })
+      }).catch(console.error);
     },
 
     handleMessage(message) {
       
       
       if (!message || !message.action) return;
+      
+      if (message.data) {
+        this.callData = { ...this.callData, ...message.data };
+        console.log('[CallComponent] Updated callData:', this.callData);
+      }
       
       switch (message.action) {
         case 'call:incoming':

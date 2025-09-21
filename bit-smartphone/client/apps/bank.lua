@@ -4,11 +4,19 @@ RegisterNUICallback('bank:getPlayers', function(data, cb)
 end)
 
 RegisterNUICallback('bank:getBalance', function(data, cb)
+    if not IsPhoneConnected() then
+        cb({success = false, error = 'no_signal'})
+        return
+    end
     TriggerServerEvent('bit-smartphone:app:bank:getBalance')
     cb('ok')
 end)
 
 RegisterNUICallback('bank:transfer', function(data, cb)
+    if not IsPhoneConnected() then
+        cb({success = false, error = 'no_signal'})
+        return
+    end
     TriggerServerEvent('bit-smartphone:app:bank:transfer', data)
     cb('ok')
 end)

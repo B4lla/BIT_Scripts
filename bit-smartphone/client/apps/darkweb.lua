@@ -1,5 +1,5 @@
 RegisterNUICallback('darkweb:getRooms', function(data, cb)
-    TriggerServerEvent('darkweb:getRooms')
+    TriggerServerEvent('bit-smartphone:darkweb:getRooms')
     cb('ok')
 end)
 
@@ -14,7 +14,7 @@ RegisterNUICallback('darkweb:createRoom', function(data, cb)
         description = data.description
     }
     
-    TriggerServerEvent('darkweb:createRoom', roomData)
+    TriggerServerEvent('bit-smartphone:darkweb:createRoom', roomData)
     cb('ok')
 end)
 
@@ -24,7 +24,7 @@ RegisterNUICallback('darkweb:joinRoom', function(data, cb)
         return
     end
     
-    TriggerServerEvent('darkweb:joinRoom', data.code)
+    TriggerServerEvent('bit-smartphone:darkweb:joinRoom', data.code)
     cb('ok')
 end)
 
@@ -34,222 +34,118 @@ RegisterNUICallback('darkweb:leaveRoom', function(data, cb)
         return
     end
     
-    TriggerServerEvent('darkweb:leaveRoom', data.roomId)
-    cb('ok')
-end)
-
-
-
-
-
-RegisterNUICallback('darkweb:sendRoomMessage', function(data, cb)
-    if not data.roomId or not data.message or data.message == '' then
-        cb('error')
-        return
-    end
-    
-    TriggerServerEvent('darkweb:sendRoomMessage', data.roomId, data.message)
+    TriggerServerEvent('bit-smartphone:darkweb:leaveRoom', data.roomId)
     cb('ok')
 end)
 
 
 RegisterNUICallback('darkweb:sendMessage', function(data, cb)
-    TriggerServerEvent('darkweb:sendGlobalMessage', data)
-    cb('ok')
-end)
-
-
-
-
-
-RegisterNUICallback('darkweb:getMarketplace', function(data, cb)
-    local category = data.category or 'all'
-    TriggerServerEvent('darkweb:getMarketplace', category)
-    cb('ok')
-end)
-
-RegisterNUICallback('darkweb:createMarketplaceItem', function(data, cb)
-    if not data.title or not data.price or not data.category then
+    if not data or not data.roomId or not data.message or data.message == '' then
         cb('error')
         return
     end
-    
-    local itemData = {
-        title = data.title,
-        description = data.description,
-        category = data.category,
-        price = data.price,
-        currency = data.currency or 'money',
-        location = data.location,
-        image_url = data.image_url
-    }
-    
-    TriggerServerEvent('darkweb:createMarketplaceItem', itemData)
-    cb('ok')
-end)
-
-RegisterNUICallback('darkweb:purchaseItem', function(data, cb)
-    if not data.itemId then
-        cb('error')
-        return
-    end
-    
-    TriggerServerEvent('darkweb:purchaseItem', data.itemId, data.quantity, data.deliveryLocation)
+    TriggerServerEvent('bit-smartphone:darkweb:sendMessage', data)
     cb('ok')
 end)
 
 
-RegisterNUICallback('darkweb:buyItem', function(data, cb)
-    local playerData = ESX.GetPlayerData()
-    local money = playerData.money
-    
-    if money >= data.price then
-        TriggerServerEvent('darkweb:purchaseItem', data)
-        cb({success = true, message = "Compra realizada con éxito"})
+
+
+
+
+RegisterNUICallback('crypto:getBalance', function(data, cb)
+    if Config.Framework == 'esx' then
+        ESX.TriggerServerCallback('smartphone:crypto:getUserData', function(result)
+            local holdings = (result and result.holdings) or {}
+            cb({ success = true, balance = holdings })
+        end)
+    elseif Config.Framework == 'qb' or Config.Framework == 'qbox' then
+        QBCore.Functions.TriggerCallback('smartphone:crypto:getUserData', function(result)
+            local holdings = (result and result.holdings) or {}
+            cb({ success = true, balance = holdings })
+        end)
     else
-        cb({success = false, message = "Fondos insuficientes"})
+        cb({ success = false })
     end
 end)
 
+RegisterNUICallback('darkweb:getBitcoinWallet', function(data, cb)
+    TriggerServerEvent('darkweb:getBitcoinWallet')
+    cb('ok')
+end)
 
-
-
+RegisterNUICallback('darkweb:sendBitcoin', function(data, cb)
+    if not data or not data.recipientAddress or not data.amount then
+        cb('error')
+        return
+    end
+    TriggerServerEvent('darkweb:sendBitcoin', data)
+    cb('ok')
+end)
 
 RegisterNUICallback('darkweb:getOnlineUsers', function(data, cb)
-    TriggerServerEvent('darkweb:getOnlineUsers')
+    TriggerServerEvent('bit-smartphone:darkweb:getOnlineUsers')
     cb('ok')
 end)
 
-RegisterNUICallback('darkweb:addReview', function(data, cb)
-    if not data.purchaseId or not data.rating then
-        cb('error')
-        return
-    end
-    
-    TriggerServerEvent('darkweb:addReview', data.purchaseId, data.rating, data.review)
-    cb('ok')
-end)
-
-
-
-
-
-
-RegisterNetEvent('darkweb:receiveRooms')
-AddEventHandler('darkweb:receiveRooms', function(rooms)
+RegisterNetEvent('bit-smartphone:darkweb:receiveRooms')
+AddEventHandler('bit-smartphone:darkweb:receiveRooms', function(rooms)
     SendNUIMessage({
-        action = 'darkweb:updateRooms',
-        data = rooms
+        action = 'roomsLoaded',
+        data = {
+            rooms = rooms
+        }
     })
 end)
 
-
-RegisterNetEvent('darkweb:roomCreated')
-AddEventHandler('darkweb:roomCreated', function(room)
-    SendNUIMessage({
-        action = 'darkweb:roomCreated',
-        data = room
-    })
+RegisterNetEvent('bit-smartphone:darkweb:roomCreated')
+AddEventHandler('bit-smartphone:darkweb:roomCreated', function(room)
+    SendNUIMessage({ action = 'roomCreated', data = room })
 end)
 
-
-RegisterNetEvent('darkweb:roomJoined')
-AddEventHandler('darkweb:roomJoined', function(response)
-    SendNUIMessage({
-        action = 'darkweb:roomJoined',
-        data = response
-    })
+RegisterNetEvent('bit-smartphone:darkweb:roomJoined')
+AddEventHandler('bit-smartphone:darkweb:roomJoined', function(response)
+    SendNUIMessage({ action = 'darkweb:roomJoined', data = response })
 end)
 
-
-RegisterNetEvent('darkweb:roomLeft')
-AddEventHandler('darkweb:roomLeft', function(response)
-    SendNUIMessage({
-        action = 'darkweb:roomLeft',
-        data = response
-    })
+RegisterNetEvent('bit-smartphone:darkweb:roomLeft')
+AddEventHandler('bit-smartphone:darkweb:roomLeft', function(response)
+    SendNUIMessage({ action = 'darkweb:roomLeft', data = response })
 end)
 
-
-RegisterNetEvent('darkweb:receiveRoomMessages')
-AddEventHandler('darkweb:receiveRoomMessages', function(data)
-    SendNUIMessage({
-        action = 'darkweb:updateRoomMessages',
-        data = data
-    })
+RegisterNetEvent('bit-smartphone:darkweb:receiveRoomMessages')
+AddEventHandler('bit-smartphone:darkweb:receiveRoomMessages', function(data)
+    SendNUIMessage({ action = 'darkweb:updateRoomMessages', data = data })
 end)
 
-
-RegisterNetEvent('darkweb:receiveRoomMessage')
-AddEventHandler('darkweb:receiveRoomMessage', function(data)
-    SendNUIMessage({
-        action = 'darkweb:newRoomMessage',
-        data = data
-    })
+RegisterNetEvent('bit-smartphone:darkweb:newMessage')
+AddEventHandler('bit-smartphone:darkweb:newMessage', function(messageData)
+    SendNUIMessage({ action = 'darkweb:newRoomMessage', data = messageData })
 end)
 
-
-RegisterNetEvent('darkweb:receiveMarketplace')
-AddEventHandler('darkweb:receiveMarketplace', function(data)
-    SendNUIMessage({
-        action = 'darkweb:updateMarketplace',
-        data = data
-    })
+RegisterNetEvent('bit-smartphone:darkweb:receiveOnlineCount')
+AddEventHandler('bit-smartphone:darkweb:receiveOnlineCount', function(count)
+    SendNUIMessage({ action = 'darkweb:updateOnlineCount', data = { count = count } })
 end)
 
-
-RegisterNetEvent('darkweb:itemCreated')
-AddEventHandler('darkweb:itemCreated', function(response)
-    SendNUIMessage({
-        action = 'darkweb:itemCreated',
-        data = response
-    })
+RegisterNetEvent('bit-smartphone:darkweb:receiveGlobalMessage')
+AddEventHandler('bit-smartphone:darkweb:receiveGlobalMessage', function(messageData)
+    SendNUIMessage({ action = 'newMessage', data = messageData })
 end)
 
-
-RegisterNetEvent('darkweb:purchaseComplete')
-AddEventHandler('darkweb:purchaseComplete', function(response)
-    SendNUIMessage({
-        action = 'darkweb:purchaseComplete',
-        data = response
-    })
+RegisterNetEvent('bit-smartphone:darkweb:receiveBitcoinWallet')
+AddEventHandler('bit-smartphone:darkweb:receiveBitcoinWallet', function(wallet)
+    SendNUIMessage({ action = 'darkweb:receiveBitcoinWallet', data = wallet })
 end)
 
-
-RegisterNetEvent('darkweb:reviewAdded')
-AddEventHandler('darkweb:reviewAdded', function(response)
-    SendNUIMessage({
-        action = 'darkweb:reviewAdded',
-        data = response
-    })
+RegisterNetEvent('bit-smartphone:darkweb:bitcoinTransferResult')
+AddEventHandler('bit-smartphone:darkweb:bitcoinTransferResult', function(payload)
+    SendNUIMessage({ action = 'darkweb:bitcoinTransferResult', data = payload })
 end)
 
-
-RegisterNetEvent('darkweb:receiveOnlineCount')
-AddEventHandler('darkweb:receiveOnlineCount', function(count)
-    SendNUIMessage({
-        action = 'darkweb:updateOnlineCount',
-        data = {count = count}
-    })
-end)
-
-
-RegisterNetEvent('darkweb:receiveGlobalMessage')
-AddEventHandler('darkweb:receiveGlobalMessage', function(messageData)
-    
-    SendNUIMessage({
-        action = 'newMessage',
-        data = messageData
-    })
-end)
-
-RegisterNetEvent('darkweb:purchaseComplete')
-AddEventHandler('darkweb:purchaseComplete', function(itemData)
-    
-    SendNUIMessage({
-        action = 'darkweb:purchaseComplete',
-        data = itemData
-    })
+RegisterNetEvent('bit-smartphone:darkweb:bitcoinReceived')
+AddEventHandler('bit-smartphone:darkweb:bitcoinReceived', function(payload)
+    SendNUIMessage({ action = 'darkweb:bitcoinReceived', data = payload })
 end)
 
 exports('OpenDarkweb', function()
@@ -262,7 +158,6 @@ end)
 exports('GetDarkwebData', function()
     return {
         rooms = {},
-        marketplace = {},
         userStats = {}
     }
 end)

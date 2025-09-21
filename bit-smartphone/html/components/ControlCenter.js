@@ -209,19 +209,7 @@ const ControlCenter = {
                 <div class="grid grid-cols-2 gap-3">
                   <div 
                     :class="[
-                      'relative h-16 rounded-xl p-3 cursor-pointer transition-all duration-200 active:scale-95 flex flex-col justify-between overflow-hidden',
-                      userSettings.wifi ? 'bg-blue-500 shadow-lg shadow-blue-500/30' : 'bg-black/40'
-                    ]"
-                    @click="toggleSetting('wifi')"
-                  >
-                    <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12.01 21.49L23.64 7c-.45-.34-4.93-4-11.64-4C5.28 3 .81 6.66.36 7l11.63 14.49.01.01.01-.01z"/>
-                    </svg>
-                  </div>
-
-                  <div 
-                    :class="[
-                      'relative h-16 rounded-xl p-3 cursor-pointer transition-all duration-200 active:scale-95 flex flex-col justify-between overflow-hidden',
+                      'relative h-16 rounded-xl p-3 cursor-pointer transition-all duration-200 active:scale-95 flex flex-col justify-between overflow-hidden border border-white/15 hover:bg-white/10',
                       userSettings.bluetooth ? 'bg-blue-500 shadow-lg shadow-blue-500/30' : 'bg-black/40'
                     ]"
                     @click="toggleSetting('bluetooth')"
@@ -231,12 +219,10 @@ const ControlCenter = {
                     </svg>
                     <p class="text-[11px] text-white font-medium">Bluetooth</p>
                   </div>
-                </div>
 
-                <div class="grid grid-cols-2 gap-3">
                   <div 
                     :class="[
-                      'relative h-16 rounded-xl p-3 cursor-pointer transition-all duration-200 active:scale-95 flex flex-col justify-between overflow-hidden',
+                      'relative h-16 rounded-xl p-3 cursor-pointer transition-all duration-200 active:scale-95 flex flex-col justify-between overflow-hidden border border-white/15 hover:bg-white/10',
                       userSettings.cellular ? 'bg-green-500 shadow-lg shadow-green-500/30' : 'bg-black/40'
                     ]"
                     @click="toggleSetting('cellular')"
@@ -246,10 +232,12 @@ const ControlCenter = {
                     </svg>
                     <p class="text-[11px] text-white font-medium">Cellular</p>
                   </div>
+                </div>
 
+                <div class="grid grid-cols-2 gap-3">
                   <div 
                     :class="[
-                      'relative h-16 rounded-xl p-3 cursor-pointer transition-all duration-200 active:scale-95 flex flex-col justify-between overflow-hidden',
+                      'relative h-16 rounded-xl p-3 cursor-pointer transition-all duration-200 active:scale-95 flex flex-col justify-between overflow-hidden border border-white/15 hover:bg-white/10 col-span-2',
                       userSettings.hotspot ? 'bg-green-500 shadow-lg shadow-green-500/30' : 'bg-black/40'
                     ]"
                     @click="toggleSetting('hotspot')"

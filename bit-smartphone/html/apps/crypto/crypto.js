@@ -1,118 +1,158 @@
 const Crypto = {
-  name: 'crypto',
-  props: ['userSettings', 'wallpapers', 'currentWallpaper', 'photos', 'weatherData', 't'],
-  emits: ['close', 'update-setting', 'change-wallpaper', 'take-photo', 'delete-photo'],
-  data() {
-    return {
-      currentView: 'portfolio', 
-      selectedCrypto: null,
-      
-      userWallets: {},
-      transactions: [],
-      moneyBalances: {
-        cash: 0,
-        bank: 0
+  name: 'CryptoWallet',
+  emits: ['close'],
+  setup() {
+    const { ref, computed, onMounted, onUnmounted, watch } = Vue;
+
+    const currentView = ref('portfolio');
+    const selectedCrypto = ref(null);
+    const userWallets = ref({});
+    const transactions = ref([]);
+    const moneyBalances = ref({ cash: 0, bank: 0 });
+    const cryptoPrices = ref({});
+    const lastPriceUpdate = ref(null);
+    const loading = ref(false);
+    const error = ref('');
+    const success = ref('');
+    const autoRefresh = ref(true);
+    let refreshInterval = null;
+
+    const buyForm = ref({
+      cryptoSymbol: '',
+      amount: '',
+      paymentMethod: 'bank',
+      totalCost: 0
+    });
+
+    const sellForm = ref({
+      cryptoSymbol: '',
+      amount: '',
+      paymentMethod: 'bank',
+      totalReceived: 0
+    });
+
+    const supportedCryptos = {
+      bitcoin: { 
+        symbol: 'BTC', 
+        name: 'Bitcoin', 
+        icon: '₿',
+        color: '#F7931A',
+        description: 'La primera y más conocida criptomoneda descentralizada.'
       },
-      
-      cryptoPrices: {},
-      lastPriceUpdate: null,
-      
-      buyForm: {
-        cryptoSymbol: '',
-        amount: '',
-        paymentMethod: 'bank',
-        totalCost: 0
+      ethereum: { 
+        symbol: 'ETH', 
+        name: 'Ethereum', 
+        icon: 'Ξ',
+        color: '#627EEA',
+        description: 'Plataforma para contratos inteligentes y aplicaciones descentralizadas.'
       },
-      
-      sellForm: {
-        cryptoSymbol: '',
-        amount: '',
-        paymentMethod: 'bank',
-        totalReceived: 0
+      binancecoin: { 
+        symbol: 'BNB', 
+        name: 'Binance Coin', 
+        icon: 'BNB',
+        color: '#F3BA2F',
+        description: 'Token nativo del exchange Binance.'
       },
-      
-      loading: false,
-      error: '',
-      success: '',
-      autoRefresh: true,
-      refreshInterval: null,
-      
-      supportedCryptos: {
-        bitcoin: { 
-          symbol: 'BTC', 
-          name: 'Bitcoin', 
-          icon: '₿',
-          color: '#F7931A',
-          description: 'La primera y más conocida criptomoneda descentralizada.'
-        },
-        ethereum: { 
-          symbol: 'ETH', 
-          name: 'Ethereum', 
-          icon: 'Ξ',
-          color: '#627EEA',
-          description: 'Plataforma para contratos inteligentes y aplicaciones descentralizadas.'
-        },
-        binancecoin: { 
-          symbol: 'BNB', 
-          name: 'Binance Coin', 
-          icon: 'BNB',
-          color: '#F3BA2F',
-          description: 'Token nativo del exchange Binance.'
-        },
-        cardano: { 
-          symbol: 'ADA', 
-          name: 'Cardano', 
-          icon: 'ADA',
-          color: '#0033AD',
-          description: 'Blockchain de tercera generación enfocada en sostenibilidad.'
-        },
-        solana: { 
-          symbol: 'SOL', 
-          name: 'Solana', 
-          icon: 'SOL',
-          color: '#9945FF',
-          description: 'Blockchain de alta velocidad para aplicaciones descentralizadas.'
-        },
-        dogecoin: { 
-          symbol: 'DOGE', 
-          name: 'Dogecoin', 
-          icon: 'Ð',
-          color: '#C2A633',
-          description: 'La criptomoneda meme que se volvió mainstream.'
-        },
-        polygon: { 
-          symbol: 'MATIC', 
-          name: 'Polygon', 
-          icon: 'MATIC',
-          color: '#8247E5',
-          description: 'Solución de escalabilidad para Ethereum.'
-        },
-        'avalanche-2': { 
-          symbol: 'AVAX', 
-          name: 'Avalanche', 
-          icon: 'AVAX',
-          color: '#E84142',
-          description: 'Plataforma para aplicaciones descentralizadas de alta velocidad.'
-        }
+      cardano: { 
+        symbol: 'ADA', 
+        name: 'Cardano', 
+        icon: 'ADA',
+        color: '#0033AD',
+        description: 'Blockchain de tercera generación enfocada en sostenibilidad.'
+      },
+      solana: { 
+        symbol: 'SOL', 
+        name: 'Solana', 
+        icon: 'SOL',
+        color: '#9945FF',
+        description: 'Blockchain de alta velocidad para aplicaciones descentralizadas.'
+      },
+      dogecoin: { 
+        symbol: 'DOGE', 
+        name: 'Dogecoin', 
+        icon: 'Ð',
+        color: '#C2A633',
+        description: 'La criptomoneda meme que se volvió mainstream.'
+      },
+      polygon: { 
+        symbol: 'MATIC', 
+        name: 'Polygon', 
+        icon: 'MATIC',
+        color: '#8247E5',
+        description: 'Solución de escalabilidad para Ethereum.'
+      },
+      'avalanche-2': { 
+        symbol: 'AVAX', 
+        name: 'Avalanche', 
+        icon: 'AVAX',
+        color: '#E84142',
+        description: 'Plataforma para aplicaciones descentralizadas de alta velocidad.'
+      },
+      litecoin: { 
+        symbol: 'LTC', 
+        name: 'Litecoin', 
+        icon: 'Ł',
+        color: '#BFBBBB',
+        description: 'La plata digital, procesamiento más rápido que Bitcoin.'
+      },
+      chainlink: { 
+        symbol: 'LINK', 
+        name: 'Chainlink', 
+        icon: 'LINK',
+        color: '#375BD2',
+        description: 'Oráculo descentralizado que conecta blockchains con datos externos.'
+      },
+      polkadot: { 
+        symbol: 'DOT', 
+        name: 'Polkadot', 
+        icon: 'DOT',
+        color: '#E6007A',
+        description: 'Protocolo de blockchain multicadena e interoperable.'
+      },
+      'uniswap': { 
+        symbol: 'UNI', 
+        name: 'Uniswap', 
+        icon: 'UNI',
+        color: '#FF007A',
+        description: 'Protocolo de intercambio descentralizado líder en DeFi.'
+      },
+      vechain: { 
+        symbol: 'VET', 
+        name: 'VeChain', 
+        icon: 'VET',
+        color: '#15BDFF',
+        description: 'Blockchain empresarial enfocada en cadenas de suministro.'
+      },
+      stellar: { 
+        symbol: 'XLM', 
+        name: 'Stellar', 
+        icon: 'XLM',
+        color: '#7D00FF',
+        description: 'Red de pagos globales rápida y de bajo costo.'
+      },
+      'crypto-com-chain': { 
+        symbol: 'CRO', 
+        name: 'Cronos', 
+        icon: 'CRO',
+        color: '#003D82',
+        description: 'Token nativo del ecosistema Crypto.com.'
       }
-    }
-  },
-  
-  computed: {
-    totalPortfolioValue() {
+    };
+
+    const totalPortfolioValue = computed(() => {
       let total = 0;
-      for (const [cryptoId, wallet] of Object.entries(this.userWallets)) {
-        const price = this.cryptoPrices[cryptoId]?.usd || 0;
+      for (const [cryptoId, wallet] of Object.entries(userWallets.value)) {
+        const price = cryptoPrices.value[cryptoId]?.usd || 0;
         total += wallet.amount * price;
       }
       return total;
-    },
-    
-    portfolioCryptos() {
-      return Object.entries(this.userWallets).map(([cryptoId, wallet]) => {
-        const cryptoInfo = this.supportedCryptos[cryptoId] || {};
-        const price = this.cryptoPrices[cryptoId]?.usd || 0;
-        const change24h = this.cryptoPrices[cryptoId]?.usd_24h_change || 0;
+    });
+
+    const portfolioCryptos = computed(() => {
+      return Object.entries(userWallets.value).map(([cryptoId, wallet]) => {
+        const cryptoInfo = supportedCryptos[cryptoId] || {};
+        const price = cryptoPrices.value[cryptoId]?.usd || 0;
+        const change24h = cryptoPrices.value[cryptoId]?.usd_24h_change || 0;
         const currentValue = wallet.amount * price;
         const pnl = currentValue - wallet.totalInvested;
         const pnlPercentage = wallet.totalInvested > 0 ? (pnl / wallet.totalInvested) * 100 : 0;
@@ -129,442 +169,687 @@ const Crypto = {
           pnlPercentage: pnlPercentage
         };
       }).sort((a, b) => b.currentValue - a.currentValue);
-    },
-    
-    availableCryptos() {
-      return Object.entries(this.supportedCryptos).map(([cryptoId, cryptoInfo]) => {
-        const price = this.cryptoPrices[cryptoId]?.usd || 0;
-        const change24h = this.cryptoPrices[cryptoId]?.usd_24h_change || 0;
-        const userWallet = this.userWallets[cryptoId];
+    });
+
+    const availableCryptos = computed(() => {
+      return Object.entries(supportedCryptos).map(([cryptoId, cryptoInfo]) => {
+        const price = cryptoPrices.value[cryptoId]?.usd || 0;
+        const change24h = cryptoPrices.value[cryptoId]?.usd_24h_change || 0;
+        const marketCap = cryptoPrices.value[cryptoId]?.usd_market_cap || 0;
+        const volume24h = cryptoPrices.value[cryptoId]?.usd_24h_vol || 0;
+        const userWallet = userWallets.value[cryptoId];
         
         return {
           id: cryptoId,
           ...cryptoInfo,
           currentPrice: price,
           change24h: change24h,
+          marketCap: marketCap,
+          volume24h: volume24h,
           owned: userWallet ? userWallet.amount : 0,
           ownedValue: userWallet ? userWallet.amount * price : 0
         };
-      }).sort((a, b) => b.currentPrice - a.currentPrice);
-    }
-  },
-  
-  watch: {
-    'buyForm.amount': {
-      handler(newAmount) {
-        if (this.selectedCrypto && newAmount) {
-          const price = this.cryptoPrices[this.selectedCrypto.id]?.usd || 0;
-          this.buyForm.totalCost = parseFloat(newAmount) * price;
-        } else {
-          this.buyForm.totalCost = 0;
-        }
-      },
-      immediate: true
-    },
-    
-    'sellForm.amount': {
-      handler(newAmount) {
-        if (this.selectedCrypto && newAmount) {
-          const price = this.cryptoPrices[this.selectedCrypto.id]?.usd || 0;
-          this.sellForm.totalReceived = parseFloat(newAmount) * price;
-        } else {
-          this.sellForm.totalReceived = 0;
-        }
-      },
-      immediate: true
-    }
-  },
-  
-  mounted() {
-    this.loadCryptoData();
-    this.startAutoRefresh();
-    
-  window.addEventListener('message', this.handleNUIMessage);
-  
-  try { window.cryptoApp = this; } catch (e) {  }
-  },
+      }).sort((a, b) => b.marketCap - a.marketCap);
+    });
 
-  beforeUnmount() {
-    this.stopAutoRefresh();
-  window.removeEventListener('message', this.handleNUIMessage);
-  try { if (window.cryptoApp === this) delete window.cryptoApp; } catch (e) {  }
-  },
+    watch(() => buyForm.value.amount, (newAmount) => {
+      if (selectedCrypto.value && newAmount) {
+        const price = cryptoPrices.value[selectedCrypto.value.id]?.usd || 0;
+        buyForm.value.totalCost = parseFloat(newAmount) * price;
+      } else {
+        buyForm.value.totalCost = 0;
+      }
+    });
 
-  methods: {
-    handleNUIMessage(event) {
+    watch(() => sellForm.value.amount, (newAmount) => {
+      if (selectedCrypto.value && newAmount) {
+        const price = cryptoPrices.value[selectedCrypto.value.id]?.usd || 0;
+        sellForm.value.totalReceived = parseFloat(newAmount) * price;
+      } else {
+        sellForm.value.totalReceived = 0;
+      }
+    });
+
+    const handleNUIMessage = (event) => {
+      if (!event.data) return;
+      
       const { action, data } = event.data;
       
       switch (action) {
         case 'crypto:updateData':
-          this.userWallets = data.holdings || {};
-          this.transactions = data.transactions || [];
-          this.cryptoPrices = data.prices || {};
-          this.moneyBalances = data.moneyBalances || { cash: 0, bank: 0 };
-          this.lastPriceUpdate = Date.now();
-          this.loading = false;
+          userWallets.value = data.holdings || {};
+          transactions.value = data.transactions || [];
+          cryptoPrices.value = data.prices || {};
+          moneyBalances.value = data.moneyBalances || { cash: 0, bank: 0 };
+          lastPriceUpdate.value = Date.now();
+          loading.value = false;
           break;
           
         case 'crypto:priceUpdate':
-          this.cryptoPrices = data.prices || {};
-          this.lastPriceUpdate = Date.now();
+          cryptoPrices.value = data.prices || {};
+          lastPriceUpdate.value = Date.now();
           break;
           
         case 'crypto:transactionResult':
           if (data.success) {
-            this.success = data.message;
-            this.userWallets = data.holdings || this.userWallets;
-            this.moneyBalances = data.moneyBalances || this.moneyBalances;
-            this.resetForms();
+            success.value = data.message;
+            userWallets.value = data.holdings || userWallets.value;
+            moneyBalances.value = data.moneyBalances || moneyBalances.value;
+            resetForms();
           } else {
-            this.error = data.message;
+            error.value = data.message;
           }
-          this.loading = false;
+          loading.value = false;
           break;
       }
-    },
+    };
 
-    async loadCryptoData() {
-      this.loading = true;
-      this.error = '';
+    const loadCryptoData = async () => {
+      loading.value = true;
+      error.value = '';
       
       try {
-        if (window.invokeNative) {
-          window.invokeNative('sendNuiMessage', JSON.stringify({ action: 'loadCryptoData' }));
-        }
+        await fetch('https://bit-smartphone/loadCryptoData', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
       } catch (error) {
-        this.error = 'Error loading crypto data';
-        this.loading = false;
+        error.value = 'Error loading crypto data';
+        loading.value = false;
       }
-    },
+    };
 
-    async refreshPrices() {
+    const refreshPrices = async () => {
       try {
-        if (window.invokeNative) {
-          window.invokeNative('sendNuiMessage', JSON.stringify({ action: 'refreshCryptoPrices' }));
-        }
+        await fetch('https://bit-smartphone/refreshCryptoPrices', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
       } catch (error) {
-        this.error = 'Error refreshing prices';
+        error.value = 'Error refreshing prices';
       }
-    },
+    };
 
-    async buyCrypto() {
-      if (!this.buyForm.cryptoSymbol || !this.buyForm.amount || this.buyForm.amount <= 0) {
-        this.error = 'Please enter valid purchase details';
+    const buyCrypto = async () => {
+      if (!buyForm.value.cryptoSymbol || !buyForm.value.amount || buyForm.value.amount <= 0) {
+        error.value = 'Por favor ingresa detalles válidos de compra';
         return;
       }
 
-      if (this.buyForm.totalCost > this.moneyBalances[this.buyForm.paymentMethod]) {
-        this.error = 'Insufficient funds';
+      if (buyForm.value.totalCost > moneyBalances.value[buyForm.value.paymentMethod]) {
+        error.value = 'Fondos insuficientes';
         return;
       }
 
-      this.loading = true;
-      this.error = '';
-
-      try {
-        if (window.invokeNative) {
-          window.invokeNative('sendNuiMessage', JSON.stringify({
-            action: 'buyCrypto',
-            cryptoSymbol: this.buyForm.cryptoSymbol,
-            amount: parseFloat(this.buyForm.amount),
-            paymentMethod: this.buyForm.paymentMethod
-          }));
-        }
-      } catch (error) {
-        this.error = 'Error processing purchase';
-        this.loading = false;
-      }
-    },
-
-    async sellCrypto() {
-      if (!this.sellForm.cryptoSymbol || !this.sellForm.amount || this.sellForm.amount <= 0) {
-        this.error = 'Please enter valid sale details';
-        return;
-      }
-
-      const wallet = this.userWallets[this.sellForm.cryptoSymbol];
-      if (!wallet || wallet.amount < parseFloat(this.sellForm.amount)) {
-        this.error = 'Insufficient crypto balance';
-        return;
-      }
-
-      this.loading = true;
-      this.error = '';
+      loading.value = true;
+      error.value = '';
 
       try {
-        if (window.invokeNative) {
-          window.invokeNative('sendNuiMessage', JSON.stringify({
-            action: 'sellCrypto',
-            cryptoSymbol: this.sellForm.cryptoSymbol,
-            amount: parseFloat(this.sellForm.amount),
-            paymentMethod: this.sellForm.paymentMethod
-          }));
-        }
+        await fetch('https://bit-smartphone/buyCrypto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cryptoSymbol: buyForm.value.cryptoSymbol,
+            amount: parseFloat(buyForm.value.amount),
+            paymentMethod: buyForm.value.paymentMethod
+          })
+        });
       } catch (error) {
-        this.error = 'Error processing sale';
-        this.loading = false;
+        error.value = 'Error procesando la compra';
+        loading.value = false;
       }
-    },
+    };
 
-    resetForms() {
-      this.buyForm = {
+    const sellCrypto = async () => {
+      if (!sellForm.value.cryptoSymbol || !sellForm.value.amount || sellForm.value.amount <= 0) {
+        error.value = 'Por favor ingresa detalles válidos de venta';
+        return;
+      }
+
+      const wallet = userWallets.value[sellForm.value.cryptoSymbol];
+      if (!wallet || wallet.amount < parseFloat(sellForm.value.amount)) {
+        error.value = 'Balance de criptomoneda insuficiente';
+        return;
+      }
+
+      loading.value = true;
+      error.value = '';
+
+      try {
+        await fetch('https://bit-smartphone/sellCrypto', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            cryptoSymbol: sellForm.value.cryptoSymbol,
+            amount: parseFloat(sellForm.value.amount),
+            paymentMethod: sellForm.value.paymentMethod
+          })
+        });
+      } catch (error) {
+        error.value = 'Error procesando la venta';
+        loading.value = false;
+      }
+    };
+
+    const resetForms = () => {
+      buyForm.value = {
         cryptoSymbol: '',
         amount: '',
         paymentMethod: 'bank',
         totalCost: 0
       };
       
-      this.sellForm = {
+      sellForm.value = {
         cryptoSymbol: '',
         amount: '',
         paymentMethod: 'bank',
         totalReceived: 0
       };
-    },
+    };
 
-    startAutoRefresh() {
-      if (this.autoRefresh) {
-        this.refreshInterval = setInterval(() => {
-          this.refreshPrices();
+    const startAutoRefresh = () => {
+      if (autoRefresh.value) {
+        refreshInterval = setInterval(() => {
+          refreshPrices();
         }, 60000);
       }
-    },
+    };
 
-    stopAutoRefresh() {
-      if (this.refreshInterval) {
-        clearInterval(this.refreshInterval);
-        this.refreshInterval = null;
+    const stopAutoRefresh = () => {
+      if (refreshInterval) {
+        clearInterval(refreshInterval);
+        refreshInterval = null;
       }
-    },
+    };
 
-    selectCrypto(crypto, action) {
-      this.selectedCrypto = crypto;
-      this.error = '';
-      this.success = '';
+    const selectCrypto = (crypto, action) => {
+      selectedCrypto.value = crypto;
+      error.value = '';
+      success.value = '';
       
       if (action === 'buy') {
-        this.buyForm.cryptoSymbol = crypto.id;
-        this.currentView = 'buy';
+        buyForm.value.cryptoSymbol = crypto.id;
+        currentView.value = 'buy';
       } else if (action === 'sell') {
-        this.sellForm.cryptoSymbol = crypto.id;
-        this.currentView = 'sell';
+        sellForm.value.cryptoSymbol = crypto.id;
+        currentView.value = 'sell';
       }
-    },
+    };
 
-    goBack() {
-      this.currentView = 'portfolio';
-      this.selectedCrypto = null;
-      this.error = '';
-      this.success = '';
-    },
+    const goBack = () => {
+      currentView.value = 'portfolio';
+      selectedCrypto.value = null;
+      error.value = '';
+      success.value = '';
+    };
 
-    formatCurrency(amount) {
-      return new Intl.NumberFormat('en-US', {
+    const formatCurrency = (amount) => {
+      return new Intl.NumberFormat('es-ES', {
         style: 'currency',
         currency: 'USD'
       }).format(amount);
-    },
+    };
 
-    formatCrypto(amount, decimals = 8) {
+    const formatCrypto = (amount, decimals = 8) => {
       return parseFloat(amount).toFixed(decimals);
-    },
+    };
 
-    formatPercent(percent) {
+    const formatPercent = (percent) => {
       return (percent >= 0 ? '+' : '') + percent.toFixed(2) + '%';
-    },
+    };
 
-    formatDate(timestamp) {
-      return new Date(timestamp).toLocaleDateString();
-    }
+    const formatLargeNumber = (num) => {
+      if (num >= 1e12) return (num / 1e12).toFixed(2) + 'T';
+      if (num >= 1e9) return (num / 1e9).toFixed(2) + 'B';
+      if (num >= 1e6) return (num / 1e6).toFixed(2) + 'M';
+      if (num >= 1e3) return (num / 1e3).toFixed(2) + 'K';
+      return num.toFixed(2);
+    };
+
+    const clearNotifications = () => {
+      error.value = '';
+      success.value = '';
+    };
+
+    onMounted(() => {
+      loadCryptoData();
+      startAutoRefresh();
+      window.addEventListener('message', handleNUIMessage);
+      setTimeout(clearNotifications, 5000);
+    });
+
+    onUnmounted(() => {
+      stopAutoRefresh();
+      window.removeEventListener('message', handleNUIMessage);
+    });
+
+    return {
+      currentView,
+      selectedCrypto,
+      userWallets,
+      transactions,
+      moneyBalances,
+      cryptoPrices,
+      lastPriceUpdate,
+      loading,
+      error,
+      success,
+      autoRefresh,
+      buyForm,
+      sellForm,
+      supportedCryptos,
+      totalPortfolioValue,
+      portfolioCryptos,
+      availableCryptos,
+      loadCryptoData,
+      refreshPrices,
+      buyCrypto,
+      sellCrypto,
+      resetForms,
+      selectCrypto,
+      goBack,
+      formatCurrency,
+      formatCrypto,
+      formatPercent,
+      formatLargeNumber,
+      clearNotifications
+    };
   },
 
   template: `
-    <div class="crypto-app">
-      
-      <div v-if="loading" class="loading-overlay">
-        <div class="spinner"></div>
-        <p>{{ t('crypto.loading') || 'Loading...' }}</p>
+  <div class="h-full bg-gradient-to-br from-gray-900 via-slate-900 to-gray-900 relative flex flex-col">
+      <div class="absolute inset-0 opacity-20">
+        <svg class="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <pattern id="cryptoGrid" width="50" height="50" patternUnits="userSpaceOnUse">
+              <line x1="0" y1="25" x2="50" y2="25" stroke="rgb(59, 130, 246)" stroke-width="0.5" opacity="0.6"/>
+              <line x1="25" y1="0" x2="25" y2="50" stroke="rgb(59, 130, 246)" stroke-width="0.5" opacity="0.6"/>
+              <circle cx="25" cy="25" r="1.5" fill="rgb(34, 197, 94)" opacity="0.8"/>
+              <circle cx="0" cy="0" r="1" fill="rgb(59, 130, 246)" opacity="0.4"/>
+              <circle cx="50" cy="50" r="1" fill="rgb(59, 130, 246)" opacity="0.4"/>
+            </pattern>
+            
+            <radialGradient id="cryptoGlow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="rgba(59, 130, 246, 0.1)"/>
+              <stop offset="70%" stop-color="rgba(34, 197, 94, 0.05)"/>
+              <stop offset="100%" stop-color="transparent"/>
+            </radialGradient>
+          </defs>
+          
+          <rect width="100%" height="100%" fill="url(#cryptoGrid)"/>
+          <rect width="100%" height="100%" fill="url(#cryptoGlow)"/>
+          
+          <g opacity="0.7">
+            <circle cx="10%" cy="20%" r="2" fill="rgb(34, 197, 94)">
+              <animate attributeName="cy" values="20%;25%;20%" dur="6s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="90%" cy="80%" r="1.5" fill="rgb(59, 130, 246)">
+              <animate attributeName="cx" values="90%;85%;90%" dur="8s" repeatCount="indefinite"/>
+            </circle>
+            <circle cx="70%" cy="30%" r="1" fill="rgb(34, 197, 94)" opacity="0.8">
+              <animate attributeName="r" values="1;2.5;1" dur="4s" repeatCount="indefinite"/>
+            </circle>
+          </g>
+        </svg>
       </div>
 
-      
-      <div v-if="error" class="notification error">
-        <i class="fas fa-exclamation-triangle"></i>
-        {{ error }}
-      </div>
 
-      <div v-if="success" class="notification success">
-        <i class="fas fa-check-circle"></i>
-        {{ success }}
-      </div>
+      <div class="absolute inset-0 bg-gradient-to-t from-gray-900/90 via-transparent to-gray-900/50"></div>
 
-      
-      <div v-if="currentView === 'portfolio'" class="portfolio-view">
-        <div class="header">
-          <h2>{{ t('crypto.title') || 'Crypto Wallet' }}</h2>
-          <div class="header-actions">
-            <button @click="refreshPrices" class="refresh-btn">
-              <i class="fas fa-sync-alt"></i>
+  <div class="relative z-10 min-h-screen flex flex-col">
+        
+
+        <div v-if="loading" class="absolute inset-0 bg-gray-900/95 backdrop-blur-xl flex items-center justify-center z-50">
+          <div class="text-center">
+            <div class="w-16 h-16 border-4 border-blue-500/20 border-t-blue-500 rounded-full animate-spin mx-auto mb-4"></div>
+            <p class="text-white font-medium">Cargando datos crypto...</p>
+          </div>
+        </div>
+
+
+        <Transition name="slide-down">
+          <div v-if="error" class="absolute top-4 left-4 right-4 z-40 bg-red-500/90 backdrop-blur-xl text-white px-4 py-3 rounded-2xl flex items-center gap-3 shadow-lg">
+            <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            <span class="flex-1">{{ error }}</span>
+            <button @click="clearNotifications" class="p-1 hover:bg-white/20 rounded-full">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
             </button>
           </div>
-        </div>
+        </Transition>
 
-        
-        <div class="portfolio-summary">
-          <div class="total-value">
-            <h3>{{ formatCurrency(totalPortfolioValue) }}</h3>
-            <p>{{ t('crypto.totalValue') || 'Total Portfolio Value' }}</p>
+        <Transition name="slide-down">
+          <div v-if="success" class="absolute top-4 left-4 right-4 z-40 bg-green-500/90 backdrop-blur-xl text-white px-4 py-3 rounded-2xl flex items-center gap-3 shadow-lg">
+            <svg class="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+            </svg>
+            <span class="flex-1">{{ success }}</span>
+            <button @click="clearNotifications" class="p-1 hover:bg-white/20 rounded-full">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd"/>
+              </svg>
+            </button>
           </div>
-          
-          <div class="balance-info">
-            <div class="balance-item">
-              <span class="label">{{ t('crypto.cash') || 'Cash' }}:</span>
-              <span class="value">{{ formatCurrency(moneyBalances.cash) }}</span>
-            </div>
-            <div class="balance-item">
-              <span class="label">{{ t('crypto.bank') || 'Bank' }}:</span>
-              <span class="value">{{ formatCurrency(moneyBalances.bank) }}</span>
-            </div>
-          </div>
-        </div>
+        </Transition>
 
-        
-        <div class="holdings-section" v-if="portfolioCryptos.length > 0">
-          <h3>{{ t('crypto.myHoldings') || 'My Holdings' }}</h3>
-          <div class="crypto-list">
-            <div v-for="crypto in portfolioCryptos" :key="crypto.id" class="crypto-item">
-              <div class="crypto-info">
-                <div class="crypto-icon" :style="{ color: crypto.color }">{{ crypto.icon }}</div>
-                <div class="crypto-details">
-                  <h4>{{ crypto.name }} ({{ crypto.symbol }})</h4>
-                  <p>{{ formatCrypto(crypto.amount) }} {{ crypto.symbol }}</p>
+
+        <div v-if="currentView === 'portfolio'" class="crypto-main-container">
+
+          <header class="bg-gray-900/90 backdrop-blur-xl border-b border-blue-500/20 px-6 py-6 flex-shrink-0">
+            <div class="flex items-center justify-between mb-4">
+              <div>
+                <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-400 via-green-400 to-blue-500 bg-clip-text text-transparent">
+                  CryptoWallet
+                </h1>
+                <p class="text-gray-400 text-sm mt-1">💎 Tu portafolio digital</p>
+              </div>
+              <div class="flex items-center gap-3">
+                <button @click="refreshPrices" class="w-12 h-12 bg-blue-500/20 hover:bg-blue-500/30 rounded-2xl flex items-center justify-center transition-all duration-300 border border-blue-500/30">
+                  <svg class="w-5 h-5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                  </svg>
+                </button>
+                <button @click="$emit('close')" class="w-12 h-12 bg-gray-700/50 hover:bg-red-500/20 rounded-2xl flex items-center justify-center transition-all duration-300 border border-gray-600">
+                  <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </div>
+
+
+            <div class="bg-gradient-to-r from-blue-500/10 to-green-500/10 backdrop-blur-xl rounded-3xl p-6 border border-blue-500/20">
+              <div class="text-center mb-4">
+                <h3 class="text-4xl font-bold text-white mb-2">{{ formatCurrency(totalPortfolioValue) }}</h3>
+                <p class="text-gray-400">Valor Total del Portafolio</p>
+              </div>
+              
+              <div class="grid grid-cols-2 gap-4">
+                <div class="bg-gray-800/50 rounded-2xl p-4 border border-gray-600/30">
+                  <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-4 h-4 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"/>
+                    </svg>
+                    <span class="text-gray-400 text-sm">Efectivo</span>
+                  </div>
+                  <span class="text-green-400 font-bold">{{ formatCurrency(moneyBalances.cash) }}</span>
+                </div>
+                
+                <div class="bg-gray-800/50 rounded-2xl p-4 border border-gray-600/30">
+                  <div class="flex items-center gap-2 mb-2">
+                    <svg class="w-4 h-4 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                      <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"/>
+                    </svg>
+                    <span class="text-gray-400 text-sm">Banco</span>
+                  </div>
+                  <span class="text-blue-400 font-bold">{{ formatCurrency(moneyBalances.bank) }}</span>
                 </div>
               </div>
-              <div class="crypto-values">
-                <div class="current-value">{{ formatCurrency(crypto.currentValue) }}</div>
-                <div class="pnl" :class="{ positive: crypto.pnl >= 0, negative: crypto.pnl < 0 }">
-                  {{ formatPercent(crypto.pnlPercentage) }}
+            </div>
+          </header>
+
+
+          <main class="crypto-content-scroll crypto-scrollbar px-6 py-4 pb-8 flex-1" style="min-height:0; height:0;">
+
+            <div v-if="portfolioCryptos.length > 0" class="mb-8">
+              <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <svg class="w-6 h-6 text-green-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z"/>
+                </svg>
+                Mis Criptomonedas
+              </h3>
+              
+              <div class="space-y-3">
+                <div
+                  v-for="crypto in portfolioCryptos"
+                  :key="crypto.id"
+                  class="bg-gradient-to-r from-gray-800/80 to-gray-900/80 backdrop-blur-xl border border-gray-600/40 rounded-3xl p-5 hover:border-blue-500/50 transition-all duration-300 hover:shadow-lg hover:shadow-blue-500/20"
+                >
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-4">
+                      <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold" :style="{ backgroundColor: crypto.color + '20', color: crypto.color, border: '1px solid ' + crypto.color + '40' }">
+                        {{ crypto.icon }}
+                      </div>
+                      <div>
+                        <h4 class="text-white font-bold">{{ crypto.name }}</h4>
+                        <p class="text-gray-400 text-sm">{{ formatCrypto(crypto.amount) }} {{ crypto.symbol }}</p>
+                      </div>
+                    </div>
+                    
+                    <div class="text-right">
+                      <div class="text-lg font-bold text-white">{{ formatCurrency(crypto.currentValue) }}</div>
+                      <div class="text-sm" :class="crypto.pnl >= 0 ? 'text-green-400' : 'text-red-400'">
+                        {{ formatPercent(crypto.pnlPercentage) }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="flex gap-2">
+                    <button @click="selectCrypto(crypto, 'buy')" class="flex-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 font-bold py-2 px-4 rounded-xl transition-all duration-300">
+                      Comprar
+                    </button>
+                    <button @click="selectCrypto(crypto, 'sell')" class="flex-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-bold py-2 px-4 rounded-xl transition-all duration-300">
+                      Vender
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div class="crypto-actions">
-                <button @click="selectCrypto(crypto, 'buy')" class="buy-btn">{{ t('crypto.buy') || 'Buy' }}</button>
-                <button @click="selectCrypto(crypto, 'sell')" class="sell-btn">{{ t('crypto.sell') || 'Sell' }}</button>
-              </div>
             </div>
-          </div>
-        </div>
 
-        
-        <div class="available-cryptos">
-          <h3>{{ t('crypto.available') || 'Available Cryptocurrencies' }}</h3>
-          <div class="crypto-list">
-            <div v-for="crypto in availableCryptos" :key="crypto.id" class="crypto-item">
-              <div class="crypto-info">
-                <div class="crypto-icon" :style="{ color: crypto.color }">{{ crypto.icon }}</div>
-                <div class="crypto-details">
-                  <h4>{{ crypto.name }} ({{ crypto.symbol }})</h4>
-                  <p>{{ formatCurrency(crypto.currentPrice) }}</p>
+
+            <div>
+              <h3 class="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                <svg class="w-6 h-6 text-blue-400" fill="currentColor" viewBox="0 0 20 20">
+                  <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM7 9a1 1 0 100-2 1 1 0 000 2zM9 9a1 1 0 000-2 1 1 0 000 2zm3 0a1 1 0 100-2 1 1 0 000 2zm-3 3a1 1 0 100-2 1 1 0 000 2zm3 0a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd"/>
+                </svg>
+                Mercado Crypto
+              </h3>
+              
+              <div class="space-y-3 pb-6">
+                <div
+                  v-for="crypto in availableCryptos"
+                  :key="crypto.id"
+                  class="bg-gradient-to-r from-gray-800/60 to-gray-900/60 backdrop-blur-xl border border-gray-600/30 rounded-3xl p-5 hover:border-blue-500/40 transition-all duration-300"
+                >
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-4">
+                      <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-xl font-bold" :style="{ backgroundColor: crypto.color + '15', color: crypto.color, border: '1px solid ' + crypto.color + '30' }">
+                        {{ crypto.icon }}
+                      </div>
+                      <div>
+                        <h4 class="text-white font-bold">{{ crypto.name }}</h4>
+                        <p class="text-gray-400 text-sm">{{ crypto.symbol }}</p>
+                        <p v-if="crypto.owned > 0" class="text-blue-400 text-xs">Posees: {{ formatCrypto(crypto.owned) }}</p>
+                      </div>
+                    </div>
+                    
+                    <div class="text-right">
+                      <div class="text-lg font-bold text-white">{{ formatCurrency(crypto.currentPrice) }}</div>
+                      <div class="text-sm" :class="crypto.change24h >= 0 ? 'text-green-400' : 'text-red-400'">
+                        {{ formatPercent(crypto.change24h) }}
+                      </div>
+                      <div class="text-xs text-gray-500">Cap: {{ formatLargeNumber(crypto.marketCap) }}</div>
+                    </div>
+                  </div>
+
+                  <div class="flex gap-2">
+                    <button @click="selectCrypto(crypto, 'buy')" class="flex-1 bg-green-500/15 hover:bg-green-500/25 text-green-400 font-bold py-2 px-4 rounded-xl transition-all duration-300">
+                      Comprar
+                    </button>
+                    <button v-if="crypto.owned > 0" @click="selectCrypto(crypto, 'sell')" class="flex-1 bg-red-500/15 hover:bg-red-500/25 text-red-400 font-bold py-2 px-4 rounded-xl transition-all duration-300">
+                      Vender
+                    </button>
+                  </div>
                 </div>
               </div>
-              <div class="crypto-values">
-                <div class="change" :class="{ positive: crypto.change24h >= 0, negative: crypto.change24h < 0 }">
-                  {{ formatPercent(crypto.change24h) }}
+            </div>
+          </main>
+        </div>
+
+
+        <div v-if="currentView === 'buy'" class="crypto-main-container">
+          <header class="bg-gray-900/90 backdrop-blur-xl border-b border-green-500/20 px-6 py-6 flex-shrink-0">
+            <div class="flex items-center gap-4 mb-4">
+              <button @click="goBack" class="w-12 h-12 bg-gray-700/50 hover:bg-gray-600/50 rounded-2xl flex items-center justify-center transition-all duration-300">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+              </button>
+              <div>
+                <h2 class="text-2xl font-bold text-white">Comprar {{ selectedCrypto?.name }}</h2>
+                <p class="text-green-400 text-sm">💰 Adquiere criptomonedas</p>
+              </div>
+            </div>
+          </header>
+
+          <main class="crypto-content-scroll crypto-scrollbar px-6 py-6 flex-1" style="min-height:0; height:0;">
+            <div v-if="selectedCrypto" class="max-w-md mx-auto">
+              <div class="bg-gradient-to-r from-green-500/10 to-blue-500/10 backdrop-blur-xl rounded-3xl p-6 border border-green-500/20 mb-6">
+                <div class="flex items-center gap-4 mb-4">
+                  <div class="w-16 h-16 rounded-3xl flex items-center justify-center text-2xl font-bold" :style="{ backgroundColor: selectedCrypto.color + '20', color: selectedCrypto.color, border: '2px solid ' + selectedCrypto.color + '40' }">
+                    {{ selectedCrypto.icon }}
+                  </div>
+                  <div>
+                    <h3 class="text-xl font-bold text-white">{{ selectedCrypto.name }}</h3>
+                    <p class="text-gray-400">{{ selectedCrypto.symbol }}</p>
+                  </div>
                 </div>
-                <div v-if="crypto.owned > 0" class="owned">
-                  {{ t('crypto.owned') || 'Owned' }}: {{ formatCrypto(crypto.owned) }}
+                
+                <div class="text-center">
+                  <div class="text-2xl font-bold text-white mb-2">{{ formatCurrency(cryptoPrices[selectedCrypto.id]?.usd || 0) }}</div>
+                  <div class="text-sm" :class="(cryptoPrices[selectedCrypto.id]?.usd_24h_change || 0) >= 0 ? 'text-green-400' : 'text-red-400'">
+                    {{ formatPercent(cryptoPrices[selectedCrypto.id]?.usd_24h_change || 0) }} (24h)
+                  </div>
                 </div>
               </div>
-              <div class="crypto-actions">
-                <button @click="selectCrypto(crypto, 'buy')" class="buy-btn">{{ t('crypto.buy') || 'Buy' }}</button>
-                <button v-if="crypto.owned > 0" @click="selectCrypto(crypto, 'sell')" class="sell-btn">{{ t('crypto.sell') || 'Sell' }}</button>
+
+
+              <div class="space-y-6">
+                <div>
+                  <label class="block text-gray-300 font-medium mb-2">Cantidad ({{ selectedCrypto.symbol }})</label>
+                  <input
+                    v-model="buyForm.amount"
+                    type="number"
+                    step="0.00000001"
+                    placeholder="0.00000000"
+                    class="w-full bg-gray-800/50 border border-gray-600 rounded-2xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 transition-all duration-300"
+                  />
+                </div>
+
+                <div>
+                  <label class="block text-gray-300 font-medium mb-2">Método de Pago</label>
+                  <select
+                    v-model="buyForm.paymentMethod"
+                    class="w-full bg-gray-800/50 border border-gray-600 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-green-500 focus:ring-2 focus:ring-green-500/30 transition-all duration-300"
+                  >
+                    <option value="bank">🏦 Banco ({{ formatCurrency(moneyBalances.bank) }})</option>
+                    <option value="cash">💵 Efectivo ({{ formatCurrency(moneyBalances.cash) }})</option>
+                  </select>
+                </div>
+
+                <div class="bg-gray-800/50 rounded-2xl p-4 border border-gray-600/30">
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-400">Costo Total:</span>
+                    <span class="text-2xl font-bold text-green-400">{{ formatCurrency(buyForm.totalCost) }}</span>
+                  </div>
+                </div>
+
+                <button
+                  @click="buyCrypto"
+                  :disabled="loading || !buyForm.amount || buyForm.totalCost > moneyBalances[buyForm.paymentMethod]"
+                  class="w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:scale-100 disabled:cursor-not-allowed"
+                >
+                  <span v-if="loading">Procesando...</span>
+                  <span v-else>💰 Confirmar Compra</span>
+                </button>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      
-      <div v-if="currentView === 'buy'" class="transaction-view">
-        <div class="header">
-          <button @click="goBack" class="back-btn">
-            <i class="fas fa-arrow-left"></i>
-          </button>
-          <h2>{{ t('crypto.buyTitle') || 'Buy' }} {{ selectedCrypto?.name }}</h2>
+          </main>
         </div>
 
-        <div class="transaction-form">
-          <div class="crypto-info-card">
-            <div class="crypto-icon" :style="{ color: selectedCrypto?.color }">{{ selectedCrypto?.icon }}</div>
-            <div class="crypto-details">
-              <h3>{{ selectedCrypto?.name }} ({{ selectedCrypto?.symbol }})</h3>
-              <p class="price">{{ formatCurrency(cryptoPrices[selectedCrypto?.id]?.usd || 0) }}</p>
-              <p class="change" :class="{ positive: (cryptoPrices[selectedCrypto?.id]?.usd_24h_change || 0) >= 0, negative: (cryptoPrices[selectedCrypto?.id]?.usd_24h_change || 0) < 0 }">
-                {{ formatPercent(cryptoPrices[selectedCrypto?.id]?.usd_24h_change || 0) }}
-              </p>
+
+        <div v-if="currentView === 'sell'" class="crypto-main-container">
+          <header class="bg-gray-900/90 backdrop-blur-xl border-b border-red-500/20 px-6 py-6 flex-shrink-0">
+            <div class="flex items-center gap-4 mb-4">
+              <button @click="goBack" class="w-12 h-12 bg-gray-700/50 hover:bg-gray-600/50 rounded-2xl flex items-center justify-center transition-all duration-300">
+                <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                </svg>
+              </button>
+              <div>
+                <h2 class="text-2xl font-bold text-white">Vender {{ selectedCrypto?.name }}</h2>
+                <p class="text-red-400 text-sm">💸 Convierte a dinero fiat</p>
+              </div>
             </div>
-          </div>
+          </header>
 
-          <div class="form-group">
-            <label>{{ t('crypto.amount') || 'Amount' }} ({{ selectedCrypto?.symbol }})</label>
-            <input v-model="buyForm.amount" type="number" step="0.00000001" placeholder="0.00000000">
-          </div>
+          <main class="crypto-content-scroll crypto-scrollbar px-6 py-6 flex-1" style="min-height:0; height:0;">
+            <div v-if="selectedCrypto" class="max-w-md mx-auto">
+              <div class="bg-gradient-to-r from-red-500/10 to-orange-500/10 backdrop-blur-xl rounded-3xl p-6 border border-red-500/20 mb-6">
+                <div class="flex items-center gap-4 mb-4">
+                  <div class="w-16 h-16 rounded-3xl flex items-center justify-center text-2xl font-bold" :style="{ backgroundColor: selectedCrypto.color + '20', color: selectedCrypto.color, border: '2px solid ' + selectedCrypto.color + '40' }">
+                    {{ selectedCrypto.icon }}
+                  </div>
+                  <div>
+                    <h3 class="text-xl font-bold text-white">{{ selectedCrypto.name }}</h3>
+                    <p class="text-gray-400">{{ selectedCrypto.symbol }}</p>
+                  </div>
+                </div>
+                
+                <div class="text-center mb-4">
+                  <div class="text-2xl font-bold text-white mb-2">{{ formatCurrency(cryptoPrices[selectedCrypto.id]?.usd || 0) }}</div>
+                  <div class="text-sm text-blue-400">Posees: {{ formatCrypto(userWallets[selectedCrypto.id]?.amount || 0) }} {{ selectedCrypto.symbol }}</div>
+                </div>
+              </div>
 
-          <div class="form-group">
-            <label>{{ t('crypto.paymentMethod') || 'Payment Method' }}</label>
-            <select v-model="buyForm.paymentMethod">
-              <option value="bank">{{ t('crypto.bank') || 'Bank' }} ({{ formatCurrency(moneyBalances.bank) }})</option>
-              <option value="cash">{{ t('crypto.cash') || 'Cash' }} ({{ formatCurrency(moneyBalances.cash) }})</option>
-            </select>
-          </div>
 
-          <div class="total-cost">
-            <h3>{{ t('crypto.totalCost') || 'Total Cost' }}: {{ formatCurrency(buyForm.totalCost) }}</h3>
-          </div>
+              <div class="space-y-6">
+                <div>
+                  <label class="block text-gray-300 font-medium mb-2">Cantidad a Vender ({{ selectedCrypto.symbol }})</label>
+                  <input
+                    v-model="sellForm.amount"
+                    type="number"
+                    step="0.00000001"
+                    placeholder="0.00000000"
+                    :max="userWallets[selectedCrypto.id]?.amount || 0"
+                    class="w-full bg-gray-800/50 border border-gray-600 rounded-2xl px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30 transition-all duration-300"
+                  />
+                </div>
 
-          <button @click="buyCrypto" :disabled="loading || !buyForm.amount || buyForm.totalCost > moneyBalances[buyForm.paymentMethod]" class="transaction-btn buy">
-            {{ t('crypto.confirmBuy') || 'Confirm Purchase' }}
-          </button>
-        </div>
-      </div>
+                <div>
+                  <label class="block text-gray-300 font-medium mb-2">Recibir en</label>
+                  <select
+                    v-model="sellForm.paymentMethod"
+                    class="w-full bg-gray-800/50 border border-gray-600 rounded-2xl px-4 py-3 text-white focus:outline-none focus:border-red-500 focus:ring-2 focus:ring-red-500/30 transition-all duration-300"
+                  >
+                    <option value="bank">🏦 Banco</option>
+                    <option value="cash">💵 Efectivo</option>
+                  </select>
+                </div>
 
-      
-      <div v-if="currentView === 'sell'" class="transaction-view">
-        <div class="header">
-          <button @click="goBack" class="back-btn">
-            <i class="fas fa-arrow-left"></i>
-          </button>
-          <h2>{{ t('crypto.sellTitle') || 'Sell' }} {{ selectedCrypto?.name }}</h2>
-        </div>
+                <div class="bg-gray-800/50 rounded-2xl p-4 border border-gray-600/30">
+                  <div class="flex justify-between items-center">
+                    <span class="text-gray-400">Total a Recibir:</span>
+                    <span class="text-2xl font-bold text-red-400">{{ formatCurrency(sellForm.totalReceived) }}</span>
+                  </div>
+                </div>
 
-        <div class="transaction-form">
-          <div class="crypto-info-card">
-            <div class="crypto-icon" :style="{ color: selectedCrypto?.color }">{{ selectedCrypto?.icon }}</div>
-            <div class="crypto-details">
-              <h3>{{ selectedCrypto?.name }} ({{ selectedCrypto?.symbol }})</h3>
-              <p class="price">{{ formatCurrency(cryptoPrices[selectedCrypto?.id]?.usd || 0) }}</p>
-              <p class="owned">{{ t('crypto.owned') || 'Owned' }}: {{ formatCrypto(userWallets[selectedCrypto?.id]?.amount || 0) }}</p>
+                <button
+                  @click="sellCrypto"
+                  :disabled="loading || !sellForm.amount || parseFloat(sellForm.amount) > (userWallets[selectedCrypto.id]?.amount || 0)"
+                  class="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 disabled:from-gray-600 disabled:to-gray-700 text-white font-bold py-4 px-6 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 disabled:scale-100 disabled:cursor-not-allowed"
+                >
+                  <span v-if="loading">Procesando...</span>
+                  <span v-else>💸 Confirmar Venta</span>
+                </button>
+              </div>
             </div>
-          </div>
-
-          <div class="form-group">
-            <label>{{ t('crypto.amount') || 'Amount' }} ({{ selectedCrypto?.symbol }})</label>
-            <input v-model="sellForm.amount" type="number" step="0.00000001" placeholder="0.00000000" :max="userWallets[selectedCrypto?.id]?.amount || 0">
-          </div>
-
-          <div class="form-group">
-            <label>{{ t('crypto.receiveMethod') || 'Receive Method' }}</label>
-            <select v-model="sellForm.paymentMethod">
-              <option value="bank">{{ t('crypto.bank') || 'Bank' }}</option>
-              <option value="cash">{{ t('crypto.cash') || 'Cash' }}</option>
-            </select>
-          </div>
-
-          <div class="total-received">
-            <h3>{{ t('crypto.totalReceived') || 'Total Received' }}: {{ formatCurrency(sellForm.totalReceived) }}</h3>
-          </div>
-
-          <button @click="sellCrypto" :disabled="loading || !sellForm.amount || parseFloat(sellForm.amount) > (userWallets[selectedCrypto?.id]?.amount || 0)" class="transaction-btn sell">
-            {{ t('crypto.confirmSell') || 'Confirm Sale' }}
-          </button>
+          </main>
         </div>
       </div>
     </div>
@@ -572,40 +857,4 @@ const Crypto = {
 };
 
 
-const cryptoStyles = `
-
-.crypto-app { padding: 16px; font-family: Inter, Roboto, Poppins, system-ui, sans-serif; color: #111; background: transparent; }
-.loading-overlay { position: absolute; inset: 0; display:flex; align-items:center; justify-content:center; background: rgba(255,255,255,0.85); z-index:50; flex-direction:column; gap:8px; }
-.spinner { width:40px; height:40px; border:4px solid rgba(0,0,0,0.08); border-top-color:#6366f1; border-radius:50%; animation:spin 1s linear infinite; }
-@keyframes spin{ to { transform: rotate(360deg); } }
-.portfolio-view .header { display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
-.portfolio-summary{ display:flex; gap:12px; align-items:center; margin-bottom:12px; }
-.total-value h3{ margin:0; font-size:1.25rem; }
-.balance-info { display:flex; gap:8px; }
-.crypto-list{ display:flex; flex-direction:column; gap:8px; }
-.crypto-item{ display:flex; justify-content:space-between; align-items:center; padding:10px; border-radius:8px; background:#ffffff; box-shadow:0 1px 3px rgba(0,0,0,0.06); }
-.crypto-info{ display:flex; align-items:center; gap:10px; }
-.crypto-icon{ font-size:18px; width:40px; height:40px; display:flex; align-items:center; justify-content:center; border-radius:8px; background:rgba(0,0,0,0.04); }
-.crypto-details h4{ margin:0; font-weight:600; }
-.crypto-values { text-align:right; min-width:110px; }
-.crypto-actions button{ margin-left:6px; padding:6px 10px; border-radius:6px; border:none; cursor:pointer; }
-.buy-btn{ background:#10b981; color:white; }
-.sell-btn{ background:#ef4444; color:white; }
-.notification{ padding:8px 12px; border-radius:8px; margin-bottom:8px; }
-.notification.error{ background:#fee2e2; color:#7f1d1d; }
-.notification.success{ background:#ecfdf5; color:#065f46; }
-`;
-
-if (typeof document !== 'undefined' && !document.getElementById('crypto-styles')) {
-  try {
-    const style = document.createElement('style');
-    style.id = 'crypto-styles';
-    style.innerText = cryptoStyles;
-    document.head.appendChild(style);
-  } catch (e) {
-    
-  }
-}
-
-
-try { window.Crypto = window.Crypto || Crypto; } catch (e) {  }
+window.Crypto = Crypto;

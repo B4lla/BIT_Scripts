@@ -7,6 +7,15 @@ local currentMusic = {
     position = 0
 }
 
+local youtubeState = {
+    isYoutube = false,
+    isPlaying = false,
+    url = nil,
+    volume = 0.5,
+    position = 0,
+    duration = 0
+}
+
 local function GenerateSoundName()
     return "bit_music_" .. GetPlayerServerId(PlayerId()) .. "_" .. math.random(1000, 9999)
 end
@@ -19,15 +28,40 @@ RegisterNUICallback('music:play', function(data, cb)
         return
     end
     
-    if currentMusic.name and exports.xsound:soundExists(currentMusic.name) then
+    if songData.file_url and (songData.file_url:match('youtube.com') or songData.file_url:match('youtu.be')) then
+        if not IsPhoneConnected() then
+            cb({success = false, error = 'no_signal'})
+            return
+        end
+        youtubeState.isYoutube = true
+        youtubeState.url = songData.file_url
+        youtubeState.isPlaying = true
+        youtubeState.volume = tonumber(data.volume) or 0.5
+        youtubeState.position = 0
+        youtubeState.duration = tonumber(songData.duration) or 0
+
+        SendNUIMessage({
+            type = 'musicYoutubePlay',
+            data = {
+                videoUrl = songData.file_url,
+                songData = songData,
+                volume = youtubeState.volume
+            }
+        })
+
+        cb({ success = true })
+        return
+    end
+
+    if currentMusic.name and exports.xsound and exports.xsound.soundExists and exports.xsound:soundExists(currentMusic.name) then
         exports.xsound:Destroy(currentMusic.name)
     end
-    
+
     currentMusic.name = GenerateSoundName()
     currentMusic.url = songData.file_url
     currentMusic.isPlaying = true
     currentMusic.volume = data.volume or 0.5
-    
+
     exports.xsound:PlayUrl(currentMusic.name, songData.file_url, currentMusic.volume, false, {
         onPlayStart = function()
             print("Música iniciada: " .. songData.title)
@@ -46,12 +80,19 @@ RegisterNUICallback('music:play', function(data, cb)
             currentMusic.isPlaying = true
         end
     })
-    
+
     cb({ success = true })
 end)
 
 RegisterNUICallback('music:pause', function(data, cb)
-    if currentMusic.name and exports.xsound:soundExists(currentMusic.name) then
+    if youtubeState.isYoutube then
+        youtubeState.isPlaying = false
+        SendNUIMessage({ type = 'musicYoutubePause' })
+        cb({ success = true })
+        return
+    end
+
+    if currentMusic.name and exports.xsound and exports.xsound.soundExists and exports.xsound:soundExists(currentMusic.name) then
         exports.xsound:Pause(currentMusic.name)
         currentMusic.isPlaying = false
         cb({ success = true })
@@ -61,7 +102,14 @@ RegisterNUICallback('music:pause', function(data, cb)
 end)
 
 RegisterNUICallback('music:resume', function(data, cb)
-    if currentMusic.name and exports.xsound:soundExists(currentMusic.name) then
+    if youtubeState.isYoutube then
+        youtubeState.isPlaying = true
+        SendNUIMessage({ type = 'musicYoutubeResume' })
+        cb({ success = true })
+        return
+    end
+
+    if currentMusic.name and exports.xsound and exports.xsound.soundExists and exports.xsound:soundExists(currentMusic.name) then
         exports.xsound:Resume(currentMusic.name)
         currentMusic.isPlaying = true
         cb({ success = true })
@@ -71,7 +119,16 @@ RegisterNUICallback('music:resume', function(data, cb)
 end)
 
 RegisterNUICallback('music:stop', function(data, cb)
-    if currentMusic.name and exports.xsound:soundExists(currentMusic.name) then
+    if youtubeState.isYoutube then
+        youtubeState.isYoutube = false
+        youtubeState.isPlaying = false
+        youtubeState.url = nil
+        SendNUIMessage({ type = 'musicYoutubeStop' })
+        cb({ success = true })
+        return
+    end
+
+    if currentMusic.name and exports.xsound and exports.xsound.soundExists and exports.xsound:soundExists(currentMusic.name) then
         exports.xsound:Destroy(currentMusic.name)
         currentMusic.isPlaying = false
         currentMusic.name = nil
@@ -85,7 +142,14 @@ end)
 RegisterNUICallback('music:setVolume', function(data, cb)
     local volume = math.max(0.0, math.min(1.0, (data.volume or 50) / 100))
     
-    if currentMusic.name and exports.xsound:soundExists(currentMusic.name) then
+    if youtubeState.isYoutube then
+        youtubeState.volume = volume
+        SendNUIMessage({ type = 'musicYoutubeSetVolume', data = { volume = volume } })
+        cb({ success = true })
+        return
+    end
+
+    if currentMusic.name and exports.xsound and exports.xsound.soundExists and exports.xsound:soundExists(currentMusic.name) then
         exports.xsound:setVolume(currentMusic.name, volume)
         currentMusic.volume = volume
         cb({ success = true })
@@ -97,7 +161,14 @@ end)
 RegisterNUICallback('music:setPosition', function(data, cb)
     local position = data.position or 0
     
-    if currentMusic.name and exports.xsound:soundExists(currentMusic.name) then
+    if youtubeState.isYoutube then
+        youtubeState.position = position
+        SendNUIMessage({ type = 'musicYoutubeSetPosition', data = { position = position } })
+        cb({ success = true })
+        return
+    end
+
+    if currentMusic.name and exports.xsound and exports.xsound.soundExists and exports.xsound:soundExists(currentMusic.name) then
         exports.xsound:setTimeStamp(currentMusic.name, position)
         currentMusic.position = position
         cb({ success = true })
@@ -107,7 +178,22 @@ RegisterNUICallback('music:setPosition', function(data, cb)
 end)
 
 RegisterNUICallback('music:getInfo', function(data, cb)
-    if currentMusic.name and exports.xsound:soundExists(currentMusic.name) then
+    if youtubeState.isYoutube then
+        cb({
+            success = true,
+            data = {
+                isPlaying = youtubeState.isPlaying or false,
+                isPaused = not (youtubeState.isPlaying or false),
+                volume = youtubeState.volume or 0,
+                position = youtubeState.position or 0,
+                duration = youtubeState.duration or 0,
+                url = youtubeState.url or ''
+            }
+        })
+        return
+    end
+
+    if currentMusic.name and exports.xsound and exports.xsound.soundExists and exports.xsound:soundExists(currentMusic.name) then
         local info = exports.xsound:getInfo(currentMusic.name)
         cb({
             success = true,
@@ -135,11 +221,30 @@ RegisterNUICallback('music:getInfo', function(data, cb)
     end
 end)
 
+
+RegisterNUICallback('music:updateYoutubeState', function(data, cb)
+    if not data then cb({ success = false }) return end
+    youtubeState.isPlaying = data.isPlaying or false
+    youtubeState.position = tonumber(data.position) or 0
+    youtubeState.duration = tonumber(data.duration) or tonumber(youtubeState.duration) or 0
+    youtubeState.volume = tonumber(data.volume) or tonumber(youtubeState.volume) or 0
+    cb({ success = true })
+end)
+
 CreateThread(function()
     while true do
-        if currentMusic.name and exports.xsound:soundExists(currentMusic.name) then
+        if currentMusic.name and exports.xsound and exports.xsound.soundExists and exports.xsound:soundExists(currentMusic.name) then
             local info = exports.xsound:getInfo(currentMusic.name)
             if info then
+                currentMusic.position = tonumber(info.timeStamp) or 0
+                currentMusic.duration = tonumber(info.maxDuration) or 0
+                currentMusic.isPlaying = info.playing or false
+                
+                local progress = 0
+                if currentMusic.duration > 0 then
+                    progress = (currentMusic.position / currentMusic.duration) * 100
+                end
+                
                 SendNUIMessage({
                     type = "musicUpdate",
                     data = {
@@ -147,12 +252,35 @@ CreateThread(function()
                         isPaused = info.paused or false,
                         volume = info.volume or 0,
                         position = info.timeStamp or 0,
-                        duration = info.maxDuration or 0
+                        duration = info.maxDuration or 0,
+                        progress = progress
                     }
                 })
             end
         end
-        Wait(1000) 
+        
+        if youtubeState.isYoutube and youtubeState.isPlaying then
+            local progress = 0
+            local duration = tonumber(youtubeState.duration) or 0
+            local position = tonumber(youtubeState.position) or 0
+            if duration > 0 then
+                progress = (position / duration) * 100
+            end
+            
+            SendNUIMessage({
+                type = "musicUpdate",
+                data = {
+                    isPlaying = youtubeState.isPlaying,
+                    isPaused = not youtubeState.isPlaying,
+                    volume = tonumber(youtubeState.volume) or 0,
+                    position = position,
+                    duration = duration,
+                    progress = progress
+                }
+            })
+        end
+        
+        Wait(500)
     end
 end)
 

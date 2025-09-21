@@ -19,17 +19,21 @@ local VehicleModels = GetVehicleModels()
 local ActiveRentals = {}
 
 
+
+
 RegisterNetEvent('bit-smartphone:bikerent:processRental')
-AddEventHandler('bikerent:processRental', function(vehicleId, duration)
-    local xPlayer = ESX.GetPlayerFromId(source)
-    if not xPlayer then return end
+AddEventHandler('bit-smartphone:bikerent:processRental', function(vehicleId, duration)
+    local src = source
     
     local vehicleData = GetVehicleData(vehicleId)
     if not vehicleData then
-        TriggerClientEvent('bit-smartphone:bikerent:notification', source, {
-            type = "error",
-            title = "Error",
-            message = Config.BikeRent.notifications.rentalError
+        TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, {
+            action = 'notification',
+            data = {
+                type = "error",
+                title = "Error",
+                message = "Vehículo no encontrado"
+            }
         })
         return
     end
@@ -38,28 +42,34 @@ AddEventHandler('bikerent:processRental', function(vehicleId, duration)
     local depositAmount = Config.BikeRent.depositRequired and Config.BikeRent.depositAmount or 0
     local totalRequired = totalCost + depositAmount
     
-    local hasEnough, accountType = hasEnoughMoney(source, totalRequired, 'bank')
+    local hasEnough, accountType = hasEnoughMoney(src, totalRequired, 'bank')
     if not hasEnough then
-        TriggerClientEvent('bikerent:notification', source, {
-            type = "error",
-            title = "Fondos insuficientes",
-            message = Config.BikeRent.notifications.insufficientFunds
+        TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, {
+            action = 'notification',
+            data = {
+                type = "error",
+                title = "Fondos insuficientes",
+                message = "Necesitas $" .. totalRequired .. " en tu cuenta bancaria"
+            }
         })
         return
     end
     
-    if not removeMoney(source, totalRequired, accountType) then
-        TriggerClientEvent('bikerent:notification', source, {
-            type = "error",
-            title = "Error",
-            message = "No se pudo procesar el pago"
+    if not removeMoney(src, totalRequired, accountType) then
+        TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, {
+            action = 'notification',
+            data = {
+                type = "error",
+                title = "Error",
+                message = "No se pudo procesar el pago"
+            }
         })
         return
     end
     
     local rentalId = #ActiveRentals + 1
     ActiveRentals[rentalId] = {
-        playerId = source,
+        playerId = src,
         vehicleId = vehicleId,
         vehicleModel = vehicleData.model,
         vehicleName = vehicleData.name,
@@ -70,18 +80,39 @@ AddEventHandler('bikerent:processRental', function(vehicleId, duration)
         active = true
     }
     
-    TriggerClientEvent('bikerent:spawnVehicle', source, vehicleData.model)
+    TriggerClientEvent('bikerent:spawnVehicle', src, {
+        model = vehicleData.model,
+        name = vehicleData.name,
+        id = vehicleData.id,
+        rentalId = rentalId,
+        duration = duration * 3600000
+    })
     
-    TriggerClientEvent('bikerent:notification', source, {
-        type = "success",
-        title = "¡Alquiler confirmado!",
-        message = string.format("%s alquilado por %d hora(s) - $%d cobrados", vehicleData.name, duration, totalRequired)
+    TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, {
+        action = 'notification',
+        data = {
+            type = "success",
+            title = "¡Alquiler confirmado!",
+            message = string.format("%s alquilado por %d hora(s) - $%d cobrados", vehicleData.name, duration, totalRequired)
+        }
     })
     
     
     SetTimeout(duration * 3600000, function() 
         if ActiveRentals[rentalId] and ActiveRentals[rentalId].active then
-            TriggerEvent('bikerent:endRental', source, rentalId)
+            ActiveRentals[rentalId].active = false
+            ActiveRentals[rentalId].endTime = os.time()
+            
+            TriggerClientEvent('bikerent:endRentalClient', src, rentalId)
+            
+            TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, {
+                action = 'notification',
+                data = {
+                    type = "info",
+                    title = "Tiempo agotado",
+                    message = "Tu alquiler ha expirado automáticamente"
+                }
+            })
         end
     end)
 end)
@@ -90,9 +121,6 @@ end)
 RegisterNetEvent('bikerent:endRental')
 AddEventHandler('bikerent:endRental', function(rentalId)
     local source = source
-    local xPlayer = ESX.GetPlayerFromId(source)
-    if not xPlayer then return end
-    
     
     local rental = nil
     for id, rentalData in pairs(ActiveRentals) do
@@ -112,24 +140,22 @@ AddEventHandler('bikerent:endRental', function(rentalId)
         return
     end
     
-    
     rental.active = false
     rental.endTime = os.time()
     
+    TriggerClientEvent('bikerent:endRentalClient', source, rentalId)
     
     local timeUsed = (rental.endTime - rental.startTime) / 3600 
     local refund = 0
     
     if timeUsed < rental.duration then
-        
         local unusedTime = rental.duration - timeUsed
         refund = math.floor((rental.totalCost / rental.duration) * unusedTime * 0.5)
         
         if refund > 0 then
-            xPlayer.addMoney(refund)
+            addMoney(source, refund, 'cash')
         end
     end
-    
     
     local message = "Alquiler finalizado"
     if refund > 0 then
@@ -145,26 +171,15 @@ end)
 
 
 RegisterCommand('bikerent:admin', function(source, args, rawCommand)
-    local xPlayer = ESX.GetPlayerFromId(source)
-    if not xPlayer then return end
-    
-    
-    if xPlayer.getGroup() ~= 'admin' and xPlayer.getGroup() ~= 'superadmin' then
-        return
-    end
-    
-    local activeCount = 0
-    for _, rental in pairs(ActiveRentals) do
-        if rental.active then
-            activeCount = activeCount + 1
+    if source == 0 then
+        local activeCount = 0
+        for _, rental in pairs(ActiveRentals) do
+            if rental.active then
+                activeCount = activeCount + 1
+            end
         end
+        print(string.format("Alquileres activos: %d", activeCount))
     end
-    
-    TriggerClientEvent('chat:addMessage', source, {
-        color = {0, 255, 0},
-        multiline = true,
-        args = {"BikeRent", string.format("Alquileres activos: %d", activeCount)}
-    })
 end, false)
 
 
@@ -177,21 +192,29 @@ CreateThread(function()
             if rental.active then
                 local elapsedHours = (currentTime - rental.startTime) / 3600
                 if elapsedHours >= rental.duration then
-                    
                     rental.active = false
                     rental.endTime = currentTime
                     
-                    
-                    local xPlayer = ESX.GetPlayerFromId(rental.playerId)
-                    if xPlayer then
-                        TriggerClientEvent('bikerent:notification', rental.playerId, {
-                            type = "info",
-                            title = "Alquiler vencido",
-                            message = "Tu alquiler ha expirado automáticamente"
-                        })
-                    end
+                    TriggerClientEvent('bikerent:notification', rental.playerId, {
+                        type = "info",
+                        title = "Alquiler vencido",
+                        message = "Tu alquiler ha expirado automáticamente"
+                    })
                 end
             end
         end
     end
 end)
+
+
+if Config and Config.Framework == 'esx' then
+    ESX.RegisterServerCallback('bit-smartphone:getBikeRentVehicles', function(source, cb)
+        local vehicles = Config.BikeRent and Config.BikeRent.vehicles or {}
+        cb(vehicles)
+    end)
+else
+    QBCore.Functions.CreateCallback('bit-smartphone:getBikeRentVehicles', function(source, cb)
+        local vehicles = Config.BikeRent and Config.BikeRent.vehicles or {}
+        cb(vehicles)
+    end)
+end

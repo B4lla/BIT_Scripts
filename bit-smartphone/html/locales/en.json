@@ -29,7 +29,11 @@
     "error": "Error",
     "success": "Success",
     "warning": "Warning",
-    "info": "Information"
+    "info": "Information",
+    "enterPin": "Enter your PIN",
+    "pinError": "Incorrect PIN",
+    "yesterday": "Yesterday",
+    "days_ago": "{count} days ago"
   },
   "setup": {
     "welcome": {
@@ -395,6 +399,7 @@
     "delete": "Delete",
     "share": "Share",
     "addToAlbum": "Add to album",
+    "add_to_album": "Add to album",
     "createAlbum": "Create album",
     "albumName": "Album name",
     "create": "Create",
@@ -530,6 +535,27 @@
     "location": "LOCATION",
     "windDirection": "WIND & DIRECTION",
     "windFrom": "From",
+    "wind": "Wind",
+    "temperature": "Temperature",
+    "time": "Time",
+    "date": "Date",
+    "gameTime": "game time",
+    "gameDate": "game date",
+    "street": "Street",
+    "zone": "Zone",
+    "server": "Server",
+    "lastUpdate": "Last update",
+    "poweredBy": "Powered by",
+    "feelsLike": "Feels like",
+    "humidity": "Humidity",
+    "visibility": "Visibility",
+    "uvIndex": "UV Index",
+    "good": "Good",
+    "fair": "Fair",
+    "poor": "Poor",
+    "low": "Low",
+    "high": "High",
+    "moderate": "Moderate",
     "conditions": {
       "extrasunny": "Very sunny",
       "clear": "Clear",
@@ -555,6 +581,13 @@
       "w": "W",
       "nw": "NW"
     }
+  },
+  "network": {
+    "noSignal": "No signal",
+    "noConnection": "No connection",
+    "connectionRequired": "Internet connection required",
+    "signalWeak": "Weak signal",
+    "tryAgain": "Try again"
   },
   "maps": {
     "title": "Maps",
@@ -665,22 +698,7 @@
     "warning": "⚠️ Adult content",
     "enterWarning": "You are entering the deep web. Proceed with caution.",
     "understand": "I understand",
-    "cancel": "Cancel",
-    "marketplace": {
-      "categories": {
-        "weapons": "🔫 WEAPONS",
-        "drugs": "💊 DRUGS",
-        "services": "💻 SERVICES"
-      },
-      "actions": {
-        "buy": "BUY NOW",
-        "outOfStock": "OUT OF STOCK"
-      },
-      "status": {
-        "inStock": "✅ In Stock",
-        "outOfStock": "❌ Out of Stock"
-      }
-    }
+    "cancel": "Cancel"
   },
   "news": {
     "title": "BitNews",
@@ -849,6 +867,15 @@
       "next": "Next",
       "skip": "Skip",
       "done": "Done"
+    },
+    "camera": {
+      "noProvider": "Camera not available",
+      "photoTaken": "Photo captured successfully",
+      "photoError": "Error taking photo: {error}",
+      "photoSaved": "Photo saved to your profile",
+      "photoProcessing": "Processing photo...",
+      "processing": "Capturing and uploading photo...",
+      "cooldown": "Wait {remainingTime} seconds before taking another photo"
     },
     "errors": {
       "loadingProfiles": "Error loading profiles",
@@ -1035,5 +1062,103 @@
     "playerId": "ID: {id}",
     "errorSending": "Error sending AirDrop",
     "errorLoading": "Error loading nearby players"
+  },
+  "call": {
+    "initializing": "Initializing call..."
+  },
+  "phone": {
+    "search": "Search contacts...",
+    "contacts": "Contacts"
+  },
+  "tuister": {
+    "title": "Tuister",
+    "subtitle": "What's happening?",
+    "home": "Home",
+    "notifications": "Notifications",
+    "messages": "Messages",
+    "profile": "Profile",
+    "compose": "Compose",
+    "tweet": "Tweet",
+    "retweet": "Retweet",
+    "like": "Like",
+    "reply": "Reply",
+    "share": "Share",
+    "follow": "Follow",
+    "unfollow": "Unfollow",
+    "followers": "Followers",
+    "following": "Following",
+    "tweets": "Tweets",
+    "media": "Media",
+    "likes": "Likes",
+    "edit": "Edit",
+    "delete": "Delete",
+    "report": "Report",
+    "block": "Block",
+    "whatHappening": "What's happening?",
+    "trending": "Trending",
+    "whoToFollow": "Who to follow",
+    "searchTwitter": "Search on Tuister",
+    "viewThread": "View thread",
+    "showThread": "Show this thread",
+    "quoteTweet": "Quote tweet",
+    "copyLink": "Copy link",
+    "embed": "Embed",
+    "noTweets": "No tweets",
+    "loading": "Loading...",
+    "justNow": "Now",
+    "minutesAgo": "{minutes}m",
+    "hoursAgo": "{hours}h",
+    "daysAgo": "{days}d",
+    "retweeted": "retweeted",
+    "liked": "liked",
+    "followed": "followed",
+    "threadReply": "Replying to",
+    "login": "Login",
+    "username": "Username",
+    "password": "Password",
+    "confirmPassword": "Confirm password",
+    "fullName": "Full name",
+    "connectWithWorld": "Connect with the world",
+    "signingIn": "Signing in...",
+    "createAccount": "Create account",
+    "creatingAccount": "Creating account...",
+    "signInOrRegister": "Sign in or register with your account to use Tuister.",
+    "completeAllFields": "Please complete all fields",
+    "explore": "Explore",
+    "newTweet": "New Tweet",
+    "trendingForYou": "Trending for you",
+    "searching": "Searching...",
+    "noResults": "No results found",
+    "writeComment": "Write your comment...",
+    "postComment": "Post comment",
+    "viewComments": "View comments",
+    "hideComments": "Hide comments",
+    "welcomeBack": "Welcome back",
+    "accountNotFound": "Account not found for this player. Please register first.",
+    "connectionError": "Connection error",
+    "passwordsDontMatch": "Passwords don't match",
+    "passwordTooShort": "Password must be at least 6 characters long",
+    "welcomeToTuister": "Welcome to Tuister!",
+    "accountCreated": "Your account @{username} has been created successfully",
+    "accountCreatedLogin": "Account created. Sign in to continue.",
+    "errorCreatingAccount": "Error creating account",
+    "tweetPosted": "Tweet posted",
+    "tweetPostedMessage": "Your tweet has been posted successfully",
+    "commentPosted": "Comment posted",
+    "commentPostedMessage": "Your comment has been posted successfully",
+    "profileUpdated": "Profile updated",
+    "profileUpdatedMessage": "Your profile has been updated successfully",
+    "nowFollowing": "Now following @{username}",
+    "unfollowed": "Unfollowed @{username}",
+    "unknownDate": "Unknown date",
+    "now": "now",
+    "editProfile": "Edit profile",
+    "save": "Save",
+    "cancel": "Cancel"
+  },
+  "appSwitcher": {
+    "closeAllApps": "Close all apps",
+    "noRecentApps": "No recent apps",
+    "locked": "Locked"
   }
 }

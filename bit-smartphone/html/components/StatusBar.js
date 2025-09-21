@@ -61,7 +61,7 @@ const StatusBar = {
           @click="$emit('time-tap')"
           class="group cursor-pointer select-none"
         >
-          <span class="text-[17px] font-semibold tracking-[-0.41px] text-white group-active:text-white/70 transition-colors duration-150">
+          <span class="text-[15px] font-normal tracking-[-0.41px] ml-2 text-white group-active:text-white/70 transition-colors duration-150">
             {{ currentTime }}
           </span>
         </div>
@@ -85,18 +85,12 @@ const StatusBar = {
           </div>
           <span class="text-[14px] font-medium tracking-[-0.08px] text-white ml-1">{{ networkDisplayText }}</span>
         </div>
-        
-        <div class="ml-1">
-          <svg class="w-[15px] h-[15px] text-white" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12.01 21.49L23.64 7c-.45-.34-4.93-4-11.64-4C5.28 3 .81 6.66.36 7l11.63 14.49.01.01.01-.01z"/>
-          </svg>
-        </div>
-        
+               
         <div class="flex items-center gap-1 ml-1">
           <div class="relative">
-            <div class="w-[24px] h-[12px] border-[1px] border-white rounded-[2px] flex items-center p-[1px]">
+            <div class="w-[24px] h-[12px] border-[1px] border-white rounded-[4px] flex items-center p-[1px]">
               <div 
-                class="h-full rounded-[1px] transition-all duration-300"
+                class="h-full rounded-[3px] transition-all duration-300"
                 :style="{width: Math.max(2, batteryFillWidth) + '%'}"
                 :class="[
                   isCharging ? 'bg-green-400' : 

@@ -10,13 +10,59 @@ Config, Noti, Lang = {}, {}, {}
 -- \______/  \______/ \__|  \__|\__|      \______| \______/  \______/ \__|  \__|\__|  \__|  \__|   \______| \______/ \__|  \__|
 
 -- Framework used by the server (esx | qb | qbox)
-Config.Framework = "qb"
+Config.Framework = "esx"
 -- MySQL library used (oxmysql | mysql-async | ghmattimysql)
 Config.Mysql = "oxmysql"
 -- Notifications library used (codem | okok | qb | esx)
-Config.Notifications = "qb"
+Config.Notifications = "codem"
 -- Language for notifications
 Config.Language = "es"
+-- Debug mode for development and troubleshooting
+Config.debugMode = true
+
+-- Debug function helper
+function DebugPrint(module, message, data)
+    if Config.debugMode then
+        -- Safe timestamp (os.date may be nil in some environments)
+        local timestamp = "----"
+        if type(os) == "table" and type(os.date) == "function" then
+            local ok, t = pcall(os.date, "%H:%M:%S")
+            if ok and t then timestamp = t end
+        else
+            -- Try GetGameTimer as fallback (client-side native), convert to seconds
+            if type(GetGameTimer) == "function" then
+                local ok2, gt = pcall(GetGameTimer)
+                if ok2 and gt then
+                    timestamp = tostring(math.floor(gt / 1000))
+                end
+            end
+        end
+
+        local prefix = "^3[BIT-DEBUG-" .. tostring(timestamp) .. "]^0"
+        local moduleColor = "^2[" .. tostring(module) .. "]^0"
+        local messageStr = tostring(message)
+
+        if data then
+            if type(data) == "table" then
+                -- json may not be available in all environments; fallback to tostring
+                local dataStr = nil
+                if type(json) == "table" and type(json.encode) == "function" then
+                    local ok3, enc = pcall(json.encode, data)
+                    if ok3 and enc then dataStr = enc end
+                end
+                if not dataStr then
+                    dataStr = tostring(data)
+                end
+                print(prefix .. " " .. moduleColor .. " " .. messageStr .. " -> Data: " .. dataStr)
+            else
+                print(prefix .. " " .. moduleColor .. " " .. messageStr .. " -> " .. tostring(data))
+            end
+        else
+            print(prefix .. " " .. moduleColor .. " " .. messageStr)
+        end
+    end
+end
+
 -- Command to open the phone
 Config.openCommand = "phone"
 -- Item required to open the phone
@@ -84,9 +130,9 @@ Config.Business = {
 
 Config.Crypto = {
     enabled = true,
-    apiUrl = "",
-    apiParams = "?ids=bitcoin,ethereum,binancecoin,cardano,solana,dogecoin,polygon,avalanche-2&vs_currencies=usd&include_24hr_change=true",
-    updateInterval = 300000,
+    apiUrl = "https://api.coingecko.com/api/v3/simple/price",
+    apiParams = "?ids=bitcoin,ethereum,binancecoin,cardano,solana,dogecoin,polygon,avalanche-2&vs_currencies=usd&include_24hr_change=true&include_market_cap=true&include_24hr_vol=true",
+    updateInterval = 120000, -- 2 minutos
     supportedCryptos = {
         bitcoin = {symbol = "BTC", name = "Bitcoin", icon = "₿", color = "#F7931A"},
         ethereum = {symbol = "ETH", name = "Ethereum", icon = "Ξ", color = "#627EEA"},
@@ -105,18 +151,70 @@ Config.PhoneKey = {
     key = "F1", -- key to open the phone
     description = "Open phone" -- description of the key
 }
+-- Cooldown configuration
+Config.PhoneCooldown = {
+    enabled = true, -- true = cooldown enabled, false = no cooldown
+    openCooldown = 2000, -- cooldown in milliseconds for opening phone
+    closeCooldown = 500, -- cooldown in milliseconds for closing phone
+    maxTransitionTime = 10000 -- maximum time allowed for transition before force reset
+}
 -- Phone provider (screenshot-basic | fmsdk)
 Config.PhotoProvider = "screenshot-basic"
 -- Discord webhook for logging (leave empty if FMSDK)
 Config.DiscordWebhook =
     "https://discord.com/api/webhooks/1205255675362410517/iZhCsFFzxA0s-9_5cIsxe_CZ68rz1fMGyp1VgK4A1eKmiijNaQ-4zSKckOJ1LnaQyLYS"
--- Configuración de subida de fotos
+
+-- Network and Signal Configuration
+Config.Network = {
+    enabled = true,
+    maxDistance = 2000,
+    baseSignalStrength = 0,
+    towers = {
+        {coords = vector3(-74.4, -818.6, 326.2), range = 1500},
+        {coords = vector3(2118.5, 3014.6, 74.9), range = 1200},
+        {coords = vector3(-425.7, 1123.6, 325.9), range = 1400},
+        {coords = vector3(763.2, -348.3, 175.4), range = 1000},
+        {coords = vector3(-1028.4, -2740.2, 20.2), range = 1100},
+        {coords = vector3(470.3, -1310.5, 29.2), range = 900},
+        {coords = vector3(1207.9, -1396.1, 35.2), range = 800},
+        {coords = vector3(-1305.7, -394.2, 36.7), range = 1000},
+        {coords = vector3(119.4, -883.4, 31.1), range = 850},
+        {coords = vector3(-47.8, -1115.3, 26.4), range = 900},
+        {coords = vector3(2663.8, 3266.8, 55.2), range = 1300},
+        {coords = vector3(1965.1, 3740.5, 32.3), range = 1100},
+        {coords = vector3(1729.5, 6415.9, 35.0), range = 1400},
+        {coords = vector3(-322.3, 6077.9, 31.5), range = 1200},
+        {coords = vector3(-2072.4, 3170.5, 32.8), range = 1000},
+        {coords = vector3(-1119.8, 2698.2, 18.6), range = 1100},
+        {coords = vector3(543.4, 2671.2, 42.2), range = 1200},
+        {coords = vector3(1391.1, 3605.6, 38.9), range = 1000},
+        {coords = vector3(2550.0, 382.0, 108.6), range = 1300},
+        {coords = vector3(715.2, 4165.8, 40.7), range = 1100}
+    }
+}
+
+-- Weather and Time configuration
+Config.Weather = {
+    provider = "cd_easytime",
+    refreshInterval = 60000,
+    useRealWorldWeather = false,
+    apiKey = "",
+    fallbackData = {
+        temperature = 22,
+        condition = "clear",
+        windSpeed = 5,
+        windDirection = 45
+    }
+}
+-- Configuración de subida de fotos (optimizada para evitar saturar la red)
 Config.PhotoUpload = {
     maxAttempts = 3, -- Número máximo de intentos de subida
-    timeout = 30000, -- Timeout en milisegundos (30 segundos)
-    retryDelay = 2000, -- Delay entre reintentos en milisegundos
-    imageQuality = 0.7, -- Calidad de imagen (0.1 - 1.0)
-    encoding = "jpg" -- Formato de codificación
+    timeout = 15000, -- Timeout en milisegundos (15 segundos - reducido)
+    retryDelay = 3000, -- Delay entre reintentos en milisegundos
+    imageQuality = 0.6, -- Calidad de imagen reducida (0.1 - 1.0)
+    encoding = "jpg", -- Formato de codificación
+    maxFileSize = 2048, -- Tamaño máximo en KB (2MB)
+    cooldownTime = 5000 -- Tiempo entre fotos en milisegundos (5 segundos)
 }
 -- FMSDK configuration
 Config.FMSDK = {
@@ -273,28 +371,37 @@ Config.BikeRent = {
     -- List of available vehicles
     vehicles = {
         {
-            id = 1, -- ID
-            model = "bmx", -- Vehicle model
-            name = "BMX", -- Vehicle label
-            price = 15, -- price per hour
-            category = "bike", -- Vehicle category
-            description = "Bicicleta básica para desplazarse por la ciudad" -- Description of the vehicle
+            id = 1,
+            model = "bmx",
+            name = "BMX Thunder",
+            price = 15,
+            category = "bike",
+            description = "Bicicleta básica para desplazarse por la ciudad",
+            features = {"Ligera", "Urbana", "Económica"},
+            battery = 100,
+            rating = 4.2
         },
         {
             id = 2,
             model = "scorcher",
-            name = "Scorcher",
+            name = "Scorcher Pro",
             price = 25,
             category = "bike",
-            description = "Bicicleta deportiva de alta gama"
+            description = "Bicicleta deportiva de alta gama",
+            features = {"Deportiva", "Velocidad", "Resistente"},
+            battery = 95,
+            rating = 4.7
         },
         {
             id = 3,
             model = "tribike3",
-            name = "TriBike",
+            name = "TriBike Elite",
             price = 35,
             category = "bike",
-            description = "Bicicleta de triatlón profesional"
+            description = "Bicicleta de triatlón profesional",
+            features = {"Profesional", "Aerodinámica", "Carbono"},
+            battery = 90,
+            rating = 4.9
         },
         {
             id = 4,
@@ -302,7 +409,10 @@ Config.BikeRent = {
             name = "Bati 801",
             price = 80,
             category = "motorcycle",
-            description = "Motocicleta deportiva de alta velocidad"
+            description = "Motocicleta deportiva de alta velocidad",
+            features = {"Potente", "Deportiva", "Velocidad"},
+            battery = 100,
+            rating = 4.8
         },
         {
             id = 5,
@@ -310,15 +420,21 @@ Config.BikeRent = {
             name = "Faggio Sport",
             price = 20,
             category = "scooter",
-            description = "Scooter urbano cómodo y económico"
+            description = "Scooter urbano cómodo y económico",
+            features = {"Eléctrico", "Urbano", "Silencioso"},
+            battery = 85,
+            rating = 4.3
         },
         {
             id = 6,
             model = "cruiser",
-            name = "Cruiser",
+            name = "City Cruiser",
             price = 12,
             category = "bike",
-            description = "Bicicleta estilo cruiser para paseos relajados"
+            description = "Bicicleta estilo cruiser para paseos relajados",
+            features = {"Cómoda", "Estilo", "Paseo"},
+            battery = 100,
+            rating = 4.1
         }
     },
     maxRentalTime = 480,
@@ -626,6 +742,7 @@ PhoneMessages = {
         ["phone.dataSynced"] = "Data synced",
         ["phone.errorSendingMessage"] = "Error sending message",
         ["phone.phoneDisabled"] = "Phone disabled",
+        ["phone.phoneInUse"] = "Phone is busy, please wait...",
         ["phone.insufficientMoney"] = "You don't have enough money to charge ($%s)",
         ["phone.chargingStarted"] = "Starting phone charge...",
         ["phone.chargingStopped"] = "Charge stopped",
@@ -638,6 +755,9 @@ PhoneMessages = {
         ["charging.notEnoughMoney"] = "You don't have enough money to charge ($%s)",
         ["charging.chargingStarted"] = "Starting phone charge...",
         ["charging.chargingStopped"] = "Phone charge stopped: %s",
+        ["battery.low"] = "Low battery: %s%%",
+        ["battery.critical"] = "Critical battery: %s%%! Find a charger!",
+        ["battery.shutdown"] = "Battery depleted. Phone shutting down...",
         ["news.newsCreatedError"] = "Error creating news: %s",
         ["news.newsDeletedError"] = "Error deleting news: %s",
         ["news.newNewsAvailable"] = "📰 New news available: %s",
@@ -725,6 +845,7 @@ PhoneMessages = {
         ["phone.dataSynced"] = "Datos sincronizados",
         ["phone.errorSendingMessage"] = "Error enviando mensaje",
         ["phone.phoneDisabled"] = "Teléfono desactivado",
+        ["phone.phoneInUse"] = "El teléfono está ocupado, espera un momento...",
         ["phone.insufficientMoney"] = "No tienes suficiente dinero para cargar ($%s)",
         ["phone.chargingStarted"] = "Iniciando carga del teléfono...",
         ["phone.chargingStopped"] = "Carga detenida",
@@ -737,6 +858,9 @@ PhoneMessages = {
         ["charging.notEnoughMoney"] = "No tienes suficiente dinero para cargar ($%s)",
         ["charging.chargingStarted"] = "Iniciando carga del teléfono...",
         ["charging.chargingStopped"] = "Carga del teléfono detenida: %s",
+        ["battery.low"] = "Batería baja: %s%%",
+        ["battery.critical"] = "¡Batería crítica: %s%%! ¡Busca un cargador!",
+        ["battery.shutdown"] = "Batería agotada. Apagando teléfono...",
         ["news.newsCreatedError"] = "Error al crear noticia: %s",
         ["news.newsDeletedError"] = "Error al eliminar noticia: %s",
         ["news.newNewsAvailable"] = "📰 Nueva noticia disponible: %s",
@@ -807,3 +931,90 @@ PhoneMessages = {
         ["app.call"] = "Llamadas"
     }
 }
+
+-- Configuración del DarkWeb
+Config.DarkWeb = {
+    enabled = true,
+    bitcoin = {
+        enabled = true,
+        initialBalance = {min = 1.0, max = 5.0}, -- Rango de Bitcoin inicial para nuevos usuarios
+        transactionFee = 0.001, -- Fee por transacción (en Bitcoin)
+        minTransfer = 0.001, -- Transferencia mínima
+        maxTransfer = 100.0 -- Transferencia máxima
+    },
+    -- marketplace removed
+    rooms = {
+        enabled = true,
+        maxRoomsPerUser = 5, -- Máximo de salas que puede crear un usuario
+        maxMembersPerRoom = 50, -- Máximo de miembros por sala
+        moderationEnabled = true -- Moderación automática de mensajes
+    },
+    security = {
+        banDuration = 86400, -- Duración del ban en segundos (24 horas)
+        maxReportsBeforeBan = 5, -- Reportes necesarios para ban automático
+        antiSpam = {
+            enabled = true,
+            maxMessagesPerMinute = 10,
+            maxSameMessageRepeats = 3
+        }
+    }
+}
+
+-- Weather and Time functions
+function GetWeatherData()
+    local weatherData = {
+        temperature = Config.Weather.fallbackData.temperature,
+        condition = Config.Weather.fallbackData.condition,
+        conditionFriendlyName = "Despejado",
+        windSpeed = Config.Weather.fallbackData.windSpeed,
+        windDirection = Config.Weather.fallbackData.windDirection,
+        inGameTime = "12:00",
+        inGameDate = "Sábado, 16 de Septiembre"
+    }
+    
+    if Config.Weather.provider == "cd_easytime" then
+        if GetResourceState('cd_easytime') == 'started' then
+            local success, time = pcall(function()
+                return exports['cd_easytime']:GetTime()
+            end)
+            if success and time then
+                weatherData.inGameTime = string.format("%02d:%02d", time.hour or 12, time.minute or 0)
+                weatherData.inGameDate = time.date or weatherData.inGameDate
+            end
+            
+            local weatherSuccess, weather = pcall(function()
+                return exports['cd_easytime']:GetWeather()
+            end)
+            if weatherSuccess and weather then
+                weatherData.condition = weather.type or weatherData.condition
+                weatherData.temperature = weather.temperature or weatherData.temperature
+                weatherData.windSpeed = weather.windSpeed or weatherData.windSpeed
+                weatherData.windDirection = weather.windDirection or weatherData.windDirection
+            end
+        end
+    end
+    
+    return weatherData
+end
+
+function GetPlayerLocationData(playerId)
+    local playerPed = GetPlayerPed(playerId or -1)
+    local coords = GetEntityCoords(playerPed)
+    local streetHash, crossingHash = GetStreetNameAtCoord(coords.x, coords.y, coords.z)
+    local streetName = GetStreetNameFromHashKey(streetHash)
+    local crossingName = crossingHash ~= 0 and GetStreetNameFromHashKey(crossingHash) or ""
+    local zoneName = GetLabelText(GetNameOfZone(coords.x, coords.y, coords.z))
+    local heading = GetEntityHeading(playerPed)
+    
+    local fullStreet = streetName
+    if crossingName and crossingName ~= "" then
+        fullStreet = streetName .. " / " .. crossingName
+    end
+    
+    return {
+        street = fullStreet ~= "" and fullStreet or "Ubicación desconocida",
+        zone = zoneName ~= "ZONE_UNK" and zoneName or "Los Santos",
+        heading = heading,
+        coords = coords
+    }
+end

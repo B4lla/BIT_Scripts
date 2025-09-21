@@ -31,7 +31,10 @@
     "success": "Éxito",
     "warning": "Advertencia",
     "info": "Información",
-    "enterPin": "Introduce tu PIN"
+    "enterPin": "Introduce tu PIN",
+    "pinError": "PIN incorrecto",
+    "yesterday": "Ayer",
+    "days_ago": "Hace {count} días"
   },
   "notifications": {
     "more": "más notificaciones",
@@ -369,7 +372,61 @@
     "noMessages": "No hay mensajes",
     "messageDeleted": "Mensaje eliminado",
     "groupChat": "Chat grupal",
-    "addContact": "Agregar contacto"
+    "addContact": "Agregar contacto",
+    "gif": "GIF",
+    "sticker": "Sticker",
+    "emojiCategories": {
+      "recent": "Recientes",
+      "smileys": "Caritas",
+      "people": "Personas",
+      "animals": "Animales",
+      "hearts": "Corazones",
+      "gestures": "Gestos",
+      "objects": "Objetos",
+      "activities": "Actividades",
+      "food": "Comida",
+      "travel": "Viajes"
+    },
+    "gifCategories": {
+      "trending": "Tendencias",
+      "reactions": "Reacciones",
+      "animals": "Animales",
+      "memes": "Memes",
+      "sports": "Deportes",
+      "entertainment": "Entretenimiento"
+    },
+    "searchGifs": "Buscar GIFs...",
+    "noGifsFound": "No se encontraron GIFs",
+    "loadingGifs": "Cargando GIFs...",
+    "sending": "Enviando...",
+    "failed": "Error al enviar",
+    "retry": "Reintentar",
+    "messageOptions": {
+      "copy": "Copiar",
+      "delete": "Eliminar",
+      "forward": "Reenviar",
+      "reply": "Responder",
+      "react": "Reaccionar"
+    },
+    "chatOptions": {
+      "mute": "Silenciar",
+      "unmute": "Activar sonido",
+      "pin": "Fijar",
+      "unpin": "Desfijar",
+      "delete": "Eliminar chat",
+      "archive": "Archivar",
+      "block": "Bloquear"
+    },
+    "confirmDelete": "¿Eliminar este mensaje?",
+    "confirmDeleteChat": "¿Eliminar este chat?",
+    "messageReactions": "Reacciones",
+    "tapToReact": "Toca para reaccionar",
+    "newMessages": "mensajes nuevos",
+    "scrollToBottom": "Ir al final",
+    "attachments": "Adjuntos",
+    "selectAll": "Seleccionar todo",
+    "unselectAll": "Deseleccionar todo",
+    "selectedCount": "{count} seleccionados"
   },
   "uber": {
     "title": "Uber",
@@ -418,6 +475,7 @@
     "delete": "Eliminar",
     "share": "Compartir",
     "addToAlbum": "Agregar al álbum",
+    "add_to_album": "Agregar al álbum",
     "createAlbum": "Crear álbum",
     "albumName": "Nombre del álbum",
     "create": "Crear",
@@ -444,6 +502,9 @@
       "date": "Fecha",
       "location": "Ubicación"
     }
+  },
+  "call": {
+    "initializing": "Inicializando llamada..."
   },
   "camera": {
     "title": "Cámara",
@@ -557,6 +618,27 @@
     "location": "UBICACIÓN",
     "windDirection": "VIENTO Y DIRECCIÓN",
     "windFrom": "Desde",
+    "wind": "Viento",
+    "temperature": "Temperatura",
+    "time": "Hora",
+    "date": "Fecha",
+    "gameTime": "hora del juego",
+    "gameDate": "fecha del juego",
+    "street": "Calle",
+    "zone": "Zona",
+    "server": "Servidor",
+    "lastUpdate": "Última actualización",
+    "poweredBy": "Powered by",
+    "feelsLike": "Sensación térmica",
+    "humidity": "Humedad",
+    "visibility": "Visibilidad",
+    "uvIndex": "Índice UV",
+    "good": "Buena",
+    "fair": "Regular",
+    "poor": "Pobre",
+    "low": "Bajo",
+    "high": "Alto",
+    "moderate": "Moderado",
     "conditions": {
       "extrasunny": "Muy soleado",
       "clear": "Despejado",
@@ -582,6 +664,13 @@
       "w": "O",
       "nw": "NO"
     }
+  },
+  "network": {
+    "noSignal": "Sin señal",
+    "noConnection": "Sin conexión",
+    "connectionRequired": "Se requiere conexión a internet",
+    "signalWeak": "Señal débil",
+    "tryAgain": "Inténtalo de nuevo"
   },
   "maps": {
     "title": "Mapas",
@@ -692,22 +781,7 @@
     "warning": "⚠️ Contenido para adultos",
     "enterWarning": "Estás entrando a la deep web. Procede con precaución.",
     "understand": "Entiendo",
-    "cancel": "Cancelar",
-    "marketplace": {
-      "categories": {
-        "weapons": "🔫 ARMAS",
-        "drugs": "💊 DROGAS",
-        "services": "💻 SERVICIOS"
-      },
-      "actions": {
-        "buy": "COMPRAR AHORA",
-        "outOfStock": "AGOTADO"
-      },
-      "status": {
-        "inStock": "✅ En Stock",
-        "outOfStock": "❌ Agotado"
-      }
-    }
+    "cancel": "Cancelar"
   },
   "news": {
     "title": "BitNews",
@@ -859,7 +933,8 @@
       "photoError": "Error al tomar la foto: {error}",
       "photoSaved": "Foto guardada en tu perfil",
       "photoProcessing": "Procesando foto...",
-      "processing": "Capturando y subiendo foto..."
+      "processing": "Capturando y subiendo foto...",
+      "cooldown": "Espera {remainingTime} segundos antes de tomar otra foto"
     }
   },
   "translator": {
@@ -1136,7 +1211,49 @@
     "retweeted": "retuiteó",
     "liked": "le gustó",
     "followed": "siguió a",
-    "threadReply": "En respuesta a"
+    "threadReply": "En respuesta a",
+    "login": "Iniciar sesión",
+    "username": "Nombre de usuario",
+    "password": "Contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "fullName": "Nombre completo",
+    "connectWithWorld": "Conecta con el mundo",
+    "signingIn": "Iniciando sesión...",
+    "createAccount": "Crear cuenta",
+    "creatingAccount": "Creando cuenta...",
+    "signInOrRegister": "Regístrate o inicia sesión con tu cuenta para usar Tuister.",
+    "completeAllFields": "Por favor completa todos los campos",
+    "explore": "Explorar",
+    "newTweet": "Nuevo Tweet",
+    "trendingForYou": "Tendencias para ti",
+    "searching": "Buscando...",
+    "noResults": "No se encontraron resultados",
+    "writeComment": "Escribe tu comentario...",
+    "postComment": "Publicar comentario",
+    "viewComments": "Ver comentarios",
+    "hideComments": "Ocultar comentarios",
+    "welcomeBack": "Bienvenido de vuelta",
+    "accountNotFound": "Cuenta no encontrada para este jugador. Regístrate primero.",
+    "connectionError": "Error de conexión",
+    "passwordsDontMatch": "Las contraseñas no coinciden",
+    "passwordTooShort": "La contraseña debe tener al menos 6 caracteres",
+    "welcomeToTuister": "¡Bienvenido a Tuister!",
+    "accountCreated": "Tu cuenta @{username} ha sido creada exitosamente",
+    "accountCreatedLogin": "Cuenta creada. Inicia sesión para continuar.",
+    "errorCreatingAccount": "Error al crear la cuenta",
+    "tweetPosted": "Tweet publicado",
+    "tweetPostedMessage": "Tu tweet se ha publicado exitosamente",
+    "commentPosted": "Comentario publicado",
+    "commentPostedMessage": "Tu comentario se ha publicado exitosamente",
+    "profileUpdated": "Perfil actualizado",
+    "profileUpdatedMessage": "Tu perfil se ha actualizado correctamente",
+    "nowFollowing": "Ahora sigues a @{username}",
+    "unfollowed": "Ya no sigues a @{username}",
+    "unknownDate": "Fecha desconocida",
+    "now": "ahora",
+    "editProfile": "Editar perfil",
+    "save": "Guardar",
+    "cancel": "Cancelar"
   },
   "pong": {
     "title": "Juego Pong",
@@ -1185,5 +1302,14 @@
     "playerId": "ID: {id}",
     "errorSending": "Error al enviar AirDrop",
     "errorLoading": "Error al cargar jugadores cercanos"
+  },
+  "phone": {
+    "search": "Buscar contactos...",
+    "contacts": "Contactos"
+  },
+  "appSwitcher": {
+    "closeAllApps": "Cerrar todas las apps",
+    "noRecentApps": "No hay apps recientes",
+    "locked": "Bloqueado"
   }
 }

@@ -60,6 +60,8 @@ local function GenerateCallId()
     return "call_" .. callIdCounter .. "_" .. os.time()
 end
 
+local recentCallAttempts = {}
+
 
 RegisterNetEvent('phone:getContacts')
 AddEventHandler('phone:getContacts', function()
@@ -237,11 +239,26 @@ RegisterNetEvent('call:start')
 AddEventHandler('call:start', function(data)
     local source = source
     
+    print('[CallSystem] Call start request:', json.encode(data), 'from source:', source)
+    
     local callerIdentifier = GetPlayerIdentifier(source)
     local targetPhoneNumber = data.targetId
     local callType = data.type or 'audio'
     
-    if not callerIdentifier or not targetPhoneNumber then return end
+    print('[CallSystem] Caller identifier:', callerIdentifier, 'Target:', targetPhoneNumber, 'Type:', callType)
+    
+    if not callerIdentifier or not targetPhoneNumber then 
+        print('[CallSystem] Missing caller identifier or target phone number')
+        return 
+    end
+
+    local attemptKey = tostring(callerIdentifier) .. '|' .. tostring(targetPhoneNumber)
+    local now = os.time()
+    if recentCallAttempts[attemptKey] and (now - recentCallAttempts[attemptKey]) < 3 then
+        print('[CallSystem] Ignoring duplicate call:start from', callerIdentifier, 'to', targetPhoneNumber)
+        return
+    end
+    recentCallAttempts[attemptKey] = now
     
     
     local targetSource, targetIdentifier = GetPlayerByPhoneNumber(targetPhoneNumber)
@@ -328,10 +345,10 @@ AddEventHandler('call:signaling', function(data)
     local messageData = data.data
     local targetIdentifier = data.targetId
 
-    if messageData then
-    end
+    print('[CallSystem] Signaling message:', messageType, 'for call:', callId, 'from source:', source)
 
     if not activeCalls[callId] then
+        print('[CallSystem] Call not found in signaling:', callId)
         return
     end
     
@@ -341,22 +358,52 @@ AddEventHandler('call:signaling', function(data)
     if not targetSource then return end
     
     if messageType == 'call-accepted' then
+        print('[CallSystem] Processing call-accepted for call:', callId)
         call.status = 'connected'
         call.connectTime = os.time()
 
+        print('[CallSystem] Sending call:connected to both parties. Caller:', call.callerSource, 'Target:', call.targetSource)
         
         TriggerClientEvent('phone:sendNUIMessage', call.callerSource, {
             action = 'call:connected',
-            data = { callId = callId }
+            data = { callId = callId, type = call.type }
         })
         
         TriggerClientEvent('phone:sendNUIMessage', call.targetSource, {
             action = 'call:connected',
-            data = { callId = callId }
+            data = { callId = callId, type = call.type }
         })
 
-        
-        if call.type == 'audio' and Config.VoiceCalls.enabled and Config.VoiceCalls.provider == 'pma-voice' then
+        print('[CallSystem] Call connected successfully:', callId)
+
+        if call.type == 'video' and Config.VideoCalls.enabled then
+            print('[CallSystem] Setting up video call with WebRTC for call:', callId)
+            TriggerClientEvent('phone:sendNUIMessage', call.callerSource, {
+                action = 'webrtc:start-negotiation',
+                data = { 
+                    callId = callId,
+                    isInitiator = true,
+                    rtcConfig = Config.VideoCalls.rtcConfig,
+                    constraints = {
+                        video = Config.VideoCalls.videoConstraints,
+                        audio = Config.VideoCalls.audioConstraints
+                    }
+                }
+            })
+            
+            TriggerClientEvent('phone:sendNUIMessage', call.targetSource, {
+                action = 'webrtc:start-negotiation',
+                data = { 
+                    callId = callId,
+                    isInitiator = false,
+                    rtcConfig = Config.VideoCalls.rtcConfig,
+                    constraints = {
+                        video = Config.VideoCalls.videoConstraints,
+                        audio = Config.VideoCalls.audioConstraints
+                    }
+                }
+            })
+        elseif call.type == 'audio' and Config.VoiceCalls.enabled and Config.VoiceCalls.provider == 'pma-voice' then
             TriggerClientEvent('bit-smartphone:client:addPlayerToCall', call.callerSource, callId)
             TriggerClientEvent('bit-smartphone:client:addPlayerToCall', call.targetSource, callId)
         elseif call.type == 'audio' and Config.VoiceCalls.enabled and Config.VoiceCalls.provider == 'saltychat' then
@@ -419,12 +466,82 @@ AddEventHandler('call:signaling', function(data)
     })
 end)
 
+RegisterNetEvent('call:signaling')
+AddEventHandler('call:signaling', function(data)
+    local source = source
+    local callId = data.callId
+    local messageType = data.type
+    local targetId = data.targetId
+    
+    print('[CallSystem] Call signaling:', messageType, 'for call:', callId, 'from source:', source)
+    
+    local call = activeCalls[callId]
+    if not call then
+        print('[CallSystem] Call not found for signaling:', callId)
+        return
+    end
+    
+    local targetIdentifier = (call.caller == GetPlayerIdentifier(source)) and call.target or call.caller
+    local targetSource = GetPlayerByIdentifier(targetIdentifier)
+    
+    if not targetSource then
+        print('[CallSystem] Target player not found for signaling')
+        return
+    end
+    
+    TriggerClientEvent('phone:sendNUIMessage', targetSource, {
+        action = 'call:' .. messageType:gsub('call%-', ''),
+        data = {
+            callId = callId,
+            targetId = targetId
+        }
+    })
+end)
+
+RegisterNetEvent('call:webrtc_signaling')
+AddEventHandler('call:webrtc_signaling', function(data)
+    local source = source
+    local callId = data.callId
+    local messageType = data.type
+    local messageData = data.data
+    
+    print('[CallSystem] WebRTC signaling:', messageType, 'for call:', callId, 'from source:', source)
+    
+    local call = activeCalls[callId]
+    if not call then
+        print('[CallSystem] Call not found for WebRTC signaling:', callId)
+        return
+    end
+    
+    local targetIdentifier = (call.caller == GetPlayerIdentifier(source)) and call.target or call.caller
+    local targetSource = GetPlayerByIdentifier(targetIdentifier)
+    
+    if not targetSource then
+        print('[CallSystem] Target player not found for WebRTC signaling')
+        return
+    end
+    
+    TriggerClientEvent('phone:sendNUIMessage', targetSource, {
+        action = 'webrtc:message',
+        data = {
+            callId = callId,
+            type = messageType,
+            data = messageData
+        }
+    })
+end)
+
 RegisterNetEvent('call:end')
 AddEventHandler('call:end', function(data)
     local source = source
     local callId = data.callId
     
-    if not activeCalls[callId] then return end
+    print('[CallSystem] Call end requested:', callId, 'by source:', source)
+    
+    if not activeCalls[callId] then 
+        print('[CallSystem] Call not found:', callId)
+        return 
+    end
     
     local call = activeCalls[callId]
     

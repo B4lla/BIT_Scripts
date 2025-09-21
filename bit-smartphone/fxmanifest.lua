@@ -34,6 +34,6 @@ files {
     'html/**/*.js', 
     'html/assets/**/*',
     'html/fonts/**/*',
-    'html/lib/*',
+    'html/lib/*.js',
     'html/locales/*.json'
 }

@@ -6,6 +6,11 @@ local newsData = {
 
 
 RegisterNUICallback('loadNews', function(data, cb)
+    if not IsPhoneConnected() then
+        cb({success = false, error = 'no_signal'})
+        return
+    end
+    
     if Config.Framework == "esx" then
         ESX.TriggerServerCallback('bit-smartphone:server:getNews', function(result)
             if result.success then

@@ -18,17 +18,22 @@ const Photos = {
     const albums = ref([])
     const newAlbumName = ref("")
     const shareOptions = ref([
-      { id: 'tuister', name: props.t ? props.t('photos.share_options.tuister') : 'Tuister', icon: 'icon-twitter' },
-      { id: 'messages', name: props.t ? props.t('photos.share_options.messages') : 'Mensajes', icon: 'icon-message-square' },
-      { id: 'mail', name: props.t ? props.t('photos.share_options.mail') : 'Email', icon: 'icon-mail' },
-      { id: 'save', name: props.t ? props.t('photos.share_options.save') : 'Guardar en dispositivo', icon: 'icon-download' }
+      { id: 'tuister', name: (props.t ? props.t('photos.share_options.tuister') : null) || 'Tuister', icon: 'icon-twitter' },
+      { id: 'messages', name: (props.t ? props.t('photos.share_options.messages') : null) || 'Mensajes', icon: 'icon-message-square' },
+      { id: 'instagram', name: (props.t ? props.t('photos.share_options.instagram') : null) || 'Instagram', icon: 'icon-instagram' },
+      { id: 'mail', name: (props.t ? props.t('photos.share_options.mail') : null) || 'Email', icon: 'icon-mail' },
+      { id: 'save', name: (props.t ? props.t('photos.share_options.save') : null) || 'Guardar en dispositivo', icon: 'icon-download' }
     ])
     
     const samplePhotos = ref([])
     const tempPhotos = ref([])
+    const deletedPhotoIds = ref(new Set())
     const allPhotos = computed(() => {
       const propsPhotos = props.photos || []
-      const photos = [...tempPhotos.value, ...samplePhotos.value, ...propsPhotos]
+      let photos = [...tempPhotos.value, ...samplePhotos.value, ...propsPhotos]
+      if (deletedPhotoIds.value.size > 0) {
+        photos = photos.filter(p => !deletedPhotoIds.value.has(p.id))
+      }
       
       photos.forEach(photo => {
         if (!photo.albumIds) {
@@ -41,9 +46,18 @@ const Photos = {
     
     const groupedPhotos = computed(() => {
       if (currentView.value === "album-detail" && currentAlbum.value) {
-        const albumPhotos = allPhotos.value.filter(photo => 
-          photo.albumIds?.includes(currentAlbum.value.id)
-        )
+        let albumPhotos = []
+        if (currentAlbum.value.isSystem) {
+          if (currentAlbum.value.id === 'recent') {
+            albumPhotos = recentPhotos.value
+          } else if (currentAlbum.value.id === 'favorites') {
+            albumPhotos = favoritePhotos.value
+          } else {
+            albumPhotos = []
+          }
+        } else {
+          albumPhotos = allPhotos.value.filter(photo => photo.albumIds?.includes(currentAlbum.value.id))
+        }
         return groupPhotosByDate(albumPhotos)
       }
       return groupPhotosByDate(allPhotos.value)
@@ -138,37 +152,67 @@ const Photos = {
     }
     
     const selectAllPhotos = () => {
-      const photosToSelect = currentView.value === "album-detail" && currentAlbum.value
-        ? allPhotos.value.filter(photo => photo.albumIds?.includes(currentAlbum.value.id))
-        : allPhotos.value
-      
+      let photosToSelect = allPhotos.value
+      if (currentView.value === "album-detail" && currentAlbum.value) {
+        if (currentAlbum.value.isSystem) {
+          if (currentAlbum.value.id === 'recent') photosToSelect = recentPhotos.value
+          else if (currentAlbum.value.id === 'favorites') photosToSelect = favoritePhotos.value
+          else photosToSelect = []
+        } else {
+          photosToSelect = allPhotos.value.filter(photo => photo.albumIds?.includes(currentAlbum.value.id))
+        }
+      }
       photosToSelect.forEach(photo => selectedPhotos.value.add(photo.id))
     }
     
     const deleteSelectedPhotos = async () => {
       if (selectedPhotosList.value.length === 0) return
-      
-      const confirmMessage = props.t ? 
-        props.t('photos.delete_confirmation').replace('{count}', selectedPhotosList.value.length) :
-        '¿Estás seguro de que quieres eliminar ' + selectedPhotosList.value.length + ' foto(s)?'
-      
-      if (confirm(confirmMessage)) {
-        isLoading.value = true
-        
-        
-        await new Promise(resolve => setTimeout(resolve, 500))
-        
-        selectedPhotosList.value.forEach(photoId => {
-          const photoIndex = samplePhotos.value.findIndex(p => p.id === photoId)
-          if (photoIndex !== -1) {
-            samplePhotos.value.splice(photoIndex, 1)
-          }
-          emit("delete-photo", photoId)
+      const ids = [...selectedPhotosList.value]
+      const tempIds = ids.filter(id => tempPhotos.value.find(p => p.id === id))
+      const persistedIds = ids.filter(id => !tempIds.includes(id))
+
+      if (tempIds.length) {
+        tempIds.forEach(id => {
+          const idx = tempPhotos.value.findIndex(p => p.id === id)
+          if (idx !== -1) tempPhotos.value.splice(idx, 1)
         })
-        
-        exitSelectionMode()
-        isLoading.value = false
       }
+
+      if (persistedIds.length) {
+        persistedIds.forEach(photoId => {
+          deletedPhotoIds.value.add(photoId)
+          emit('delete-photo', photoId)
+        })
+      }
+
+      exitSelectionMode()
+    }
+
+    const deleteCurrentPhoto = async () => {
+      if (!selectedPhoto.value) return
+      const photoId = selectedPhoto.value.id
+
+      const goNextOrClose = () => {
+        const list = allPhotos.value
+        if (list.length === 0) {
+          closePhoto()
+          return
+        }
+        let idx = list.findIndex(p => p.id === photoId)
+        idx = Math.min(Math.max(idx, 0), list.length - 1)
+        selectedPhoto.value = list[idx]
+      }
+
+      if (selectedPhoto.value.isTemp) {
+        const idx = tempPhotos.value.findIndex(p => p.id === photoId)
+        if (idx !== -1) tempPhotos.value.splice(idx, 1)
+        goNextOrClose()
+        return
+      }
+
+      deletedPhotoIds.value.add(photoId)
+      goNextOrClose()
+      emit('delete-photo', photoId)
     }
     
     const toggleFavorite = (photo) => {
@@ -190,24 +234,9 @@ const Photos = {
     
     const shareWith = (option) => {
       const photo = selectedPhoto.value
+      console.log('[Photos] shareWith option=', option.id, 'photo=', photo && photo.url)
       emit("share-photo", { photo, platform: option.id })
       showShareModal.value = false
-      
-      
-      switch (option.id) {
-        case 'tuister':
-          
-          break
-        case 'messages':
-          
-          break
-        case 'mail':
-          
-          break
-        case 'save':
-          
-          break
-      }
     }
     
     const openAlbums = () => {
@@ -392,6 +421,7 @@ const Photos = {
       removePhotosFromAlbum,
       goBack,
       formatDateTime,
+      deleteCurrentPhoto,
       emit
     }
   },
@@ -593,7 +623,7 @@ const Photos = {
               <span>{{ t ? t('photos.add_to_album') : 'Añadir' }}</span>
             </button>
             
-            <button @click="deleteSelectedPhotos" class="photo-action-btn">
+            <button @click="deleteCurrentPhoto" class="photo-action-btn">
               <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
                       d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>
@@ -617,15 +647,18 @@ const Photos = {
       <div v-if="showShareModal" class="modal-backdrop" @click="showShareModal = false">
         <div class="modal-content" @click.stop>
           <h3 class="text-lg font-semibold mb-4">{{ t ? t('photos.share') + ' foto' : 'Compartir foto' }}</h3>
-          <div class="grid grid-cols-2 gap-3">
+          <div class="grid grid-cols-3 gap-3">
             <button v-for="option in shareOptions" :key="option.id"
                     @click="shareWith(option)"
                     class="flex flex-col items-center p-4 rounded-xl border transition-colors"
                     :class="userSettings.darkMode ? 'border-gray-600 hover:bg-gray-800' : 'border-gray-200 hover:bg-gray-50'">
-              <svg class="w-8 h-8 mb-2">
-                <use :href="'#' + option.icon"></use>
-              </svg>
-              <span class="text-sm font-medium">{{ option.name }}</span>
+              <div class="w-10 h-10 mb-2 flex items-center justify-center">
+                <svg v-if="option.icon" class="w-8 h-8">
+                  <use :href="'#' + option.icon"></use>
+                </svg>
+                <div v-else class="w-8 h-8 rounded-full bg-gray-300"></div>
+              </div>
+              <span class="text-sm font-medium">{{ option.name || option.id }}</span>
             </button>
           </div>
           <button @click="showShareModal = false" 

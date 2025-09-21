@@ -1,19 +1,57 @@
 local activeRooms = {} 
 local onlineUsers = {} 
-local marketplaceCache = {} 
+local lastCreateBySource = {}
+local lastCreatePayloadHash = {}
+local lastRoomsReqBySource = {}
 
-
-local function GetPlayerIdentifier(source)
-    local xPlayer = ESX.GetPlayerFromId(source)
-    return xPlayer and xPlayer.identifier or nil
+local function GetPlayerIdentifier(src)
+    if not src then return nil end
+    if Config.Framework == "esx" then
+        local xPlayer = ESX.GetPlayerFromId(src)
+        return xPlayer and xPlayer.identifier or nil
+    elseif Config.Framework == "qb" or Config.Framework == "qbox" then
+        if QBCore and QBCore.Functions and QBCore.Functions.GetPlayer then
+            local player = QBCore.Functions.GetPlayer(tonumber(src))
+            if player and player.PlayerData then
+                return player.PlayerData.citizenid or player.PlayerData.identifier or nil
+            end
+        end
+    end
+    if ESX and ESX.GetPlayerFromId then
+        local xPlayer = ESX.GetPlayerFromId(src)
+        return xPlayer and xPlayer.identifier or nil
+    end
+    return nil
 end
 
 local function GetPlayerFromIdentifier(identifier)
-    for _, playerId in ipairs(GetPlayers()) do
-        local xPlayer = ESX.GetPlayerFromId(playerId)
-        if xPlayer and xPlayer.identifier == identifier then
-            return tonumber(playerId)
+    if not identifier then return nil end
+    for _, pid in ipairs(GetPlayers()) do
+        local psrc = tonumber(pid)
+        if not psrc then goto continue end
+
+        if Config.Framework == "esx" then
+            local xPlayer = ESX.GetPlayerFromId(psrc)
+            if xPlayer and xPlayer.identifier == identifier then
+                return psrc
+            end
+        elseif Config.Framework == "qb" or Config.Framework == "qbox" then
+            if QBCore and QBCore.Functions and QBCore.Functions.GetPlayer then
+                local player = QBCore.Functions.GetPlayer(psrc)
+                if player and player.PlayerData then
+                    local idVal = player.PlayerData.citizenid or player.PlayerData.identifier
+                    if idVal == identifier then
+                        return psrc
+                    end
+                end
+            end
+        else
+            local xPlayer = ESX.GetPlayerFromId(psrc)
+            if xPlayer and xPlayer.identifier == identifier then
+                return psrc
+            end
         end
+        ::continue::
     end
     return nil
 end
@@ -26,6 +64,104 @@ local function GenerateRoomCode()
         result = result .. chars:sub(rand, rand)
     end
     return result
+end
+
+local function CreateOrGetBitcoinWallet(identifier)
+    DebugPrint('[DARKWEB] CreateOrGetBitcoinWallet called for identifier:', identifier)
+    local cryptoHoldings = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT amount FROM bit_phone_crypto_holdings WHERE user_id = ? AND (crypto_symbol = ? OR crypto_symbol = ?)', {identifier, 'btc', 'bitcoin'})
+    local balance = 0
+    
+    if cryptoHoldings and #cryptoHoldings > 0 then
+        balance = tonumber(cryptoHoldings[1].amount) or 0
+        DebugPrint('[DARKWEB] Found BTC balance in crypto_holdings:', balance)
+    else
+        DebugPrint('[DARKWEB] No BTC holdings found in crypto_holdings table')
+    end
+    
+    if Crypto_GetUserBalance then
+        local holdings = Crypto_GetUserBalance(identifier)
+        local apiBalance = 0
+        if type(holdings) == 'table' then
+            if holdings.btc and holdings.btc.amount then apiBalance = tonumber(holdings.btc.amount) or 0 end
+            if holdings.bitcoin and holdings.bitcoin.amount then
+                local alt = tonumber(holdings.bitcoin.amount) or 0
+                if alt > apiBalance then apiBalance = alt end
+            end
+        else
+            apiBalance = tonumber(Crypto_GetUserBalance(identifier, 'btc')) or 0
+        end
+        DebugPrint('[DARKWEB] Crypto API balance (btc/bitcoin):', apiBalance)
+        if apiBalance > balance then balance = apiBalance end
+    end
+    
+    local txs = {}
+    if Crypto_GetUserTransactions then
+        txs = Crypto_GetUserTransactions(identifier, 'btc') or {}
+        print('[DARKWEB] Found', #txs, 'transactions from crypto API')
+    end
+    
+    print('[DARKWEB] Final BTC balance:', balance)
+    return {
+        user_identifier = identifier,
+        bitcoin_balance = balance,
+        wallet_address = nil,
+        recent_transactions = txs
+    }
+end
+
+local function TransferBitcoin(fromIdentifier, toIdentifier, amount, transactionType, referenceId, description)
+    if not amount or tonumber(amount) <= 0 then
+        return false, 'Cantidad inválida'
+    end
+
+    if Crypto_GetUserBalance and Crypto_ModifyUserBalance then
+        local senderHoldings = Crypto_GetUserBalance(fromIdentifier) or {}
+        local btcAmt = 0
+        local btcAlt = 0
+        if type(senderHoldings) == 'table' then
+            btcAmt = tonumber((senderHoldings['btc'] and senderHoldings['btc'].amount) or 0) or 0
+            btcAlt = tonumber((senderHoldings['bitcoin'] and senderHoldings['bitcoin'].amount) or 0) or 0
+        else
+            btcAmt = tonumber(Crypto_GetUserBalance(fromIdentifier, 'btc')) or 0
+            btcAlt = tonumber(Crypto_GetUserBalance(fromIdentifier, 'bitcoin')) or 0
+        end
+
+        local senderSymbol = 'btc'
+        local senderBal = btcAmt
+        if btcAlt > btcAmt then
+            senderSymbol = 'bitcoin'
+            senderBal = btcAlt
+        end
+
+        if senderBal < amount then
+            return false, 'Saldo insuficiente'
+        end
+
+        local success, err = Crypto_ModifyUserBalance(fromIdentifier, senderSymbol, -tonumber(amount), transactionType or 'transfer', 0, 0, 'darkweb')
+        if not success then
+            return false, err or 'Error al debitar'
+        end
+
+        local receiverHoldings = Crypto_GetUserBalance(toIdentifier) or {}
+        local recvSymbol = 'btc'
+        if type(receiverHoldings) == 'table' then
+            local hasBtc = receiverHoldings['btc'] and (tonumber(receiverHoldings['btc'].amount) or 0) > 0
+            local hasBitcoin = receiverHoldings['bitcoin'] and (tonumber(receiverHoldings['bitcoin'].amount) or 0) > 0
+            if hasBitcoin and not hasBtc then
+                recvSymbol = 'bitcoin'
+            end
+        end
+
+        local succ2, err2 = Crypto_ModifyUserBalance(toIdentifier, recvSymbol, tonumber(amount), transactionType or 'transfer', 0, 0, 'darkweb')
+        if not succ2 then
+            Crypto_ModifyUserBalance(fromIdentifier, senderSymbol, tonumber(amount), 'rollback', 0, 0, 'darkweb')
+            return false, err2 or 'Error al acreditar receptor'
+        end
+
+        return true, 'Transacción completada', nil
+    else
+        return false, 'API de cripto no disponible'
+    end
 end
 
 local function GenerateUsername(identifier)
@@ -48,16 +184,21 @@ local function CreateOrGetDarkwebUser(identifier)
     else
         
         local username = GenerateUsername(identifier)
-        local id = SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_users (user_identifier, username, reputation) VALUES (?, ?, ?)', 
-            {identifier, username, 100})
-        
+        SqlFunc(Config.Mysql, 'execute', [[
+            INSERT INTO bit_phone_darkweb_users (user_identifier, username, reputation, last_active) 
+            VALUES (?, ?, ?, NOW()) 
+            ON DUPLICATE KEY UPDATE username = VALUES(username), reputation = VALUES(reputation), last_active = NOW()
+        ]], {identifier, username, 100})
+
+        local newRow = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT * FROM bit_phone_darkweb_users WHERE user_identifier = ?', {identifier})
+        if newRow and #newRow > 0 then
+            return newRow[1]
+        end
         return {
-            id = id,
+            id = nil,
             user_identifier = identifier,
             username = username,
             reputation = 100,
-            total_purchases = 0,
-            total_sales = 0,
             is_banned = false
         }
     end
@@ -68,12 +209,26 @@ RegisterNetEvent('darkweb:getRooms')
 AddEventHandler('darkweb:getRooms', function()
     local source = source
     local identifier = GetPlayerIdentifier(source)
-    if not identifier then return end
-    print("Fetching darkweb rooms for identifier: " .. identifier)
+    if not identifier then 
+        print('[DARKWEB] getRooms: No identifier for source', source)
+        return 
+    end
+    
+    print('[DARKWEB] Fetching darkweb rooms for identifier:', identifier)
+    
     local rooms = SqlFunc(Config.Mysql, 'fetchAll', [[
-        SELECT * FROM bit_phone_darkweb_rooms WHERE is_active = 1 AND id IN (SELECT room_id FROM bit_phone_darkweb_room_members WHERE user_identifier = ?)
-    ]], {})
-    print("Rooms fetched: " .. #rooms)
+        SELECT r.* FROM bit_phone_darkweb_rooms r 
+        LEFT JOIN bit_phone_darkweb_room_members m ON r.id = m.room_id 
+        WHERE r.is_active = 1 AND (r.creator = ? OR m.member_identifier = ?)
+        GROUP BY r.id
+    ]], {identifier, identifier})
+    
+    print('[DARKWEB] Rooms fetched:', #rooms)
+    
+    if #rooms == 0 then
+        local allRooms = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT COUNT(*) as total FROM bit_phone_darkweb_rooms WHERE is_active = 1')
+        print('[DARKWEB] Total active rooms in database:', allRooms and allRooms[1] and allRooms[1].total or 0)
+    end
     for i, room in ipairs(rooms) do
         room.members = {}
         if room.member_list then
@@ -85,15 +240,19 @@ AddEventHandler('darkweb:getRooms', function()
         room.member_list = nil
     end
     
-    TriggerClientEvent('darkweb:receiveRooms', source, rooms)
+    TriggerClientEvent('bit-smartphone:darkweb:receiveRooms', source, rooms)
 end)
 
 RegisterNetEvent('darkweb:createRoom')
 AddEventHandler('darkweb:createRoom', function(roomData)
     local source = source
     local identifier = GetPlayerIdentifier(source)
-    if not identifier then return end
+    if not identifier then 
+        print('[DARKWEB] createRoom: No identifier for source', source)
+        return 
+    end
     
+    print('[DARKWEB] createRoom called by', identifier, 'with name:', roomData.name)
     local darkwebUser = CreateOrGetDarkwebUser(identifier)
     local roomCode = GenerateRoomCode()
     
@@ -107,11 +266,16 @@ AddEventHandler('darkweb:createRoom', function(roomData)
         INSERT INTO bit_phone_darkweb_rooms (name, code, creator, description) 
         VALUES (?, ?, ?, ?)
     ]], {roomData.name, roomCode, identifier, roomData.description or ''})
+    if type(roomId) == 'table' and roomId.insertId then
+        roomId = tonumber(roomId.insertId)
+    else
+        roomId = tonumber(roomId) or roomId
+    end
     
     if roomId then
         
-        SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_room_members (room_id, user_identifier, username, is_admin) VALUES (?, ?, ?, ?)', 
-            {roomId, identifier, darkwebUser.username, true})
+        SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_room_members (room_id, member_identifier, is_admin) VALUES (?, ?, ?)', 
+            {roomId, identifier, true})
         
         local newRoom = {
             id = roomId,
@@ -125,7 +289,7 @@ AddEventHandler('darkweb:createRoom', function(roomData)
             created_at = os.time() * 1000
         }
         
-        TriggerClientEvent('darkweb:roomCreated', source, newRoom)
+    TriggerClientEvent('bit-smartphone:darkweb:roomCreated', source, newRoom)
         NotifyPlayer(source, 'Sala creada exitosamente. Código: ' .. roomCode)
     end
 end)
@@ -146,19 +310,19 @@ AddEventHandler('darkweb:joinRoom', function(roomCode)
     room = room[1] 
     
     
-    local existingMember = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_darkweb_room_members WHERE room_id = ? AND user_identifier = ?', 
+    local existingMember = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_darkweb_room_members WHERE room_id = ? AND member_identifier = ?', 
         {room.id, identifier})
     
     if not existingMember or #existingMember == 0 then
-        SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_room_members (room_id, user_identifier, username) VALUES (?, ?, ?)', 
-            {room.id, identifier, darkwebUser.username})
+        SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_room_members (room_id, member_identifier) VALUES (?, ?)', 
+            {room.id, identifier})
         
         
-        SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_messages (room_id, user_identifier, username, message, message_type) VALUES (?, ?, ?, ?, ?)', 
-            {room.id, 'system', 'Sistema', darkwebUser.username .. ' se unió a la sala', 'system'})
+        SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_messages (room_id, sender_identifier, message) VALUES (?, ?, ?)', 
+            {room.id, 'system', darkwebUser.username .. ' se unió a la sala'})
     end
     
-    TriggerClientEvent('darkweb:roomJoined', source, {room = room, success = true})
+    TriggerClientEvent('bit-smartphone:darkweb:roomJoined', source, {room = room, success = true})
     
     
     local messages = SqlFunc(Config.Mysql, 'fetchAll', [[
@@ -171,10 +335,10 @@ AddEventHandler('darkweb:joinRoom', function(roomCode)
     
     for i, msg in ipairs(messages) do
         msg.timestamp = os.time() * 1000
-        msg.isOwn = (msg.user_identifier == identifier)
+        msg.isOwn = (msg.sender_identifier == identifier)
     end
     
-    TriggerClientEvent('darkweb:receiveRoomMessages', source, {roomId = room.id, messages = messages})
+    TriggerClientEvent('bit-smartphone:darkweb:receiveRoomMessages', source, {roomId = room.id, messages = messages})
 end)
 
 RegisterNetEvent('darkweb:leaveRoom')
@@ -186,14 +350,14 @@ AddEventHandler('darkweb:leaveRoom', function(roomId)
     local darkwebUser = CreateOrGetDarkwebUser(identifier)
     
     
-    SqlFunc(Config.Mysql, 'execute', 'DELETE FROM bit_phone_darkweb_room_members WHERE room_id = ? AND user_identifier = ?', 
+    SqlFunc(Config.Mysql, 'execute', 'DELETE FROM bit_phone_darkweb_room_members WHERE room_id = ? AND member_identifier = ?', 
         {roomId, identifier})
     
     
-    SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_messages (room_id, user_identifier, username, message, message_type) VALUES (?, ?, ?, ?, ?)', 
-        {roomId, 'system', 'Sistema', darkwebUser.username .. ' abandonó la sala', 'system'})
+    SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_messages (room_id, sender_identifier, message) VALUES (?, ?, ?)', 
+        {roomId, 'system', darkwebUser.username .. ' abandonó la sala'})
     
-    TriggerClientEvent('darkweb:roomLeft', source, {roomId = roomId, success = true})
+    TriggerClientEvent('bit-smartphone:darkweb:roomLeft', source, {roomId = roomId, success = true})
 end)
 
 
@@ -209,7 +373,7 @@ AddEventHandler('darkweb:sendRoomMessage', function(roomId, messageText)
     local darkwebUser = CreateOrGetDarkwebUser(identifier)
     
     
-    local isMember = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_darkweb_room_members WHERE room_id = ? AND user_identifier = ?', 
+    local isMember = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_darkweb_room_members WHERE room_id = ? AND member_identifier = ?', 
         {roomId, identifier})
     
     if not isMember or #isMember == 0 then
@@ -218,8 +382,9 @@ AddEventHandler('darkweb:sendRoomMessage', function(roomId, messageText)
     end
     
     
-    local messageId = SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_messages (room_id, user_identifier, username, message) VALUES (?, ?, ?, ?)', 
-        {roomId, identifier, darkwebUser.username, messageText})
+    local messageId = SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_messages (room_id, sender_identifier, message) VALUES (?, ?, ?)', 
+        {roomId, identifier, messageText})
+    if type(messageId) == 'table' and messageId.insertId then messageId = tonumber(messageId.insertId) end
     
     if messageId then
         local message = {
@@ -231,12 +396,12 @@ AddEventHandler('darkweb:sendRoomMessage', function(roomId, messageText)
         }
         
         
-        local members = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT user_identifier FROM bit_phone_darkweb_room_members WHERE room_id = ?', {roomId})
+        local members = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT member_identifier FROM bit_phone_darkweb_room_members WHERE room_id = ?', {roomId})
         for _, member in ipairs(members) do
-            local xPlayer = ESX.GetPlayerFromIdentifier(member.user_identifier)
+            local xPlayer = ESX.GetPlayerFromIdentifier(member.member_identifier)
             if xPlayer then
-                local isOwn = (member.user_identifier == identifier)
-                TriggerClientEvent('darkweb:receiveRoomMessage', xPlayer.source, {
+                local isOwn = (member.member_identifier == identifier)
+                TriggerClientEvent('bit-smartphone:darkweb:newMessage', xPlayer.source, {
                     roomId = roomId,
                     message = {
                         id = messageId,
@@ -254,137 +419,6 @@ AddEventHandler('darkweb:sendRoomMessage', function(roomId, messageText)
     end
 end)
 
-
-
-
-
-RegisterNetEvent('darkweb:getMarketplace')
-AddEventHandler('darkweb:getMarketplace', function(category)
-    local source = source
-    
-    category = category or 'all'
-    local whereClause = "WHERE is_active = 1"
-    local params = {}
-    
-    if category ~= 'all' then
-        whereClause = whereClause .. " AND category = ?"
-        params = {category}
-    else
-        params = {}
-    end
-    
-    local items = SqlFunc(Config.Mysql, 'fetchAll', string.format([[
-        SELECT m.*, u.username as seller_username, u.reputation as seller_reputation
-        FROM bit_phone_darkweb_marketplace m
-        LEFT JOIN bit_phone_darkweb_users u ON m.seller_identifier = u.user_identifier
-        %s
-        ORDER BY m.created_at DESC
-        LIMIT 100
-    ]], whereClause), params)
-    
-    for i, item in ipairs(items) do
-        item.rating = tonumber(item.rating) or 5.0
-        item.views_count = tonumber(item.views_count) or 0
-    end
-    
-    TriggerClientEvent('darkweb:receiveMarketplace', source, {category = category, items = items})
-end)
-
-RegisterNetEvent('darkweb:createMarketplaceItem')
-AddEventHandler('darkweb:createMarketplaceItem', function(itemData)
-    local source = source
-    local identifier = GetPlayerIdentifier(source)
-    if not identifier then return end
-    
-    local darkwebUser = CreateOrGetDarkwebUser(identifier)
-    
-    local itemId = SqlFunc(Config.Mysql, 'execute', [[
-        INSERT INTO bit_phone_darkweb_marketplace 
-        (seller_identifier, seller_username, title, description, category, price, currency, location, image_url) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ]], {
-        identifier, darkwebUser.username, itemData.title, itemData.description, 
-        itemData.category, itemData.price, itemData.currency or 'money', 
-        itemData.location, itemData.image_url
-    })
-    
-    if itemId then
-        TriggerClientEvent('darkweb:itemCreated', source, {itemId = itemId, success = true})
-        NotifyPlayer(source, 'Artículo publicado en el marketplace')
-    end
-end)
-
-RegisterNetEvent('darkweb:purchaseItem')
-AddEventHandler('darkweb:purchaseItem', function(itemId, quantity, deliveryLocation)
-    local source = source
-    local identifier = GetPlayerIdentifier(source)
-    if not identifier then return end
-    
-    local xPlayer = ESX.GetPlayerFromId(source)
-    if not xPlayer then return end
-    
-    local item = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT * FROM bit_phone_darkweb_marketplace WHERE id = ? AND is_active = 1', {itemId})
-    if not item or #item == 0 then
-        NotifyPlayer(source, 'Artículo no encontrado')
-        return
-    end
-    item = item[1] 
-    
-    quantity = quantity or 1
-    local totalPrice = item.price * quantity
-    
-    
-    local hasEnoughFunds = false
-    
-    if item.currency == 'money' then
-        hasEnoughFunds = (xPlayer.getMoney() >= totalPrice)
-        if hasEnoughFunds then
-            xPlayer.removeMoney(totalPrice)
-        end
-    else
-        
-        hasEnoughFunds = true 
-    end
-    
-    if not hasEnoughFunds then
-        NotifyPlayer(source, 'Fondos insuficientes')
-        return
-    end
-    
-    
-    local purchaseId = SqlFunc(Config.Mysql, 'execute', [[
-        INSERT INTO bit_phone_darkweb_purchases 
-        (buyer_identifier, seller_identifier, item_id, item_title, quantity, total_price, currency, delivery_location) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ]], {identifier, item.seller_identifier, itemId, item.title, quantity, totalPrice, item.currency, deliveryLocation})
-    
-    if purchaseId then
-        
-        SqlFunc(Config.Mysql, 'execute', 'UPDATE bit_phone_darkweb_marketplace SET views_count = views_count + 1 WHERE id = ?', {itemId})
-        SqlFunc(Config.Mysql, 'execute', 'UPDATE bit_phone_darkweb_users SET total_purchases = total_purchases + 1 WHERE user_identifier = ?', {identifier})
-        SqlFunc(Config.Mysql, 'execute', 'UPDATE bit_phone_darkweb_users SET total_sales = total_sales + 1 WHERE user_identifier = ?', {item.seller_identifier})
-        
-        TriggerClientEvent('darkweb:purchaseComplete', source, {
-            purchaseId = purchaseId,
-            item = item,
-            totalPrice = totalPrice,
-            success = true
-        })
-        
-        NotifyPlayer(source, 'Compra realizada exitosamente')
-        
-        
-        local seller = ESX.GetPlayerFromIdentifier(item.seller_identifier)
-        if seller then
-            NotifyPlayer(seller.source, 'Has vendido: ' .. item.title)
-        end
-    end
-end)
-
-
-
-
-
 RegisterNetEvent('darkweb:getOnlineUsers')
 AddEventHandler('darkweb:getOnlineUsers', function()
     local source = source
@@ -397,7 +431,7 @@ AddEventHandler('darkweb:getOnlineUsers', function()
     
     onlineCount = onlineCount + math.random(15, 45)
     
-    TriggerClientEvent('darkweb:receiveOnlineCount', source, onlineCount)
+    TriggerClientEvent('bit-smartphone:darkweb:receiveOnlineCount', source, onlineCount)
 end)
 
 
@@ -422,11 +456,6 @@ end)
 
 
 
-
-
-
-
-
 Citizen.CreateThread(function()
     Citizen.SetTimeout(3600000, function()
         SqlFunc(Config.Mysql, 'execute', [[
@@ -438,43 +467,91 @@ Citizen.CreateThread(function()
     end)
 end)
 
-
-
-
-
 exports('CreateDarkwebUser', CreateOrGetDarkwebUser)
 exports('GetDarkwebUserData', function(identifier)
     local result = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT * FROM bit_phone_darkweb_users WHERE user_identifier = ?', {identifier})
     return result and result[1] or nil
 end)
 
-exports('AddMarketplaceItem', function(sellerIdentifier, itemData)
-    local darkwebUser = CreateOrGetDarkwebUser(sellerIdentifier)
-    return SqlFunc(Config.Mysql, 'execute', [[
-        INSERT INTO bit_phone_darkweb_marketplace 
-        (seller_identifier, seller_username, title, description, category, price, currency, location) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    ]], {
-        sellerIdentifier, darkwebUser.username, itemData.title, itemData.description, 
-        itemData.category, itemData.price, itemData.currency or 'money', itemData.location
-    })
-end)
-
-
-
-
 RegisterNetEvent('bit-smartphone:darkweb:getRooms', function()
     local source = source
     local identifier = GetPlayerIdentifier(source)
-    if not identifier then return end
+    print('[DARKWEB] getRooms called by source:', source, 'identifier:', identifier)
     
+    if not identifier then 
+        print('[DARKWEB] Error: No identifier found for source:', source)
+        TriggerClientEvent('bit-smartphone:darkweb:receiveRooms', source, {})
+        return 
+    end
     
+    local now = (GetGameTimer and GetGameTimer() or os.time() * 1000)
+    local last = lastRoomsReqBySource[source] or 0
+    if (now - last) < 1000 then
+        return
+    end
+    lastRoomsReqBySource[source] = now
+
+    print('[DARKWEB] Fetching rooms for identifier:', identifier)
     
-    local rooms = SqlFunc(Config.Mysql, 'fetchAll',
-        'SELECT * FROM bit_phone_darkweb_room_members WHERE user_identifier = ?',
-        {identifier}
-    )
-    
+    local success, rows = pcall(function()
+        return SqlFunc(Config.Mysql, 'fetchAll', [[
+            SELECT 
+                r.id,
+                r.name,
+                r.code,
+                r.description,
+                r.creator AS creator,
+                r.created_at,
+                r.updated_at,
+                COUNT(m2.member_identifier) AS member_count
+            FROM bit_phone_darkweb_rooms r
+            INNER JOIN bit_phone_darkweb_room_members m ON r.id = m.room_id AND m.member_identifier = ?
+            LEFT JOIN bit_phone_darkweb_room_members m2 ON r.id = m2.room_id
+            WHERE r.is_active = 1
+            GROUP BY r.id
+            ORDER BY r.updated_at DESC, r.created_at DESC
+        ]], {identifier})
+    end)
+
+    if not success or not rows then
+        print('[DARKWEB] Error fetching rooms or tables missing:', rows)
+        TriggerClientEvent('bit-smartphone:darkweb:receiveRooms', source, {})
+        return
+    end
+
+    local rooms = {}
+    for _, r in ipairs(rows) do
+        local createdAtMs = os.time() * 1000
+        if r.created_at then
+            if type(r.created_at) == 'number' then
+                createdAtMs = math.floor(r.created_at) * 1000
+            elseif type(r.created_at) == 'string' then
+                local y, mo, d, h, mi, s = r.created_at:match("(\n?%d+)%-(%d+)%-(%d+)%s+(%d+):(%d+):(%d+)")
+                if y and mo and d and h and mi and s then
+                    local yy = tonumber(y) or 1970
+                    local mmo = tonumber(mo) or 1
+                    local dd = tonumber(d) or 1
+                    local hh = tonumber(h) or 0
+                    local mii = tonumber(mi) or 0
+                    local ss = tonumber(s) or 0
+                    local ts = os.time({year = yy, month = mmo, day = dd, hour = hh, min = mii, sec = ss})
+                    if ts then createdAtMs = ts * 1000 end
+                end
+            end
+        end
+
+        table.insert(rooms, {
+            id = r.id,
+            name = r.name or ('Sala #' .. tostring(r.id)),
+            code = r.code or tostring(r.id),
+            creator = r.creator or 'Anon',
+            createdAt = createdAtMs,
+            members = {},
+            messages = {}
+        })
+    end
+
+    print('[DARKWEB] Rooms built for NUI:', #rooms)
     TriggerClientEvent('bit-smartphone:darkweb:receiveRooms', source, rooms)
 end)
 
@@ -482,41 +559,113 @@ end)
 RegisterNetEvent('bit-smartphone:darkweb:createRoom', function(roomData)
     local source = source
     local identifier = GetPlayerIdentifier(source)
-    if not identifier then return end
-    
-    
-    local roomId = SqlFunc(Config.Mysql, 'insert', [[
-        INSERT INTO bit_phone_darkweb_rooms (name, description, is_private, created_by, created_at, last_message_at)
-        VALUES (?, ?, 1, ?, NOW(), NOW())
-    ]], {roomData.name, roomData.description or '', identifier})
-    
+    print('[DARKWEB] createRoom called by source:', source, 'identifier:', identifier, 'roomData:', json.encode(roomData))
+
+    if not identifier then
+        print('[DARKWEB] Error: No identifier found for createRoom')
+        return
+    end
+
+    local function HasColumn(tableName, columnName)
+        local ok, rows = pcall(function()
+            return SqlFunc(Config.Mysql, 'fetchAll', [[
+                SELECT 1 FROM information_schema.COLUMNS 
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?
+                LIMIT 1
+            ]], {tableName, columnName})
+        end)
+        if not ok then return false end
+        return rows and #rows > 0
+    end
+
+    local hasIsPrivate = HasColumn('bit_phone_darkweb_rooms', 'is_private')
+    local hasCreatedBy = HasColumn('bit_phone_darkweb_rooms', 'created_by')
+    local hasLastMessageAt = HasColumn('bit_phone_darkweb_rooms', 'last_message_at')
+    local hasCode = HasColumn('bit_phone_darkweb_rooms', 'code')
+
+    local roomId
+    local ok, res = pcall(function()
+        if hasIsPrivate and hasCreatedBy then
+            if hasLastMessageAt then
+                return SqlFunc(Config.Mysql, 'insert', [[
+                    INSERT INTO bit_phone_darkweb_rooms (name, description, is_private, created_by, created_at, last_message_at)
+                    VALUES (?, ?, 1, ?, NOW(), NOW())
+                ]], { roomData.name, roomData.description or '', identifier })
+            else
+                return SqlFunc(Config.Mysql, 'insert', [[
+                    INSERT INTO bit_phone_darkweb_rooms (name, description, is_private, created_by, created_at)
+                    VALUES (?, ?, 1, ?, NOW())
+                ]], { roomData.name, roomData.description or '', identifier })
+            end
+        elseif hasCode then
+            local code = GenerateRoomCode()
+            local exists = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_darkweb_rooms WHERE code = ? LIMIT 1', { code })
+            if exists and #exists > 0 then
+                code = GenerateRoomCode()
+            end
+            return SqlFunc(Config.Mysql, 'insert', [[
+                INSERT INTO bit_phone_darkweb_rooms (name, code, creator, description)
+                VALUES (?, ?, ?, ?)
+            ]], { roomData.name, code, identifier, roomData.description or '' })
+        else
+            return SqlFunc(Config.Mysql, 'insert', [[
+                INSERT INTO bit_phone_darkweb_rooms (name, description)
+                VALUES (?, ?)
+            ]], { roomData.name, roomData.description or '' })
+        end
+    end)
+
+    if not ok then
+        print('[DARKWEB] Error executing room insert:', res)
+    else
+        roomId = res
+    end
+
+    if type(roomId) == 'table' and roomId.insertId then roomId = tonumber(roomId.insertId) end
+    if type(roomId) ~= 'number' then roomId = tonumber(roomId) end
+
     if roomId then
-        
-        SqlFunc(Config.Mysql, 'execute', [[
-        INSERT INTO bit_phone_darkweb_room_members (room_id, user_identifier, is_admin, created_at)
-        VALUES (?, ?, 1, NOW())
-        ]], {roomId, identifier})
-        
-        TriggerClientEvent('bit-smartphone:darkweb:roomCreated', source, {id = roomId, name = roomData.name})
+        local memberOk, memberErr = pcall(function()
+            SqlFunc(Config.Mysql, 'execute', [[
+                INSERT INTO bit_phone_darkweb_room_members (room_id, member_identifier, is_admin, joined_at)
+                VALUES (?, ?, 1, NOW())
+            ]], { roomId, identifier })
+        end)
+
+        if memberOk then
+            print('[DARKWEB] Room created successfully with ID:', roomId)
+            TriggerClientEvent('bit-smartphone:darkweb:roomCreated', source, { id = roomId, name = roomData.name })
+        else
+            print('[DARKWEB] Error: Could not add creator as room member ->', memberErr)
+        end
+    else
+        print('[DARKWEB] Error: Could not create room. Tables/columns may not exist or insert failed.')
     end
 end)
 
 
-RegisterNetEvent('bit-smartphone:darkweb:joinRoom', function(roomId)
+RegisterNetEvent('bit-smartphone:darkweb:joinRoom', function(roomRef)
     local source = source
     local identifier = GetPlayerIdentifier(source)
     if not identifier then return end
-    
-    
-    
+    local roomId = tonumber(roomRef)
+    if not roomId then
+        local row = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_darkweb_rooms WHERE code = ? AND is_active = 1', {tostring(roomRef or '')})
+        if row and #row > 0 then roomId = tonumber(row[1].id) end
+    end
+    if not roomId then
+        TriggerClientEvent('bit-smartphone:darkweb:roomJoined', source, { error = 'Sala no encontrada' })
+        return
+    end
+
     local existing = SqlFunc(Config.Mysql, 'fetchAll',
-        'SELECT * FROM bit_phone_darkweb_room_members WHERE room_id = ? AND user_identifier = ?',
+        'SELECT * FROM bit_phone_darkweb_room_members WHERE room_id = ? AND member_identifier = ?',
         {roomId, identifier}
     )
     if #existing == 0 then
         
         SqlFunc(Config.Mysql, 'execute',
-            'INSERT INTO bit_phone_darkweb_room_members (room_id, user_identifier, is_admin, created_at) VALUES (?, ?, 0, NOW())',
+            'INSERT INTO bit_phone_darkweb_room_members (room_id, member_identifier, is_admin, joined_at) VALUES (?, ?, 0, NOW())',
             {roomId, identifier}
         )
     end
@@ -538,45 +687,120 @@ RegisterNetEvent('bit-smartphone:darkweb:sendMessage', function(messageData)
     local identifier = GetPlayerIdentifier(source)
     if not identifier then return end
     
-    
-    
+    if not messageData or not tonumber(messageData.roomId) or not messageData.message or tostring(messageData.message):gsub("%s+","") == '' then
+        return
+    end
+
+    local roomId = tonumber(messageData.roomId)
+    local darkwebUser = CreateOrGetDarkwebUser(identifier)
+
     local isMember = SqlFunc(Config.Mysql, 'fetchAll',
-        'SELECT * FROM bit_phone_darkweb_room_members WHERE room_id = ? AND user_identifier = ?',
-        {messageData.roomId, identifier}
+        'SELECT id FROM bit_phone_darkweb_room_members WHERE room_id = ? AND member_identifier = ?',
+        {roomId, identifier}
     )
-    if #isMember > 0 then
-        
-        local messageId = SqlFunc(Config.Mysql, 'insert', [[
-            INSERT INTO bit_phone_darkweb_messages (room_id, sender_identifier, message, created_at)
-            VALUES (?, ?, ?, NOW())
-        ]], {messageData.roomId, identifier, messageData.message})
-        
-        if messageId then
-            
-            SqlFunc(Config.Mysql, 'execute', [[
-                UPDATE bit_phone_darkweb_rooms SET last_message_at = NOW() WHERE id = ?
-            ]], {messageData.roomId})
-            
-            
-            
-            local members = SqlFunc(Config.Mysql, 'fetchAll',
-                'SELECT * FROM bit_phone_darkweb_room_members WHERE room_id = ?',
-                {messageData.roomId}
-            )
-            
-            
-            for _, member in ipairs(members) do
-                local targetPlayer = GetPlayerFromIdentifier(member.member_identifier)
-                if targetPlayer then
-                    TriggerClientEvent('bit-smartphone:darkweb:newMessage', targetPlayer, {
+    if not isMember or #isMember == 0 then
+        pcall(function()
+            SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_room_members (room_id, member_identifier, is_admin, joined_at) VALUES (?, ?, 0, NOW())', {roomId, identifier})
+        end)
+    end
+
+    local messageId = SqlFunc(Config.Mysql, 'execute', [[
+        INSERT INTO bit_phone_darkweb_messages (room_id, sender_identifier, message) VALUES (?, ?, ?)
+    ]], {roomId, identifier, tostring(messageData.message) })
+    if type(messageId) == 'table' and messageId.insertId then messageId = tonumber(messageId.insertId) end
+
+    if messageId and tonumber(messageId) then
+        pcall(function()
+            SqlFunc(Config.Mysql, 'execute', 'UPDATE bit_phone_darkweb_rooms SET updated_at = NOW() WHERE id = ?', {roomId})
+        end)
+
+        local members = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT member_identifier FROM bit_phone_darkweb_room_members WHERE room_id = ?', {roomId})
+        local nowMs = os.time() * 1000
+        for _, member in ipairs(members or {}) do
+            local targetPlayer = GetPlayerFromIdentifier(member.member_identifier)
+            if targetPlayer then
+                local isOwn = (member.member_identifier == identifier)
+                TriggerClientEvent('bit-smartphone:darkweb:newMessage', targetPlayer, {
+                    roomId = roomId,
+                    message = {
                         id = messageId,
-                        roomId = messageData.roomId,
-                        sender = identifier,
-                        message = messageData.message,
-                        timestamp = os.time()
-                    })
-                end
+                        username = (darkwebUser and darkwebUser.username) or 'Anon',
+                        text = tostring(messageData.message),
+                        timestamp = nowMs,
+                        isOwn = isOwn
+                    }
+                })
             end
         end
+    else
+        print('[DARKWEB] Error: no se pudo insertar mensaje en DB para room', roomId, 'identifier', identifier)
     end
+end)
+
+RegisterNetEvent('darkweb:getBitcoinWallet')
+AddEventHandler('darkweb:getBitcoinWallet', function()
+    local source = source
+    local identifier = GetPlayerIdentifier(source)
+    if not identifier then return end
+    
+    local wallet = CreateOrGetBitcoinWallet(identifier)
+    if wallet then
+        print('[DARKWEB] Sending wallet data to client:', json.encode(wallet))
+        
+        wallet.recent_transactions = {}
+    TriggerClientEvent('bit-smartphone:darkweb:receiveBitcoinWallet', source, wallet)
+    else
+        print('[DARKWEB] No wallet found for identifier:', identifier)
+    end
+end)
+
+RegisterNetEvent('darkweb:sendBitcoin')
+AddEventHandler('darkweb:sendBitcoin', function(data)
+    local source = source
+    local identifier = GetPlayerIdentifier(source)
+    if not identifier then return end
+    
+    local success, message, transactionId = TransferBitcoin(
+        identifier, 
+        data.recipientAddress, 
+        data.amount, 
+        'transfer', 
+        nil, 
+        data.description or 'Transferencia directa'
+    )
+    
+    if success then
+    TriggerClientEvent('bit-smartphone:darkweb:bitcoinTransferResult', source, {
+            success = true,
+            message = message,
+            transactionId = transactionId
+        })
+        
+        local recipientPlayer = GetPlayerFromIdentifier(data.recipientAddress)
+        if recipientPlayer then
+            TriggerClientEvent('bit-smartphone:darkweb:bitcoinReceived', recipientPlayer, {
+                amount = data.amount,
+                from = identifier,
+                description = data.description
+            })
+        end
+    else
+    TriggerClientEvent('bit-smartphone:darkweb:bitcoinTransferResult', source, {
+            success = false,
+            message = message
+        })
+    end
+end)
+
+RegisterNetEvent('bit-smartphone:darkweb:leaveRoom')
+AddEventHandler('bit-smartphone:darkweb:leaveRoom', function(roomId)
+    local source = source
+    local identifier = GetPlayerIdentifier(source)
+    if not identifier then return end
+
+    local darkwebUser = CreateOrGetDarkwebUser(identifier)
+
+    SqlFunc(Config.Mysql, 'execute', 'DELETE FROM bit_phone_darkweb_room_members WHERE room_id = ? AND member_identifier = ?', {roomId, identifier})
+    SqlFunc(Config.Mysql, 'execute', 'INSERT INTO bit_phone_darkweb_messages (room_id, sender_identifier, message) VALUES (?, ?, ?)', {roomId, 'system', (darkwebUser.username or 'Usuario') .. ' abandonó la sala'})
+    TriggerClientEvent('bit-smartphone:darkweb:roomLeft', source, { roomId = roomId, success = true })
 end)

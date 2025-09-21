@@ -334,3 +334,6 @@ const YouTube = {
     </div>
   `,
 };
+
+window.YouTube = YouTube;
+window.YouTube = window.YouTube || YouTube;

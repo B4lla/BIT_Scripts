@@ -1,5 +1,16 @@
 const { createApp, ref, computed, onMounted, onUnmounted, nextTick, watch, defineComponent, markRaw, reactive } = Vue;
 
+function safeJsonParse(value, fallback = null) {
+	if (value == null) return fallback;
+	if (typeof value !== 'string') return value;
+	try {
+		return JSON.parse(value);
+	} catch (e) {
+		console.warn('[safeJsonParse] Failed to parse JSON:', value, e);
+		return fallback;
+	}
+}
+
 const importApp = async (appName, t) => {
 	const appMap = {
 		phone: "Phone",
@@ -40,7 +51,7 @@ const importApp = async (appName, t) => {
 
 	const createPlaceholder = (name, reason) => {
 		const placeholder = {
-			name: (name || appName) + "Placeholder",
+						name: (name || appName) + "Placeholder",
 			template: `<div class="flex items-center justify-center h-full text-white bg-red-900/20 border border-red-500/50 rounded-lg m-4">
                    <div class="text-center">
                      <h3 class="text-lg font-bold mb-2">⚠️ Error en la App</h3>
@@ -157,7 +168,7 @@ const MobileOS = {
 		};
 	},
 	setup() {
-		const phoneState = ref("HOME");
+		const phoneState = ref("HOME"); 
 		const pinInput = ref("");
 		const correctPin = "1234";
 		const pinError = ref(false);
@@ -190,6 +201,9 @@ const MobileOS = {
 		const currentOpenApps = ref(new Set());
 		const flashlightOn = ref(false);
 		const batteryUpdateInterval = ref(null);
+		const batteryAuthoritative = ref(false);
+		const batteryNotifSent20 = ref(false);
+		const batteryNotifSent5 = ref(false);
 
 		const isCharging = ref(false);
 		const chargingProgress = ref(0);
@@ -210,7 +224,36 @@ const MobileOS = {
 			callType: "audio",
 			callStatus: "connecting",
 		});
-		const currentTime = ref("");
+	const currentTime = ref("");
+	const appSafeTop = ref('1.5rem'); 
+	const appSafeStyle = ref({ backgroundColor: 'transparent' });
+		const appScreen = ref(null);
+		const appContentWrap = ref(null);
+
+		const updateAppSafeAreaBg = () => {
+			try {
+				const wrap = appContentWrap.value;
+				if (!wrap) return;
+				const rootEl = wrap.firstElementChild || (wrap.shadowRoot && wrap.shadowRoot.firstElementChild);
+				if (!rootEl) return;
+				const cs = window.getComputedStyle(rootEl);
+				const styleObj = {
+					backgroundImage: cs.backgroundImage,
+					backgroundColor: cs.backgroundColor,
+					backgroundPosition: cs.backgroundPosition,
+					backgroundSize: cs.backgroundSize,
+					backgroundRepeat: cs.backgroundRepeat,
+					backgroundAttachment: cs.backgroundAttachment,
+					backgroundOrigin: cs.backgroundOrigin,
+					backgroundClip: cs.backgroundClip,
+				};
+				if ((!styleObj.backgroundImage || styleObj.backgroundImage === 'none') && (styleObj.backgroundColor === 'rgba(0, 0, 0, 0)' || styleObj.backgroundColor === 'transparent')) {
+					appSafeStyle.value = { backgroundColor: 'transparent' };
+				} else {
+					appSafeStyle.value = styleObj;
+				}
+			} catch (e) {}
+		};
 		const currentDate = ref("");
 		const photos = ref([]);
 		const wallpapers = ref(["./assets/wallpapers/wallpaper1.webp", "./assets/wallpapers/wallpaper2.webp", "./assets/wallpapers/wallpaper3.webp", "./assets/wallpapers/wallpaper4.webp", "./assets/wallpapers/wallpaper5.webp"]);
@@ -309,14 +352,11 @@ const MobileOS = {
 		const showPhone = ref(false);
 		const state = reactive({});
 
-		// Usar window.phoneT como función de traducción global
 		const t = computed(() => {
 			return (key, params = {}) => {
-				// 1. Buscar en phoneTranslations (backend)
 				if (window.phoneTranslations && window.phoneTranslations[key]) {
 					return window.phoneTranslations[key];
 				}
-				// 2. Buscar en translations (frontend/local)
 				const lang = (window.setupData && window.setupData.language) || "es";
 				if (window.translations && window.translations[lang]) {
 					const value = key.split(".").reduce((obj, k) => obj && obj[k], window.translations[lang]);
@@ -325,7 +365,6 @@ const MobileOS = {
 					}
 					if (value) return value;
 				}
-				// 3. Retornar la clave si no se encuentra
 				return key;
 			};
 		});
@@ -469,6 +508,13 @@ const MobileOS = {
 					clearTimeout(window.appErrorTimeout);
 					window.appErrorTimeout = null;
 				}
+				try {
+					fetch("https://bit-smartphone/appChanged", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ appId: null })
+					}).catch(() => {});
+				} catch (e2) {}
 			} catch (e) {}
 		};
 
@@ -502,17 +548,17 @@ const MobileOS = {
 				if (typeof photoData === "string") {
 					photoUrl = photoData;
 				} else {
-					const response = await fetch("https://bit-smartphone/camera:takePhoto", {
-						method: "POST",
-						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ metadata: { source: "camera-app" } }),
+					const response = await fetch('https://bit-smartphone/camera:take', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ metadata: { source: 'camera-app' } }),
 					});
-					const result = await response.json();
+					const result = await response.json().catch(() => ({}));
 
-					if (result && result.ok && result.url) {
-						photoUrl = result.url;
+					if (result && (result.success || result.ok) && (result.url || result.photoUrl)) {
+						photoUrl = result.url || result.photoUrl;
 					} else {
-						throw new Error((result && result.error) || "Failed to take photo");
+						throw new Error((result && result.error) || 'Failed to take photo');
 					}
 				}
 
@@ -538,6 +584,87 @@ const MobileOS = {
 					title: "Error",
 					message: "No se pudo guardar la foto",
 					icon: "alert-triangle",
+				});
+			}
+		};
+
+		const handleSharePhoto = async (shareData) => {
+			try {
+				const { photo, platform } = shareData;
+				console.log('[handleSharePhoto] Sharing photo:', photo.url, 'to platform:', platform);
+
+				switch (platform) {
+					case 'tuister':
+						currentApp.value = 'tuister';
+						setTimeout(() => {
+							window.dispatchEvent(new CustomEvent('phone:share-photo', {
+								detail: { photo, app: 'tuister' }
+							}));
+						}, 500);
+						break;
+					case 'messages':
+						currentApp.value = 'messages';
+						setTimeout(() => {
+							window.dispatchEvent(new CustomEvent('phone:share-photo', {
+								detail: { photo, app: 'messages' }
+							}));
+						}, 500);
+						break;
+					case 'instagram':
+						currentApp.value = 'instagram';
+						setTimeout(() => {
+							window.dispatchEvent(new CustomEvent('phone:share-photo', {
+								detail: { photo, app: 'instagram' }
+							}));
+						}, 500);
+						break;
+					case 'save':
+						addNotification({
+							appId: "photos",
+							title: t.value("photos.saved_to_device") || "Guardado en dispositivo",
+							message: t.value("photos.saved_to_device_desc") || "La foto se ha guardado en tu dispositivo",
+							icon: "download",
+						});
+						break;
+					default:
+						console.warn('[handleSharePhoto] Unknown platform:', platform);
+				}
+			} catch (error) {
+				console.error('[handleSharePhoto] Error:', error);
+			}
+		};
+
+		const handleDeletePhoto = async (photoId) => {
+			try {
+				const immediate = await fetch('https://bit-smartphone/photos:delete', {
+					method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photoId })
+				}).then(r => r.json()).catch(() => ({}));
+				const removeFromList = () => {
+					const photoIndex = photos.value.findIndex(p => p.id === photoId);
+					if (photoIndex !== -1) {
+						photos.value.splice(photoIndex, 1);
+					}
+
+					addNotification({
+						appId: "photos",
+						title: t.value("photos.photoDeleted") || "Foto eliminada",
+						message: t.value("photos.photo_deleted_desc") || "La foto se ha eliminado correctamente",
+						icon: "trash-2",
+					});
+				};
+
+				if (immediate && (immediate.ok === true || immediate.success === true)) {
+					removeFromList();
+				} else {
+					removeFromList();
+				}
+			} catch (error) {
+				console.error('[handleDeletePhoto] Error:', error);
+				addNotification({
+					appId: "photos",
+					title: "Error",
+					message: "Error al eliminar la foto",
+					icon: "alert-circle",
 				});
 			}
 		};
@@ -580,7 +707,6 @@ const MobileOS = {
 				}
 
 				if (!loadedApps.value[appId]) {
-					// Siempre pasar window.phoneT como función t
 					const imported = await importApp(appId, window.phoneT || ((key) => key));
 					if (imported) {
 						loadedApps.value[appId] = imported;
@@ -613,6 +739,13 @@ const MobileOS = {
 					}
 
 					isAppSwitcherVisible.value = false;
+					try {
+						fetch("https://bit-smartphone/appChanged", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ appId })
+						}).catch(() => {});
+					} catch (e) {}
 				} else {
 					throw new Error(`Component for ${appId} is null or invalid`);
 				}
@@ -702,24 +835,69 @@ const MobileOS = {
 		};
 
 		const handleAppSwitcherOpenApp = (appId) => {
-			const app = allApps.value.find((a) => a.id === appId);
-			if (app) {
-				openApp(app);
-				closeAppSwitcher();
+			if (!appId || !allApps.value) return;
+			try {
+				const app = allApps.value.find((a) => a && a.id === appId);
+				if (app) {
+					openApp(app);
+					closeAppSwitcher();
+				}
+			} catch (error) {
+				console.warn('Error opening app from AppSwitcher:', error);
 			}
 		};
 
 		const handleAppSwitcherCloseApp = (appId) => {
-			if (appId === "all") {
+			const clearAppState = (id) => {
+				if (loadedApps.value && loadedApps.value[id]) {
+					delete loadedApps.value[id];
+				}
+
+				switch (id) {
+					case 'music':
+						musicState.track = null;
+						musicState.isPlaying = false;
+						musicState.progress = 0;
+						musicState.currentTime = 0;
+						break;
+					case 'phone':
+						callData.value = { isVisible: false, callId: null, contactName: '', contactNumber: '', isIncoming: false, callType: 'audio', callStatus: 'connecting' };
+						break;
+					case 'instagram':
+						photos.value = [];
+						break;
+					case 'crypto':
+						break;
+					case 'bikerent':
+						break;
+					case 'notes':
+						if (typeof notes !== 'undefined') notes.value = [];
+						break;
+					default:
+						break;
+				}
+			};
+
+			if (appId === 'all') {
 				openApps.value = [];
 				currentApp.value = null;
-				currentOpenApps.value.clear();
+				if (currentOpenApps.value && typeof currentOpenApps.value.clear === 'function') currentOpenApps.value.clear();
+				for (const k in (loadedApps.value || {})) {
+					if (Object.prototype.hasOwnProperty.call(loadedApps.value, k)) delete loadedApps.value[k];
+				}
+				clearAppState('music');
+				clearAppState('phone');
+				clearAppState('instagram');
+				clearAppState('crypto');
+				clearAppState('bikerent');
+				clearAppState('notes');
 			} else {
 				openApps.value = openApps.value.filter((app) => app.id !== appId);
-				currentOpenApps.value.delete(appId);
+				if (currentOpenApps.value && typeof currentOpenApps.value.delete === 'function') currentOpenApps.value.delete(appId);
 				if (currentApp.value === appId) {
 					currentApp.value = null;
 				}
+				clearAppState(appId);
 			}
 		};
 
@@ -1327,24 +1505,76 @@ const MobileOS = {
 		});
 
 		const addNotification = (notification) => {
+			const normalized = { ...notification };
+			if (normalized && normalized.icon_svg && !normalized.iconSvg) {
+				normalized.iconSvg = normalized.icon_svg;
+			}
+			if (!normalized.timestamp) {
+				const ts = (normalized.created_at ? new Date(normalized.created_at).getTime() : null) || Date.now();
+				normalized.timestamp = ts;
+			}
 			const newNotification = {
-				id: notification.id || ++notificationIdCounter.value,
-				...notification,
-				timestamp: notification.timestamp || Date.now(),
+				id: normalized.id || ++notificationIdCounter.value,
+				...normalized,
 				processed: false,
-				persistent: notification.persistent || false,
-				is_read: notification.is_read || false,
-				is_dismissed: notification.is_dismissed || false,
+				persistent: !!normalized.persistent,
+				is_read: !!normalized.is_read,
+				is_dismissed: !!normalized.is_dismissed,
 			};
-			notifications.value.push(newNotification);
+
+			const idx = notifications.value.findIndex((n) => n && newNotification.id != null && n.id === newNotification.id);
+			if (idx !== -1) {
+				notifications.value[idx] = { ...notifications.value[idx], ...newNotification };
+			} else {
+				notifications.value.push(newNotification);
+			}
 
 			playNotificationSound();
 
-			if (!newNotification.persistent) {
+			if (!newNotification.persistent && !normalized.fromReceiveEvent) {
 				setTimeout(() => {
 					removeNotification(newNotification.id);
-				}, 10000);
+				}, 30000);
 			}
+
+			try {
+				const shouldPersist = !newNotification.persistent && !normalized.noPersist && !normalized.id && !!normalized.fromReceiveEvent;
+				if (shouldPersist) {
+					const oldId = newNotification.id;
+					const payload = {
+						title: newNotification.title || '',
+						message: newNotification.message || '',
+						app: newNotification.app || newNotification.appId || 'system',
+						appId: newNotification.appId || newNotification.app || 'system',
+						icon: newNotification.icon || null,
+						iconSvg: newNotification.iconSvg || null,
+						additionalInfo: newNotification.additionalInfo || null,
+						data: newNotification.data || null,
+						priority: newNotification.priority || 'normal',
+						expiresAt: newNotification.expiresAt || null,
+					};
+
+					fetch('https://bit-smartphone/bit-smartphone:saveNotification', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify(payload),
+					})
+						.then((r) => r.json())
+						.then((res) => {
+							if (res && res.success && res.id) {
+								const idx2 = notifications.value.findIndex((n) => n && n.id === oldId);
+								if (idx2 !== -1) {
+									notifications.value[idx2] = { ...notifications.value[idx2], id: res.id, persistent: true };
+								}
+							} else {
+								setTimeout(() => {
+									removeNotification(oldId);
+								}, 30000);
+							}
+						})
+						.catch(() => {});
+				}
+			} catch (e) {}
 		};
 
 		const playNotificationSound = () => {
@@ -1370,17 +1600,22 @@ const MobileOS = {
 		};
 
 		const removeNotification = (notificationId) => {
-			const notification = notifications.value.find((n) => n.id === notificationId);
+			try {
+				if (notificationId == null) return;
+				const notification = notifications.value.find((n) => n && n.id === notificationId);
 
-			if (notification && notification.persistent) {
-				fetch("https://bit-smartphone/bit-smartphone:dismissNotification", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({ notificationId: notificationId }),
-				}).catch(console.error);
+				if (notification && notification.persistent) {
+					fetch("https://bit-smartphone/bit-smartphone:dismissNotification", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ notificationId: notificationId }),
+					}).catch((e) => console.error('[BIT-Smartphone] dismissNotification fetch failed', e));
+				}
+
+				notifications.value = notifications.value.filter((n) => n && n.id !== notificationId);
+			} catch (e) {
+				console.error('[BIT-Smartphone] removeNotification error:', e, notificationId);
 			}
-
-			notifications.value = notifications.value.filter((n) => n.id !== notificationId);
 		};
 
 		const handleNotificationTap = (notification) => {
@@ -1409,8 +1644,35 @@ const MobileOS = {
 			}
 		};
 
-		const handleDismissNotification = (notificationId) => {
-			removeNotification(notificationId);
+		const handleDismissNotification = async (notificationId) => {
+			try {
+				if (notificationId == null) return;
+				
+				const notification = notifications.value.find(n => n.id === notificationId);
+				if (!notification) return;
+				
+				if (notification.persistent) {
+					try {
+						const response = await fetch("https://bit-smartphone/bit-smartphone:dismissNotification", {
+							method: "POST",
+							headers: { "Content-Type": "application/json" },
+							body: JSON.stringify({ notificationId: notificationId }),
+						});
+						
+						if (!response.ok) {
+							console.error('[BIT-Smartphone] Failed to dismiss persistent notification');
+							return;
+						}
+					} catch (error) {
+						console.error('[BIT-Smartphone] Error dismissing persistent notification:', error);
+						return;
+					}
+				}
+				
+				removeNotification(notificationId);
+			} catch (e) {
+				console.error('[BIT-Smartphone] handleDismissNotification error:', e, notificationId);
+			}
 		};
 
 		const handleExpandNotification = (notification) => {
@@ -1422,17 +1684,23 @@ const MobileOS = {
 
 		const clearAllNotifications = async () => {
 			try {
-				const response = await fetch("https://bit-smartphone/bit-smartphone:clearAllNotifications", {
-					method: "POST",
-					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({}),
-				});
-
-				if (response.ok) {
-					notifications.value = [];
+				const current = Array.isArray(notifications.value) ? [...notifications.value] : [];
+				for (const n of current) {
+					if (n && n.persistent) {
+						try {
+							await fetch("https://bit-smartphone/bit-smartphone:dismissNotification", {
+								method: "POST",
+								headers: { "Content-Type": "application/json" },
+								body: JSON.stringify({ notificationId: n.id }),
+							});
+						} catch (e) {
+							console.error('[BIT-Smartphone] clearAllNotifications dismiss failed', e, n && n.id);
+						}
+					}
 				}
-			} catch (error) {
-				console.error("[BIT-Smartphone] Error clearing notifications:", error);
+				notifications.value = [];
+			} catch (e) {
+				console.error('[BIT-Smartphone] clearAllNotifications error:', e);
 			}
 		};
 
@@ -1476,6 +1744,9 @@ const MobileOS = {
 		};
 
 		const updateBattery = () => {
+			if (batteryAuthoritative.value) {
+				return;
+			}
 			if (isCharging.value) {
 				if (batteryLevel.value < 100) {
 					return;
@@ -1558,48 +1829,6 @@ const MobileOS = {
 			}).catch(console.error);
 		};
 
-		const testNotifications = () => {
-			const testNotifs = [
-				{
-					title: "Nuevo mensaje",
-					message: "¡Hola! ¿Cómo estás? Me gustaría verte pronto para contarte las novedades.",
-					app: "messages",
-					appId: "messages",
-					icon: "/html/assets/icons/messages.png",
-					additionalInfo: "De: María García",
-				},
-				{
-					title: "Actualización del tiempo",
-					message: "Día soleado con 24°C. Ideal para salir.",
-					app: "weather",
-					appId: "weather",
-					icon: "/html/assets/icons/weather.png",
-					additionalInfo: "Los Santos, SA",
-				},
-				{
-					title: "Recordatorio",
-					message: "Reunión de trabajo a las 3:00 PM",
-					app: "calendar",
-					appId: "calendar",
-					icon: "/html/assets/icons/calendar.png",
-					additionalInfo: "En 30 minutos",
-				},
-				{
-					title: "Nueva canción",
-					message: "Ya está disponible el nuevo álbum de tu artista favorito",
-					app: "music",
-					appId: "music",
-					icon: "/html/assets/icons/music.png",
-					additionalInfo: "Spotify",
-				},
-			];
-
-			testNotifs.forEach((notif, index) => {
-				setTimeout(() => {
-					addNotification(notif);
-				}, index * 2000);
-			});
-		};
 		function playTrack(track) {
 			musicState.track = track;
 			musicState.isPlaying = true;
@@ -1652,13 +1881,30 @@ const MobileOS = {
 		function setPlaylist(playlist) {
 			musicState.playlist = playlist;
 		}
+		const appSwitcher = ref(null);
+		
 		const handleHomeIndicatorTouchStart = () => {
+			if (isAppSwitcherVisible.value) {
+				if (appSwitcher.value && typeof appSwitcher.value.toggleLock === 'function') {
+					setTimeout(() => {
+						if (isAppSwitcherVisible.value && isHomeIndicatorPressed.value) {
+							try {
+								appSwitcher.value.toggleLock();
+							} catch (error) {
+								console.warn('Error toggling AppSwitcher lock:', error);
+							}
+						}
+					}, 500);
+				}
+				return;
+			}
+			
 			isHomeIndicatorPressed.value = true;
 			homeIndicatorPressTimer.value = setTimeout(() => {
 				if (isHomeIndicatorPressed.value) {
 					openAppSwitcher();
 				}
-			}, 500);
+			}, 250);
 		};
 
 		const handleHomeIndicatorTouchEnd = () => {
@@ -1725,22 +1971,32 @@ const MobileOS = {
 			currentWallpaperIndex.value = foundIndex >= 0 ? foundIndex : 0;
 
 			if (data.photos && Array.isArray(data.photos)) {
-				photos.value = data.photos.map((p) => ({ ...p, thumbnail: p.url, favorite: false, albumIds: [2] }));
+				photos.value = data.photos.map((p) => ({
+					id: p.id,
+					url: p.url,
+					thumbnail: p.url,
+					createdAt: (p.created_at ? new Date(p.created_at).toISOString() : (p.createdAt || new Date().toISOString())),
+					favorite: false,
+					albumIds: [2],
+					metadata: p.metadata || null,
+				}));
 			}
 
 			if (data.notifications && Array.isArray(data.notifications)) {
 				data.notifications.forEach((notification) => {
+					const ts = notification.timestamp || (notification.created_at ? new Date(notification.created_at).getTime() : Date.now());
 					addNotification({
 						id: notification.id,
 						title: notification.title,
 						message: notification.message,
 						app: notification.app,
-						appId: notification.app_id,
+						appId: notification.app_id || notification.appId,
 						icon: notification.icon,
-						additionalInfo: notification.additional_info,
-						data: notification.notification_data ? JSON.parse(notification.notification_data) : null,
+						iconSvg: notification.icon_svg || notification.iconSvg || null,
+						additionalInfo: notification.additional_info || notification.additionalInfo,
+						data: notification.notification_data ? (typeof notification.notification_data === 'string' ? safeJsonParse(notification.notification_data) : notification.notification_data) : (notification.data || null),
 						priority: notification.priority,
-						timestamp: new Date(notification.created_at).getTime(),
+						timestamp: ts,
 						persistent: true,
 						is_read: notification.is_read,
 						is_dismissed: notification.is_dismissed,
@@ -1756,15 +2012,26 @@ const MobileOS = {
 
 			startBatterySystem();
 
+			try {
+				fetch("https://bit-smartphone/phoneOpened", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({})
+				}).catch(() => {});
+			} catch (e) {}
+
 			showPhone.value = true;
 		}
 
 		const masterNuiHandler = (message) => {
+			try {
+				if (window && window.console) console.log('[NUI MASTER] Received message:', message);
+			} catch (e) {}
 			if (!message) return;
 
 			const action = message.type || message.action;
 
-			switch (action) {
+				switch (action) {
 				case "camera:preview_frame":
 					break;
 				case "openPhone":
@@ -1783,21 +2050,43 @@ const MobileOS = {
 						removeNotification(message.data.id);
 					}
 					break;
-				case "testNotifications":
-					testNotifications();
-					break;
 				case "receiveNotification":
 					if (message.data) {
-						addNotification(message.data);
+						const payload = { ...(message.data || {}) };
+						if (!payload.id && (payload.persistent === undefined || payload.persistent === false)) {
+							payload.fromReceiveEvent = true;
+						}
+						addNotification(payload);
+					} else if (message.appId && message.message) {
+						try {
+							const appId = message.appId;
+							const msg = String(message.message || "");
+							const app = allApps.value.find((a) => a && a.id === appId);
+							const truncated = msg.length > 200 ? msg.slice(0, 197) + "..." : msg;
+							addNotification({
+								app: appId,
+								appId,
+								icon: app && app.icon,
+								title: app ? (typeof app.name === "function" ? app.name() : app.name) : appId,
+								message: truncated,
+								timestamp: Date.now(),
+								fromReceiveEvent: true
+							});
+						} catch (e) {
+							console.error("[app.js] Legacy receiveNotification handling failed", e, message);
+						}
 					}
 					break;
-				case "updateBattery":
-					if (message.data && typeof message.data.battery !== "undefined") {
-						batteryLevel.value = message.data.battery;
+				case "updateBattery": {
+					const payload = message.data && (typeof message.data === 'object') ? message.data : message;
+					if (typeof payload.battery !== "undefined") {
+						batteryLevel.value = payload.battery;
 					}
-					if (message.data && typeof message.data.charging !== "undefined") {
-						isCharging.value = message.data.charging;
-						if (message.data.charging) {
+					if (typeof payload.charging !== "undefined") {
+						const wasCharging = isCharging.value;
+						isCharging.value = !!payload.charging;
+						batteryAuthoritative.value = true;
+						if (isCharging.value && !wasCharging) {
 							addNotification({
 								title: "Cargando",
 								message: `Batería: ${Math.floor(batteryLevel.value)}%`,
@@ -1805,7 +2094,10 @@ const MobileOS = {
 							});
 						}
 					}
-					break;
+					if (typeof payload.chargingProgress !== "undefined") {
+						chargingProgress.value = payload.chargingProgress;
+					}
+					break; }
 				case "call:incoming":
 					callData.value = {
 						isVisible: true,
@@ -1899,6 +2191,10 @@ const MobileOS = {
 						if (message.data.level !== undefined) {
 							batteryLevel.value = message.data.level;
 						}
+						if (typeof message.data.isCharging !== 'undefined') {
+							isCharging.value = !!message.data.isCharging;
+						}
+						batteryAuthoritative.value = true;
 					}
 					break;
 				case "forceSavePhoneState":
@@ -1951,14 +2247,34 @@ const MobileOS = {
 					}
 					break;
 				default:
-					if (action && action.includes(":")) {
-						const [appName] = action.split(":");
-						const handlerName = `__${appName}_message_handler`;
-						if (window[handlerName] && typeof window[handlerName] === "function") {
-							try {
-								window[handlerName]({ data: message });
-							} catch (e) {
-								console.error(`[app.js] Error dispatching to ${appName}:`, e);
+					{
+						let dispatched = false;
+						if (action && action.includes(":")) {
+							const [appName] = action.split(":");
+							const handlerName = `__${appName}_message_handler`;
+							if (window[handlerName] && typeof window[handlerName] === "function") {
+								try {
+									window[handlerName]({ data: message });
+									dispatched = true;
+								} catch (e) {
+									console.error(`[app.js] Error dispatching to ${appName}:`, e);
+								}
+							}
+						}
+
+						if (!dispatched) {
+							if (typeof window.__bit_dispatch === "function") {
+								try {
+									window.__bit_dispatch(message);
+									dispatched = true;
+								} catch (e) {
+									console.error("[app.js] Error dispatching to __bit_dispatch:", e);
+								}
+							} else {
+								try {
+									window.__bit_pending_messages = window.__bit_pending_messages || [];
+									window.__bit_pending_messages.push(message);
+								} catch (e) {}
 							}
 						}
 					}
@@ -1968,6 +2284,13 @@ const MobileOS = {
 
 		const closePhone = () => {
 			showPhone.value = false;
+			try {
+				fetch("https://bit-smartphone/phoneClosed", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({})
+				}).catch(() => {});
+			} catch (e) {}
 			const payload = {
 				setup_completed: phoneState.value !== "SETUP" ? 1 : 0,
 				installed_apps: installedApps.value,
@@ -2001,6 +2324,10 @@ const MobileOS = {
 		};
 
 		onMounted(() => {
+			try {
+				setTimeout(updateAppSafeAreaBg, 0);
+				setTimeout(updateAppSafeAreaBg, 50);
+			} catch(e) {}
 			window.addEventListener("keydown", handleEsc);
 			updateTime();
 			setInterval(updateTime, 10000);
@@ -2046,7 +2373,6 @@ const MobileOS = {
 				}
 			});
 
-			// Solicitar traducciones al backend y definir window.phoneT
 			fetch("https://bit-smartphone/getTranslations", {
 				method: "POST",
 				body: JSON.stringify({}),
@@ -2143,6 +2469,14 @@ const MobileOS = {
 						document.querySelectorAll(".drag-ghost").forEach((el) => el.remove());
 					}, 100);
 				}
+				try {
+					fetch("https://bit-smartphone/appChanged", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ appId: newApp || null })
+					}).catch(() => {});
+				} catch (e) {}
+				nextTick(() => setTimeout(updateAppSafeAreaBg, 0));
 			}
 		);
 
@@ -2162,6 +2496,11 @@ const MobileOS = {
 			}
 		);
 
+		watch(
+			() => userSettings.value.darkMode,
+			() => nextTick(() => setTimeout(updateAppSafeAreaBg, 0))
+		);
+
 		window.testAirDrop = () => {
 			if (window.appInstance && window.appInstance.addNotification) {
 				window.appInstance.addNotification({
@@ -2174,7 +2513,35 @@ const MobileOS = {
 			}
 		};
 
+		const startCall = (targetId, callType = "audio") => {
+			console.log("Starting call:", { targetId, callType });
+			const event = {
+				data: {
+					action: "call:start_from_command",
+					data: {
+						targetId: targetId,
+						type: callType,
+					},
+				},
+			};
+
+			if (window.callComponent) {
+				window.callComponent.handleMessage(event.data);
+			} else {
+				window.dispatchEvent(new CustomEvent("message", event));
+			}
+		};
+
+		const startVideoCall = (targetId) => {
+			console.log("Starting video call:", targetId);
+			startCall(targetId, "video");
+		};
+
 		return {
+			appSafeTop,
+			appScreen,
+			appSafeStyle,
+			appContentWrap,
 			t,
 			phoneState,
 			setupStep,
@@ -2229,6 +2596,8 @@ const MobileOS = {
 			goHome,
 			resetUIState,
 			handleTakePhoto,
+			handleSharePhoto,
+			handleDeletePhoto,
 			openApp,
 			updateSetting,
 			isConnected,
@@ -2282,7 +2651,7 @@ const MobileOS = {
 			handleNotificationTap,
 			handleDismissNotification,
 			handleExpandNotification,
-			testNotifications,
+			clearAllNotifications,
 			playNotificationSound,
 			playCallSound,
 			currentCallAudio,
@@ -2313,6 +2682,7 @@ const MobileOS = {
 			closeAppSwitcher,
 			handleAppSwitcherOpenApp,
 			handleAppSwitcherCloseApp,
+			appSwitcher,
 			forceCloseCurrentApp,
 			handleHomeIndicatorTouchStart,
 			handleHomeIndicatorTouchEnd,
@@ -2337,9 +2707,11 @@ const MobileOS = {
 			dispatchNui: masterNuiHandler,
 			savePhoneState,
 			lockscreenTransitionName,
+			startCall,
+			startVideoCall,
 		};
 	},
-	components: {
+		components: {
 		StatusBar: StatusBar,
 		Folder: Folder,
 		DraggableAppGrid: DraggableAppGrid,
@@ -2508,31 +2880,40 @@ const MobileOS = {
                     </div>
 
                     
-                    <transition name="app-zoom">
-                     <div v-if="currentApp && loadedApps[currentApp] && loadedApps[currentApp] !== null" class="absolute inset-0 z-40">
-                       <component :is="loadedApps[currentApp]"
-                                  :userSettings="userSettings"
-                                  :wallpapers="wallpapers"
-                                  :currentWallpaper="currentWallpaperIndex"
-                                  :photos="photos"
-                                  :weatherData="weatherData"
-                                  :music-state="musicState"
-                                  :t="t"
-                                  @close="goHome"
-                                  @update-setting="updateSetting"
-                                  @take-photo="handleTakePhoto"
-                                  @add-notification="addNotification"
-                                  @open-app="openApp"
-                                  @play-track="playTrack"
-                                  @pause-music="pauseMusic"
-                                  @orientation-change="handleOrientationChange"
-                                  @resume-music="resumeMusic"
-                                  @stop-music="stopMusic"
-                                  @set-music-progress="setMusicProgress"
-                                  @set-music-volume="setMusicVolume"
-                                  @set-playlist="setPlaylist" />
-                     </div>
-                   </transition>
+										<transition name="app-zoom">
+															 <div v-if="currentApp && loadedApps[currentApp] && loadedApps[currentApp] !== null" class="absolute inset-0 z-40 flex flex-col" ref="appScreen">
+																   <div class="app-safe-area flex-shrink-0 pointer-events-none" :style="[ { height: appSafeTop }, appSafeStyle ]"></div>
+																 <div class="flex-1 min-h-0" ref="appContentWrap">
+												 <component :is="loadedApps[currentApp]"
+																		:userSettings="userSettings"
+																		:wallpapers="wallpapers"
+																		:currentWallpaper="currentWallpaperIndex"
+																		:photos="photos"
+																		:weatherData="weatherData"
+																		:music-state="musicState"
+																		:t="t"
+																		@close="goHome"
+																		@update-setting="updateSetting"
+																		@take-photo="handleTakePhoto"
+																		@add-notification="addNotification"
+																		@open-app="openApp"
+																		@play-track="playTrack"
+																		@pause-music="pauseMusic"
+																		@orientation-change="handleOrientationChange"
+																		@resume-music="resumeMusic"
+																		@stop-music="stopMusic"
+																		@set-music-progress="setMusicProgress"
+																		@set-music-volume="setMusicVolume"
+																		@set-playlist="setPlaylist"
+																		@open-camera="() => openApp('camera')"
+																		@request-location="() => openApp('maps')"
+																		@call="startCall"
+																		@video-call="startVideoCall"
+																		@share-photo="handleSharePhoto"
+																		@delete-photo="handleDeletePhoto" />
+											 </div>
+										 </div>
+									 </transition>
                     
                     
                     <transition name="edit-mode-enter-active">
@@ -2597,6 +2978,7 @@ const MobileOS = {
                   @close="closeAppSwitcher"
                   @open-app="handleAppSwitcherOpenApp"
                   @close-app="handleAppSwitcherCloseApp"
+                  ref="appSwitcher"
                 />
                 <CallComponent 
                   ref="callComponent"

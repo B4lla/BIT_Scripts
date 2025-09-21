@@ -29,7 +29,11 @@ const LockscreenNotifications = {
     sortedNotifications() {
       return [...this.notifications]
         .filter(n => !this.dismissingNotifications.has(n.id))
-        .sort((a, b) => new Date(b.timestamp || Date.now()) - new Date(a.timestamp || Date.now()));
+        .sort((a, b) => {
+          const at = (a && a.timestamp) ? new Date(a.timestamp).getTime() : (typeof a.id === 'number' ? a.id : 0);
+          const bt = (b && b.timestamp) ? new Date(b.timestamp).getTime() : (typeof b.id === 'number' ? b.id : 0);
+          return bt - at;
+        });
     },
 
     visibleNotifications() {
@@ -192,16 +196,28 @@ const LockscreenNotifications = {
     },
 
     dismissNotification(notification) {
-      this.dismissingNotifications.add(notification.id);
+      try {
+        if (!notification || typeof notification.id === 'undefined' || notification.id === null) return;
+        this.dismissingNotifications.add(notification.id);
 
-      setTimeout(() => {
-        this.$emit('dismiss-notification', notification.id);
-        this.dismissingNotifications.delete(notification.id);
+        setTimeout(() => {
+          try {
+            this.$emit('dismiss-notification', notification.id);
+          } catch (e) {
+            console.error('[LockscreenNotifications] emit dismiss-notification failed', e, notification && notification.id);
+          }
 
-        if (this.expandedNotification === notification.id) {
-          this.expandedNotification = null;
-        }
-      }, 300);
+          try {
+            this.dismissingNotifications.delete(notification.id);
+          } catch (e) {}
+
+          if (this.expandedNotification === notification.id) {
+            this.expandedNotification = null;
+          }
+        }, 300);
+      } catch (e) {
+        console.error('[LockscreenNotifications] dismissNotification error', e, notification);
+      }
     },
 
     clearAllNotifications() { 
@@ -209,21 +225,25 @@ const LockscreenNotifications = {
       this.expandedNotification = null;
     },
 
-    getAppIcon(notification) {
-      if (notification.icon) return notification.icon;
+      getAppIcon(notification) {
+        if (notification.iconSvg) return notification.iconSvg;
 
-      const defaultIcons = {
-        'messages': '/html/assets/icons/messages.png',
-        'mail': '/html/assets/icons/mail.png',
-        'news': '/html/assets/icons/news.png',
-        'music': '/html/assets/icons/music.png',
-        'weather': '/html/assets/icons/weather.png',
-        'calendar': '/html/assets/icons/calendar.png',
-        'photos': '/html/assets/icons/photos.png',
-      };
-      
-      return defaultIcons[notification.app] || null;
-    }
+        if (notification.icon) return notification.icon;
+
+        const svgPath = `/html/assets/icons/apps/${notification.app}.svg`;
+
+        const defaultIcons = {
+          'messages': '/html/assets/icons/messages.png',
+          'mail': '/html/assets/icons/mail.png',
+          'news': '/html/assets/icons/news.png',
+          'music': '/html/assets/icons/music.png',
+          'weather': '/html/assets/icons/weather.png',
+          'calendar': '/html/assets/icons/calendar.png',
+          'photos': '/html/assets/icons/photos.png',
+        };
+
+        return svgPath || defaultIcons[notification.app] || null;
+      }
   },
 
   beforeUnmount() {
@@ -232,22 +252,22 @@ const LockscreenNotifications = {
   },
   
   template: `
-    <div v-if="sortedNotifications.length > 0" class="absolute inset-x-0 top-32 z-30 flex flex-col items-center px-4">
+  <div v-if="sortedNotifications.length > 0" class="absolute inset-x-0 top-0 mt-24 z-30 flex flex-col items-center px-4 pointer-events-none">
       <div class="relative w-full max-w-sm">
         <transition-group name="notification-stack" tag="div" class="relative">
           <div
             v-for="(notification, index) in visibleNotifications"
             :key="notification.id"
             :style="notificationStyles[index]"
-            class="absolute w-full bg-black/85 backdrop-blur-xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden cursor-pointer select-none"
+            class="absolute w-full bg-white/5 backdrop-blur-2xl rounded-2xl border border-white/10 shadow-2xl overflow-hidden cursor-pointer select-none pointer-events-auto notification-card"
             :class="{
               'ring-2 ring-blue-500/50': expandedNotification === notification.id,
               'opacity-50': dismissingNotifications.has(notification.id)
             }"
-            @touchstart="handleTouchStart($event, notification)"
-            @touchmove="handleTouchMove($event, notification)"
-            @touchend="handleTouchEnd($event, notification)"
-            @mousedown="handleMouseDown($event, notification)"
+            @touchstart.stop="handleTouchStart($event, notification)"
+            @touchmove.stop="handleTouchMove($event, notification)"
+            @touchend.stop="handleTouchEnd($event, notification)"
+            @mousedown.stop="handleMouseDown($event, notification)"
           >
             <div class="flex items-start p-4">
               <div class="flex-shrink-0 w-10 h-10 rounded-xl overflow-hidden mr-3 bg-white/10 flex items-center justify-center">
@@ -296,7 +316,7 @@ const LockscreenNotifications = {
                   </button>
                   <button
                     @click.stop="dismissNotification(notification)"
-                    class="px-4 py-2 text-gray-400 hover:text-white text-sm transition-colors"
+                    class="px-4 py-2 text-gray-300 hover:text-white text-sm transition-colors"
                   >
                     {{ t('notifications.dismiss') }}
                   </button>
@@ -328,8 +348,8 @@ const LockscreenNotifications = {
 
       <div v-if="visibleNotifications.length > 1" class="mt-6">
         <button
-          @click="clearAllNotifications"
-          class="px-6 py-2 bg-white/10 backdrop-blur-md rounded-full text-white/70 hover:text-white hover:bg-white/20 text-sm transition-colors"
+          @click.stop="clearAllNotifications"
+          class="px-6 py-2 bg-white/6 backdrop-blur-lg rounded-full text-white/70 hover:text-white hover:bg-white/10 text-sm transition-colors pointer-events-auto"
         >
           {{ t('notifications.clearAll') }}
         </button>

@@ -553,3 +553,6 @@ const Translator = {
     </div>
   `
 }
+
+window.Translator = Translator;
+window.Translator = window.Translator || Translator;

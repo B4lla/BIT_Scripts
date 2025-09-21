@@ -10,12 +10,48 @@ local function getPlayerIdentifier(playerId)
 end
 
 CreateThread(function()
-    while true do
-        Wait(300000) -- 5 minutes
-        SqlFunc(Config.Mysql, 'execute', 'DELETE FROM bit_phone_notifications WHERE expires_at IS NOT NULL AND expires_at < NOW()')
-        print('[BIT-Smartphone] Cleaned up expired notifications')
+    Wait(500)
+    local query = [[
+        CREATE TABLE IF NOT EXISTS `bit_phone_notifications` (
+          `id` INT AUTO_INCREMENT PRIMARY KEY,
+          `user` VARCHAR(50) NOT NULL,
+          `title` VARCHAR(255) NOT NULL,
+          `message` TEXT DEFAULT NULL,
+          `app` VARCHAR(50) DEFAULT 'system',
+          `app_id` VARCHAR(50) DEFAULT NULL,
+          `icon` TEXT DEFAULT NULL,
+          `icon_svg` TEXT DEFAULT NULL,
+          `additional_info` TEXT DEFAULT NULL,
+          `notification_data` JSON DEFAULT NULL,
+          `priority` ENUM('low','normal','high') DEFAULT 'normal',
+          `is_read` BOOLEAN DEFAULT FALSE,
+          `is_dismissed` BOOLEAN DEFAULT FALSE,
+          `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+          `read_at` DATETIME DEFAULT NULL,
+          `dismissed_at` DATETIME DEFAULT NULL,
+          `expires_at` DATETIME DEFAULT NULL,
+          INDEX `idx_user_created` (`user`, `created_at` DESC),
+          INDEX `idx_read` (`user`, `is_read`),
+          INDEX `idx_app` (`app`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    ]]
+    pcall(function()
+        SqlFunc(Config.Mysql, 'execute', query)
+    end)
+
+    local alters = {
+        "ALTER TABLE `bit_phone_notifications` ADD COLUMN IF NOT EXISTS `icon_svg` TEXT DEFAULT NULL",
+        "ALTER TABLE `bit_phone_notifications` ADD COLUMN IF NOT EXISTS `read_at` DATETIME DEFAULT NULL",
+        "ALTER TABLE `bit_phone_notifications` ADD COLUMN IF NOT EXISTS `dismissed_at` DATETIME DEFAULT NULL"
+    }
+    for _, q in ipairs(alters) do
+        pcall(function()
+            SqlFunc(Config.Mysql, 'execute', q)
+        end)
     end
 end)
+
+
 
 local function SendNotification(playerId, notificationData, legacyMessage)
     if type(notificationData) == "string" then
@@ -47,13 +83,15 @@ local function SendNotification(playerId, notificationData, legacyMessage)
         ['@expires_at'] = notificationData.expiresAt
     })
     
+    local insertedId = (type(result) == 'table' and (result.insertId or result.insert_id)) or nil
     local clientNotification = {
-        id = result.insertId or os.time(),
+        id = insertedId or os.time(),
         title = notificationData.title or 'Notificación',
         message = notificationData.message or '',
         app = notificationData.app or 'system',
         appId = notificationData.appId,
         icon = notificationData.icon,
+        icon_svg = notificationData.iconSvg or notificationData.icon_svg or nil,
         additionalInfo = notificationData.additionalInfo,
         data = notificationData.data,
         priority = notificationData.priority or 'normal',
@@ -95,6 +133,13 @@ AddEventHandler('bit-smartphone:sendNotificationToAll', function(notificationDat
     SendNotificationToAll(notificationData)
 end)
 
+RegisterNetEvent('bit-smartphone:proxyLegacyNotification')
+AddEventHandler('bit-smartphone:proxyLegacyNotification', function(appId, message)
+    local src = source
+    if not appId then return end
+    SendNotification(src, appId, message)
+end)
+
 exports('sendNotification', SendNotification) 
 exports('SendNotification', SendNotification)
 exports('SendNotificationToMultiple', SendNotificationToMultiple)  
@@ -130,4 +175,18 @@ RegisterCommand('testnotificationall', function(source, args)
     })
 end, true)
 
-print('[BIT-Smartphone] Enhanced notification system loaded successfully')
+RegisterCommand('testpersistentnotif', function(source, args)
+    if source == 0 then return end 
+    
+    local title = table.concat(args, ' ', 1, 1) or 'Persistent Test'
+    local message = table.concat(args, ' ', 2) or 'This is a persistent notification that should survive phone restarts'
+    
+    SendNotification(source, {
+        title = title,
+        message = message,
+        app = 'messages',
+        icon = '/html/assets/icons/messages.png',
+        priority = 'normal',
+        additionalInfo = 'This notification will persist until dismissed'
+    })
+end, false)

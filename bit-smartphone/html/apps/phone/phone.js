@@ -1272,7 +1272,7 @@ const Phone = {
                         :class="userSettings.darkMode ? 'bg-gray-700 text-white' : 'bg-gray-200 text-black'">
                   Cancelar
                 </button>
-                <button @click="saveEditContact"
+                <button @click="saveNewContact"
                         class="flex-1 py-3 px-6 bg-blue-500 text-white rounded-lg font-normal transition-all duration-200 active:opacity-30"
                         style="font-family: -apple-system, BlinkMacSystemFont, sans-serif;">
                   Guardar
@@ -1363,10 +1363,10 @@ const Phone = {
       <div v-if="showAirDropModal" class="absolute inset-0 z-50 flex items-end airdrop-modal">
         {{  }}
         <div class="w-full rounded-t-3xl shadow-2xl max-h-[85%] flex flex-col overflow-hidden backdrop-blur-xl"
-             :class="userSettings.darkMode ? 'bg-gray-900/95' : 'bg-white/95'">
+             :class="userSettings.darkMode ? 'bg-black/95' : 'bg-white/95'">
           
           <div class="flex items-center justify-between p-6 border-b backdrop-blur-sm"
-               :class="userSettings.darkMode ? 'border-gray-700/50 bg-gray-800/30' : 'border-gray-200/50 bg-white/30'">
+               :class="userSettings.darkMode ? 'border-gray-700/50 bg-black/30' : 'border-gray-200/50 bg-white/30'">
             <div class="flex items-center gap-4">
               <div class="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/25">
                 <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
@@ -1386,7 +1386,7 @@ const Phone = {
             <button @click="closeAirDropModal"
                     class="w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 hover:scale-110 active:scale-95"
                     :class="userSettings.darkMode 
-                      ? 'bg-gray-700/50 text-white hover:bg-gray-600/50' 
+                      ? 'bg-black/50 text-white hover:bg-black/70' 
                       : 'bg-gray-100/50 text-gray-600 hover:bg-gray-200/50'">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
@@ -1414,7 +1414,7 @@ const Phone = {
 
             <div v-else-if="nearbyPlayers.length === 0" class="flex flex-col items-center justify-center py-12">
               <div class="w-20 h-20 rounded-full flex items-center justify-center mb-6"
-                   :class="userSettings.darkMode ? 'bg-gray-800' : 'bg-gray-100'">
+                   :class="userSettings.darkMode ? 'bg-black/50' : 'bg-gray-100'">
                 <svg class="w-10 h-10 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5"
                      :class="userSettings.darkMode ? 'text-gray-400' : 'text-gray-500'">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
@@ -1452,7 +1452,7 @@ const Phone = {
                    class="airdrop-player-card group flex items-center p-4 rounded-2xl transition-all duration-200 cursor-pointer transform hover:scale-[1.02] active:scale-98 border"
                    :class="[
                      userSettings.darkMode 
-                       ? 'bg-gray-800/50 hover:bg-gray-700/70 border-gray-700/50 hover:border-gray-600/50' 
+                       ? 'bg-black/50 hover:bg-black/70 border-gray-700/50 hover:border-gray-600/50' 
                        : 'bg-white/50 hover:bg-white/80 border-gray-200/50 hover:border-gray-300/50',
                      'shadow-lg hover:shadow-xl'
                    ]">
@@ -1498,7 +1498,7 @@ const Phone = {
           </div>
 
           <div class="p-6 border-t backdrop-blur-sm"
-               :class="userSettings.darkMode ? 'border-gray-700/50 bg-gray-800/30' : 'border-gray-200/50 bg-white/30'">
+               :class="userSettings.darkMode ? 'border-gray-700/50 bg-black/30' : 'border-gray-200/50 bg-white/30'">
             <div class="flex items-center justify-center gap-2 text-center">
               <svg class="w-4 h-4 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"
                    :class="userSettings.darkMode ? 'text-gray-400' : 'text-gray-500'">

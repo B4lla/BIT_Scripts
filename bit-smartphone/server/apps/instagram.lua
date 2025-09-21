@@ -9,8 +9,10 @@ local function GetPlayerIdentifier(source)
 end
 
 local function registerInstagram(source, data)
+    DebugPrint("INSTAGRAM", "Registering new Instagram account", {source = source, username = data and data.username or "unknown"})
     local identifier = GetPlayerIdentifier(source)
     if not identifier then
+        DebugPrint("INSTAGRAM", "Failed to get player identifier", {source = source})
         return false, 'no_identifier'
     end
     local passwordVal = nil
@@ -19,10 +21,13 @@ local function registerInstagram(source, data)
     end
     local usernameVal = data and (data.username or data.user)
     if not usernameVal or usernameVal == '' or not passwordVal or passwordVal == '' then
+        DebugPrint("INSTAGRAM", "Missing required fields", {has_username = usernameVal ~= nil, has_password = passwordVal ~= nil})
         return false, 'missing_fields'
     end
+    DebugPrint("INSTAGRAM", "Checking if username exists", {username = usernameVal})
     local existing = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_instagram_accounts WHERE username = @username', { ['@username'] = usernameVal })
     if existing and existing[1] then
+        DebugPrint("INSTAGRAM", "Username already exists", {username = usernameVal})
         return false, 'exists'
     end
     local plainPassword = passwordVal
@@ -65,12 +70,12 @@ if Config.Framework == 'esx' then
 
     ESX.RegisterServerCallback('bit-smartphone:instagram:getFeed', function(source, cb)
         local posts = SqlFunc(Config.Mysql, [[
-            SELECT p.id, p.caption, p.image_url, p.location, p.created_at, a.username, a.full_name AS name, a.avatar, a.is_verified,
+            SELECT p.id, p.caption, p.image_url, p.location, p.created_at, a.id AS user_id, a.identifier AS user_identifier, a.username, a.full_name AS name, a.profile_picture AS avatar, a.is_verified,
                    (SELECT COUNT(*) FROM bit_phone_instagram_likes WHERE post_id = p.id) as likes_count,
                    (SELECT COUNT(*) FROM bit_phone_instagram_comments WHERE post_id = p.id) as comments_count
             FROM bit_phone_instagram_posts p
-            JOIN bit_phone_instagram_accounts a ON p.account_id = a.id
-            WHERE p.is_story = 0
+            JOIN bit_phone_instagram_accounts a ON p.user_identifier = a.identifier
+            WHERE p.is_pinned = 0
             ORDER BY p.created_at DESC
             LIMIT 50
         ]], {})
@@ -118,6 +123,24 @@ if Config.Framework == 'esx' then
         local msgs = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT m.id, m.message, m.created_at, a.username AS sender FROM bit_phone_instagram_messages m JOIN bit_phone_instagram_accounts a ON m.sender_id = a.id WHERE (m.sender_id = @me AND m.receiver_id = @other) OR (m.sender_id = @other AND m.receiver_id = @me) ORDER BY m.created_at ASC', { ['@me'] = meId, ['@other'] = otherId })
         cb(msgs or {})
     end)
+
+    ESX.RegisterServerCallback('bit-smartphone:instagram:getProfilePosts', function(source, cb)
+        local identifier = GetPlayerIdentifier(source)
+        if not identifier then cb({}); return end
+        local posts = SqlFunc(Config.Mysql, [[
+            SELECT p.id, p.caption, p.image_url, p.location, p.created_at,
+                   a.id AS user_id, a.identifier AS user_identifier, a.username, a.full_name AS name,
+                   a.profile_picture AS avatar, a.is_verified,
+                   (SELECT COUNT(*) FROM bit_phone_instagram_likes WHERE post_id = p.id) as likes_count,
+                   (SELECT COUNT(*) FROM bit_phone_instagram_comments WHERE post_id = p.id) as comments_count
+            FROM bit_phone_instagram_posts p
+            JOIN bit_phone_instagram_accounts a ON p.user_identifier = a.identifier
+            WHERE p.user_identifier = @uid
+            ORDER BY p.created_at DESC
+            LIMIT 100
+        ]], { ['@uid'] = identifier })
+        cb(posts or {})
+    end)
 else
     QBCore.Functions.CreateCallback('bit-smartphone:instagram:register', function(source, cb, data)
         local ok, res = registerInstagram(source, data)
@@ -147,12 +170,12 @@ else
 
     QBCore.Functions.CreateCallback('bit-smartphone:instagram:getFeed', function(source, cb)
         local posts = SqlFunc(Config.Mysql, [[
-            SELECT p.id, p.caption, p.image_url, p.location, p.created_at, a.username, a.full_name AS name, a.avatar, a.is_verified,
+            SELECT p.id, p.caption, p.image_url, p.location, p.created_at, a.id AS user_id, a.identifier AS user_identifier, a.username, a.full_name AS name, a.profile_picture AS avatar, a.is_verified,
                    (SELECT COUNT(*) FROM bit_phone_instagram_likes WHERE post_id = p.id) as likes_count,
                    (SELECT COUNT(*) FROM bit_phone_instagram_comments WHERE post_id = p.id) as comments_count
             FROM bit_phone_instagram_posts p
-            JOIN bit_phone_instagram_accounts a ON p.account_id = a.id
-            WHERE p.is_story = 0
+            JOIN bit_phone_instagram_accounts a ON p.user_identifier = a.identifier
+            WHERE p.is_pinned = 0
             ORDER BY p.created_at DESC
             LIMIT 50
         ]], {})
@@ -200,29 +223,112 @@ else
         local msgs = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT m.id, m.message, m.created_at, a.username AS sender FROM bit_phone_instagram_messages m JOIN bit_phone_instagram_accounts a ON m.sender_id = a.id WHERE (m.sender_id = @me AND m.receiver_id = @other) OR (m.sender_id = @other AND m.receiver_id = @me) ORDER BY m.created_at ASC', { ['@me'] = meId, ['@other'] = otherId })
         cb(msgs or {})
     end)
+
+    QBCore.Functions.CreateCallback('bit-smartphone:instagram:getProfilePosts', function(source, cb)
+        local identifier = GetPlayerIdentifier(source)
+        if not identifier then cb({}); return end
+        local posts = SqlFunc(Config.Mysql, [[
+            SELECT p.id, p.caption, p.image_url, p.location, p.created_at,
+                   a.id AS user_id, a.identifier AS user_identifier, a.username, a.full_name AS name,
+                   a.profile_picture AS avatar, a.is_verified,
+                   (SELECT COUNT(*) FROM bit_phone_instagram_likes WHERE post_id = p.id) as likes_count,
+                   (SELECT COUNT(*) FROM bit_phone_instagram_comments WHERE post_id = p.id) as comments_count
+            FROM bit_phone_instagram_posts p
+            JOIN bit_phone_instagram_accounts a ON p.user_identifier = a.identifier
+            WHERE p.user_identifier = @uid
+            ORDER BY p.created_at DESC
+            LIMIT 100
+        ]], { ['@uid'] = identifier })
+        cb(posts or {})
+    end)
 end
 
 RegisterNetEvent('bit-smartphone:instagram:createPost')
 AddEventHandler('bit-smartphone:instagram:createPost', function(data)
     local src = source
     local identifier = GetPlayerIdentifier(src)
-    if not identifier then return end
+    
+    DebugPrint("INSTAGRAM", "Creating post request", {
+        source = src,
+        identifier = identifier,
+        has_data = data ~= nil,
+        has_image = data and data.image ~= nil,
+        has_caption = data and data.caption ~= nil
+    })
+    
+    if not identifier then 
+        DebugPrint("INSTAGRAM", "No identifier found for player", {source = src})
+        return 
+    end
+    
+    if not data or not data.image or not data.caption then
+        DebugPrint("INSTAGRAM", "Missing required data", {
+            has_data = data ~= nil,
+            has_image = data and data.image ~= nil,
+            has_caption = data and data.caption ~= nil
+        })
+        TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:error', data = { error = 'Faltan datos requeridos' } })
+        return
+    end
+    
     local account = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_instagram_accounts WHERE identifier = @id', { ['@id'] = identifier })
     if not account or not account[1] then
+        DebugPrint("INSTAGRAM", "User account not found", {identifier = identifier})
         TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:error', data = { error = 'Usuario no encontrado' } })
         return
     end
+    
+    local recentPosts = SqlFunc(Config.Mysql, 'fetchAll', 
+        'SELECT id FROM bit_phone_instagram_posts WHERE user_identifier = @identifier AND image_url = @image AND caption = @caption AND created_at > DATE_SUB(NOW(), INTERVAL 10 SECOND)', 
+        { ['@identifier'] = identifier, ['@image'] = data.image, ['@caption'] = data.caption }
+    )
+    
+    if recentPosts and recentPosts[1] then
+        DebugPrint("INSTAGRAM", "Duplicate post detected within 10 seconds", {
+            identifier = identifier,
+            image = data.image,
+            existing_post_id = recentPosts[1].id
+        })
+        TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:error', data = { error = 'Post duplicado detectado' } })
+        return
+    end
+    
     local isStory = data.type == 'story'
     local expiresAt = isStory and os.date('%Y-%m-%d %H:%M:%S', os.time() + 86400) or nil
-    local insertId = SqlFunc(Config.Mysql, 'insert', 'INSERT INTO bit_phone_instagram_posts (account_id, caption, image_url, location, is_story, story_expires_at) VALUES (@acc, @cap, @img, @loc, @isStory, @exp)', { ['@acc'] = account[1].id, ['@cap'] = data.caption, ['@img'] = data.image, ['@loc'] = data.location, ['@isStory'] = isStory and 1 or 0, ['@exp'] = expiresAt })
+    
+    local insertId = SqlFunc(Config.Mysql, 'insert', 'INSERT INTO bit_phone_instagram_posts (user_identifier, caption, image_url, location, is_pinned, created_at) VALUES (@user_identifier, @cap, @img, @loc, 0, NOW())', { 
+        ['@user_identifier'] = identifier, 
+        ['@cap'] = data.caption, 
+        ['@img'] = data.image, 
+        ['@loc'] = data.location or '' 
+    })
+    
     if insertId and insertId > 0 then
+        DebugPrint("INSTAGRAM", "Post created successfully", {
+            post_id = insertId,
+            identifier = identifier,
+            is_story = isStory
+        })
+        
         if not isStory then
             SqlFunc(Config.Mysql, 'execute', 'UPDATE bit_phone_instagram_accounts SET posts_count = posts_count + 1 WHERE id = @id', { ['@id'] = account[1].id })
         end
+        
         TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:post_created', data = { message = isStory and 'Historia publicada' or 'Post publicado exitosamente' } })
-        TriggerEvent('instagram:getFeed')
-        if isStory then TriggerEvent('instagram:getStories') end
+        
+        local posts = SqlFunc(Config.Mysql, 'fetchAll', [[
+            SELECT p.id, p.caption, p.image_url, p.location, p.created_at, a.username, a.full_name AS name, a.profile_picture AS avatar, a.is_verified,
+                   (SELECT COUNT(*) FROM bit_phone_instagram_likes WHERE post_id = p.id) as likes_count,
+                   (SELECT COUNT(*) FROM bit_phone_instagram_comments WHERE post_id = p.id) as comments_count
+            FROM bit_phone_instagram_posts p
+            JOIN bit_phone_instagram_accounts a ON p.user_identifier = a.identifier
+            WHERE p.is_pinned = 0
+            ORDER BY p.created_at DESC
+            LIMIT 50
+        ]], {})
+        TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:feed_data', data = { posts = posts or {} } })
     else
+        DebugPrint("INSTAGRAM", "Failed to insert post", {identifier = identifier})
         TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:error', data = { error = 'Error al publicar' } })
     end
 end)
@@ -231,16 +337,38 @@ RegisterNetEvent('bit-smartphone:instagram:likePost')
 AddEventHandler('bit-smartphone:instagram:likePost', function(data)
     local src = source
     local identifier = GetPlayerIdentifier(src)
-    if not identifier then return end
+    
+    DebugPrint("INSTAGRAM", "Like post request", {
+        source = src,
+        identifier = identifier,
+        postId = data and data.postId or nil
+    })
+    
+    if not identifier then
+        DebugPrint("INSTAGRAM", "No identifier for like request", {source = src})
+        return 
+    end
+    
+    if not data or not data.postId then
+        DebugPrint("INSTAGRAM", "Missing post ID for like", {source = src})
+        return
+    end
+    
     local account = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_instagram_accounts WHERE identifier = @id', { ['@id'] = identifier })
-    if not account or not account[1] then return end
-    local accId = account[1].id
-    local existing = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_instagram_likes WHERE post_id = @post AND account_id = @acc', { ['@post'] = data.postId, ['@acc'] = accId })
+    if not account or not account[1] then
+        DebugPrint("INSTAGRAM", "User account not found for like", {identifier = identifier})
+        return
+    end
+    
+    local existing = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id FROM bit_phone_instagram_likes WHERE post_id = @post AND user_identifier = @uid', { ['@post'] = data.postId, ['@uid'] = identifier })
+    
     if existing and existing[1] then
-        SqlFunc(Config.Mysql, 'execute', 'DELETE FROM bit_phone_instagram_likes WHERE post_id = @post AND account_id = @acc', { ['@post'] = data.postId, ['@acc'] = accId })
+        DebugPrint("INSTAGRAM", "Removing like", {postId = data.postId, user = identifier})
+        SqlFunc(Config.Mysql, 'execute', 'DELETE FROM bit_phone_instagram_likes WHERE post_id = @post AND user_identifier = @uid', { ['@post'] = data.postId, ['@uid'] = identifier })
         TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:like_removed', data = { postId = data.postId } })
     else
-        SqlFunc(Config.Mysql, 'insert', 'INSERT INTO bit_phone_instagram_likes (post_id, account_id) VALUES (@post, @acc)', { ['@post'] = data.postId, ['@acc'] = accId })
+        DebugPrint("INSTAGRAM", "Adding like", {postId = data.postId, user = identifier})
+        SqlFunc(Config.Mysql, 'insert', 'INSERT INTO bit_phone_instagram_likes (post_id, user_identifier) VALUES (@post, @uid)', { ['@post'] = data.postId, ['@uid'] = identifier })
         TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:like_added', data = { postId = data.postId } })
     end
 end)
@@ -252,7 +380,7 @@ AddEventHandler('bit-smartphone:instagram:addComment', function(data)
     if not identifier then return end
     local account = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT id, username FROM bit_phone_instagram_accounts WHERE identifier = @id', { ['@id'] = identifier })
     if not account or not account[1] then return end
-    local insertId = SqlFunc(Config.Mysql, 'insert', 'INSERT INTO bit_phone_instagram_comments (post_id, account_id, comment) VALUES (@post, @acc, @comment)', { ['@post'] = data.postId, ['@acc'] = account[1].id, ['@comment'] = data.comment })
+    local insertId = SqlFunc(Config.Mysql, 'insert', 'INSERT INTO bit_phone_instagram_comments (post_id, user_identifier, comment) VALUES (@post, @uid, @comment)', { ['@post'] = data.postId, ['@uid'] = identifier, ['@comment'] = data.comment })
     if insertId and insertId > 0 then
         TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:comment_added', data = { postId = data.postId, comment = { id = insertId, username = account[1].username, comment = data.comment, timestamp = os.date('%Y-%m-%d %H:%M:%S') } } })
     end
@@ -261,30 +389,29 @@ end)
 RegisterNetEvent('instagram:getFeed')
 AddEventHandler('instagram:getFeed', function()
     local src = source
+    DebugPrint("INSTAGRAM", "Loading feed for player", {source = src})
+    
     local posts = SqlFunc(Config.Mysql, 'fetchAll', [[
-        SELECT p.id, p.caption, p.image_url, p.location, p.created_at, a.username, a.full_name AS name, a.avatar, a.is_verified,
+        SELECT p.id, p.caption, p.image_url, p.location, p.created_at, a.username, a.full_name AS name, a.profile_picture AS avatar, a.is_verified,
                (SELECT COUNT(*) FROM bit_phone_instagram_likes WHERE post_id = p.id) as likes_count,
                (SELECT COUNT(*) FROM bit_phone_instagram_comments WHERE post_id = p.id) as comments_count
         FROM bit_phone_instagram_posts p
-        JOIN bit_phone_instagram_accounts a ON p.account_id = a.id
-        WHERE p.is_story = 0
+        JOIN bit_phone_instagram_accounts a ON p.user_identifier = a.identifier
+        WHERE p.is_pinned = 0
         ORDER BY p.created_at DESC
         LIMIT 50
     ]], {})
+    
+    DebugPrint("INSTAGRAM", "Feed loaded", {post_count = posts and #posts or 0})
     TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:feed_data', data = { posts = posts or {} } })
 end)
 
 RegisterNetEvent('instagram:getStories')
 AddEventHandler('instagram:getStories', function()
     local src = source
-    local stories = SqlFunc(Config.Mysql, 'fetchAll', [[
-        SELECT p.id, p.image_url, p.created_at, a.username, a.full_name AS name, a.avatar, a.is_verified, p.story_expires_at
-        FROM bit_phone_instagram_posts p
-        JOIN bit_phone_instagram_accounts a ON p.account_id = a.id
-        WHERE p.is_story = 1 AND p.story_expires_at > NOW()
-        ORDER BY p.created_at DESC
-    ]], {})
-    TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:stories_data', data = { stories = stories or {} } })
+    DebugPrint("INSTAGRAM", "Loading stories for player", {source = src})
+    
+    TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:stories_data', data = { stories = {} } })
 end)
 
 RegisterNetEvent('bit-smartphone:instagram:register')
@@ -321,3 +448,6 @@ AddEventHandler('instagramRegister', function(data)
         TriggerClientEvent('bit-smartphone:client:sendNuiMessage', src, { action = 'instagram:register_error', data = { error = res or 'error' } })
     end
 end)
+
+
+

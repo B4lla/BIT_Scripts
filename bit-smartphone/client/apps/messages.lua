@@ -1,6 +1,7 @@
 local messagesData = {
     chats = {},
     currentChat = nil,
+    currentChatId = nil,
     contacts = {}
 }
 
@@ -45,7 +46,8 @@ AddEventHandler('bit-smartphone:client:receiveNewMessage', function(chatId, mess
         }
     })
     
-    if not messagesData.currentChat or messagesData.currentChat.id ~= chatId then
+    local isCurrentChat = (messagesData.currentChatId ~= nil) and (tostring(messagesData.currentChatId) == tostring(chatId))
+    if not isCurrentChat then
         local chatName = 'Mensaje nuevo'
         for _, chat in ipairs(messagesData.chats) do
             if chat.id == chatId then
@@ -54,7 +56,18 @@ AddEventHandler('bit-smartphone:client:receiveNewMessage', function(chatId, mess
             end
         end
         
-        PhoneNotify('messages.newMessage', {sender = chatName, content = message.content}, 'system')
+        PhoneNotify('messages.newMessage', {chatName or "Desconocido", message.content or ""}, 'system')
+    end
+end)
+
+RegisterNetEvent('bit-smartphone:messages:receiveMessage')
+AddEventHandler('bit-smartphone:messages:receiveMessage', function(payload)
+    if type(payload) == 'table' then
+        local chatId = payload.chatId or payload.chat_id or payload.with or payload.senderId
+        local message = payload.message or payload
+        if chatId and type(message) == 'table' then
+            TriggerEvent('bit-smartphone:client:receiveNewMessage', chatId, message)
+        end
     end
 end)
 
@@ -165,6 +178,10 @@ end)
 
 
 RegisterNUICallback('messages:getChats', function(data, cb)
+    if not IsPhoneConnected() then
+        cb({success = false, error = 'no_signal'})
+        return
+    end
     TriggerServerEvent('bit-smartphone:server:getChats')
     cb('ok')
 end)
@@ -180,6 +197,7 @@ RegisterNUICallback('messages:openChat', function(data, cb)
     for _, chat in ipairs(messagesData.chats) do
         if chat.id == chatId then
             messagesData.currentChat = chat
+            messagesData.currentChatId = chat.id
             break
         end
     end
@@ -190,6 +208,11 @@ RegisterNUICallback('messages:openChat', function(data, cb)
 end)
 
 RegisterNUICallback('messages:sendMessage', function(data, cb)
+    if not IsPhoneConnected() then
+        cb({success = false, error = 'no_signal'})
+        return
+    end
+    
     local chatId = data.chatId or data.phoneNumber
     local messageType = data.type or 'text'
     local content = data.content or data.message
@@ -295,6 +318,47 @@ RegisterNUICallback('messages:loadMoreMessages', function(data, cb)
     
     TriggerServerEvent('bit-smartphone:server:getChatMessages', chatId, page)
     cb('ok')
+end)
+
+RegisterNUICallback('messages:getLocation', function(data, cb)
+    local ped = PlayerPedId()
+    local coords = GetEntityCoords(ped)
+
+    local streetHash, crossingHash = GetStreetNameAtCoord(coords.x, coords.y, coords.z)
+    local streetName = ''
+    local crossingName = ''
+    if streetHash and streetHash ~= 0 then
+        streetName = GetStreetNameFromHashKey(streetHash) or ''
+    end
+    if crossingHash and crossingHash ~= 0 then
+        crossingName = GetStreetNameFromHashKey(crossingHash) or ''
+    end
+
+    local address = 'Ubicación compartida'
+    if streetName ~= '' then
+        if crossingName ~= '' then
+            address = string.format('%s & %s', streetName, crossingName)
+        else
+            address = streetName
+        end
+    end
+
+    local result = {
+        coords = { x = coords.x, y = coords.y, z = coords.z },
+        address = address
+    }
+    cb(result)
+end)
+
+RegisterNUICallback('messages:navigate', function(data, cb)
+    local x = tonumber(data.x)
+    local y = tonumber(data.y)
+    if x and y then
+        SetNewWaypoint(x + 0.0, y + 0.0)
+        cb({ ok = true })
+    else
+        cb({ ok = false, error = 'invalid_coords' })
+    end
 end)
 
 

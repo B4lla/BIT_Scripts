@@ -1,13 +1,17 @@
 const DarkWeb = {
   name: 'darkweb',
   props: ['cryptoWallet', 'cryptoPrices', 'getCryptoBalance', 'getTotalCryptoValueUSD', 'spendCrypto', 't'],
+  emits: ['close', 'add-notification'],
   data() {
     return {
       rooms: [],          
       privateRooms: [],   
       currentRoom: null,
-      currentView: 'rooms', 
-      currentCategory: 'all',
+      _roomsLoadedOnce: false,
+      _listenerAdded: false,
+      _creatingRoom: false,
+      _joiningRoom: false,
+  currentView: 'rooms', 
       newRoomName: '',
       joinRoomCode: '',
       showJoinModal: false,
@@ -17,123 +21,71 @@ const DarkWeb = {
       notifications: [],
       onlineUsers: Math.floor(Math.random() * 30) + 25,
       
-      marketItems: [
-        {
-          id: 1,
-          name: 'Información Confidencial',
-          description: 'Documentos clasificados',
-          price: 0.05,
-          currency: 'btc',
-          seller: 'DataBroker',
-          category: 'info',
-          inStock: true,
-          rating: 4.8,
-          sales: 127
-        },
-        {
-          id: 2,
-          name: 'Servicio de Anonimato',
-          description: 'VPN premium + proxies',
-          price: 200,
-          currency: 'eth',
-          seller: 'GhostNet',
-          category: 'services',
-          inStock: true,
-          rating: 4.9,
-          sales: 89
-        },
-        {
-          id: 3,
-          name: 'Cuentas Digitales',
-          description: 'Accesos verificados',
-          price: 50,
-          currency: 'ltc',
-          seller: 'AccountDealer',
-          category: 'digital',
-          inStock: false,
-          rating: 4.2,
-          sales: 156
-        },
-        {
-          id: 4,
-          name: 'Consultoría Crypto',
-          description: 'Asesoría en inversiones',
-          price: 0.02,
-          currency: 'btc',
-          seller: 'CryptoGuru',
-          category: 'services',
-          inStock: true,
-          rating: 4.7,
-          sales: 203
-        }
-      ]
+      cryptoBalance: {},
+      showCryptoPanel: false,
+      cryptoView: 'send',
+      wallet: { bitcoin_balance: 0, recent_transactions: [] },
+      transfer: { recipient: '', amount: '', description: '' },
+      transferSending: false,
     };
   },
   computed: {
     currentRoomMessages() {
-      return this.currentRoom ? this.currentRoom.messages : [];
+      return this.currentRoom ? (this.currentRoom.messages || []) : [];
     },
     totalCryptoValue() {
-      return this.getTotalCryptoValueUSD ? this.getTotalCryptoValueUSD() : 0;
-    },
-    filteredMarketItems() {
-      if (this.currentCategory === 'all') {
-        return this.marketItems;
+      try {
+        if (this.cryptoBalance && Object.keys(this.cryptoBalance).length > 0) {
+          let total = 0;
+          const prices = this.cryptoPrices && (this.cryptoPrices.value || this.cryptoPrices) || {};
+          const mapSymbol = (s) => {
+            const sym = (s || '').toLowerCase();
+            if (sym === 'btc' || sym === 'bitcoin') return 'bitcoin';
+            if (sym === 'eth' || sym === 'ethereum') return 'ethereum';
+            if (sym === 'xmr' || sym === 'monero') return 'monero';
+            if (sym === 'zec' || sym === 'zcash') return 'zcash';
+            return sym;
+          };
+          for (const [sym, val] of Object.entries(this.cryptoBalance)) {
+            const amount = typeof val === 'object' ? (Number(val.amount) || 0) : (Number(val) || 0);
+            const priceKey = mapSymbol(sym);
+            let price = 0;
+            const p = prices[priceKey];
+            if (typeof p === 'number') price = p;
+            else if (p && typeof p.usd === 'number') price = p.usd;
+            total += amount * price;
+          }
+          return total;
+        }
+      } catch (e) {
+        console.warn('[Darkweb] totalCryptoValue compute error:', e);
       }
-      return this.marketItems.filter(item => item.category === this.currentCategory);
+      return this.getTotalCryptoValueUSD ? this.getTotalCryptoValueUSD() : 0;
     }
   },
   mounted() {
-    window.addEventListener('message', this.handleNuiMessage);
-    this.loadRooms();
+    if (!window.__darkwebMessageListener) {
+      window.__darkwebMessageListener = (evt) => {
+        if (window.__darkwebHandler) {
+          try { window.__darkwebHandler(evt); } catch (e) { console.warn('[Darkweb] handler error', e); }
+        }
+      };
+      window.addEventListener('message', window.__darkwebMessageListener);
+    }
+    window.__darkwebHandler = this.handleNuiMessage;
+    if (!this._roomsLoadedOnce) {
+      this._roomsLoadedOnce = true;
+      this.loadRooms();
+    }
+    this.loadCryptoBalance();
     this.simulateActivity();
-    
-    
-    if (this.privateRooms.length === 0) {
-      this.createSampleRooms();
+  },
+  beforeUnmount() {
+    if (window.__darkwebHandler === this.handleNuiMessage) {
+      window.__darkwebHandler = null;
     }
   },
   methods: {
-    createSampleRooms() {
-      const sampleRooms = [
-        {
-          id: Date.now() + 1,
-          name: '🔒 Sala Segura',
-          code: this.generateRoomCode(),
-          creator: 'CyberMaster',
-          members: ['CyberMaster', 'Anonymous'],
-          messages: [
-            {
-              id: Date.now(),
-              username: 'CyberMaster',
-              text: 'Bienvenidos a la sala segura. Todas las comunicaciones están cifradas.',
-              timestamp: Date.now() - 300000,
-              isOwn: false
-            }
-          ],
-          createdAt: Date.now() - 600000
-        },
-        {
-          id: Date.now() + 2,
-          name: '💰 Trading Hub',
-          code: this.generateRoomCode(),
-          creator: 'TradeKing',
-          members: ['TradeKing', 'CryptoWhale'],
-          messages: [
-            {
-              id: Date.now() + 1,
-              username: 'TradeKing',
-              text: 'Intercambios seguros solo aquí. Verifico todas las transacciones.',
-              timestamp: Date.now() - 180000,
-              isOwn: false
-            }
-          ],
-          createdAt: Date.now() - 900000
-        }
-      ];
-      
-      this.privateRooms = sampleRooms;
-    },
     generateRoomCode() {
       const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
       let result = '';
@@ -142,21 +94,168 @@ const DarkWeb = {
       }
       return result;
     },
+    normalizeSymbol(symbol) {
+      const s = (symbol || '').toLowerCase();
+      if (s === 'btc' || s === 'bitcoin') return 'bitcoin';
+      if (s === 'eth' || s === 'ethereum') return 'ethereum';
+      if (s === 'xmr' || s === 'monero') return 'monero';
+      if (s === 'zec' || s === 'zcash') return 'zcash';
+      return s;
+    },
     loadRooms() {
       fetch('https://bit-smartphone/darkweb:getRooms', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({})
-      }).catch(error => console.error('[Darkweb] Error loading rooms:', error));
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+      }).then(text => {
+        console.log('[DarkWeb] loadRooms request sent successfully');
+      }).catch(error => {
+        console.error('[Darkweb] Error loading rooms:', error);
+        this.privateRooms = [];
+        this.showNotification('Error de conexión al cargar salas', 'error');
+      });
     },
-    handleNuiMessage(event) {
-      const msg = event.data;
-      switch (msg.action) {
-        case 'roomsLoaded': this.rooms = msg.data.rooms || []; break;
-        case 'roomCreated': this.rooms.push(msg.data.room); this.notifications.push('Sala creada'); break;
-        case 'roomJoined': this.currentRoom = this.rooms.find(r => r.id === msg.data.roomId); break;
-        case 'messageAdded': if (this.currentRoom && this.currentRoom.id === msg.data.roomId) this.currentRoom.messages.push(msg.data); break;
+    loadCryptoBalance() {
+      fetch('https://bit-smartphone/crypto:getBalance', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+      }).then(text => {
+        try {
+          const data = text ? JSON.parse(text) : {};
+          if (data && data.success) {
+            this.cryptoBalance = data.balance || {};
+          } else {
+            this.cryptoBalance = { btc: 0, bitcoin: 0, eth: 0, ltc: 0, doge: 0 };
+          }
+        } catch (parseError) {
+          console.warn('[Darkweb] Invalid JSON response for crypto balance:', text);
+          this.cryptoBalance = { btc: 0, bitcoin: 0, eth: 0, ltc: 0, doge: 0 };
+        }
+      }).catch(error => {
+        console.error('[Darkweb] Error loading crypto balance:', error);
+        this.cryptoBalance = { btc: 0, bitcoin: 0, eth: 0, ltc: 0, doge: 0 };
+      });
+    },
+    openCryptoPanel() {
+      this.showCryptoPanel = true;
+      this.cryptoView = 'send';
+      this.fetchWallet();
+    },
+    closeCryptoPanel() {
+      this.showCryptoPanel = false;
+      this.transfer = { recipient: '', amount: '', description: '' };
+      this.transferSending = false;
+    },
+    fetchWallet() {
+      fetch('https://bit-smartphone/darkweb:getBitcoinWallet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({})
+      }).catch(() => {});
+    },
+    sendCrypto() {
+      if (this.transferSending) return;
+      const amount = Number(this.transfer.amount);
+      if (!this.transfer.recipient || !amount || amount <= 0) {
+        this.showNotification('Completa destinatario y cantidad válida', 'error');
+        return;
       }
+      this.transferSending = true;
+      const payload = {
+        recipientAddress: this.transfer.recipient,
+        amount: amount,
+        description: this.transfer.description || 'Transferencia DarkWeb'
+      };
+      fetch('https://bit-smartphone/darkweb:sendBitcoin', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload)
+      }).then(() => {
+      }).finally(() => {
+        setTimeout(() => { this.transferSending = false; }, 500);
+      });
     },
+  handleNuiMessage(event) {
+      const msg = event.data;
+      if (!msg || !msg.action) return;
+      
+      switch (msg.action) {
+        case 'roomsLoaded': 
+          this.privateRooms = (msg.data?.rooms || []).map(room => ({
+            ...room,
+            members: room.members || [],
+            messages: room.messages || []
+          })); 
+          break;
+        case 'roomCreated': {
+          const room = (msg.data && (msg.data.room || msg.data)) || msg.room;
+          if (room) {
+            if (!this.privateRooms.some(r => r.id === room.id)) {
+              this.privateRooms.push(room);
+            }
+            this.showNotification('Sala creada exitosamente', 'success');
+          }
+          break; }
+        
+        case 'roomJoined':
+        case 'darkweb:roomJoined': {
+          const roomId = (msg.data && msg.data.roomId) || msg.roomId;
+          if (!roomId) break;
+          let room = this.privateRooms.find(r => r.id === roomId);
+          if (!room) {
+            room = { id: roomId, name: `Sala #${roomId}`, members: [], messages: [] };
+            this.privateRooms.push(room);
+          }
+          const incomingMessages = (msg.data && msg.data.messages) || msg.messages || [];
+          room.messages = Array.isArray(incomingMessages) ? incomingMessages : [];
+          this.currentRoom = { ...room, messages: room.messages || [] };
+          this.currentView = 'chat';
+          break; }
+        case 'messageAdded':
+        case 'darkweb:newRoomMessage':
+          if (this.currentRoom && this.currentRoom.id === msg.data?.roomId && msg.data?.message) {
+            if (!this.currentRoom.messages) {
+              this.currentRoom.messages = [];
+            }
+            this.currentRoom.messages.push(msg.data.message);
+          }
+          break;
+        case 'cryptoBalance':
+          this.cryptoBalance = msg.data || {};
+          break;
+        case 'darkweb:receiveBitcoinWallet':
+          this.wallet = msg.data || { bitcoin_balance: 0, recent_transactions: [] };
+          break;
+        case 'darkweb:bitcoinTransferResult': {
+          const ok = msg.data && msg.data.success;
+          this.showNotification(ok ? 'Transferencia enviada' : (msg.data && msg.data.message) || 'Error al enviar', ok ? 'success' : 'error');
+          if (ok) {
+            this.loadCryptoBalance();
+            this.fetchWallet();
+            this.transfer = { recipient: '', amount: '', description: '' };
+          }
+          break; }
+        case 'darkweb:bitcoinReceived': {
+          const data = msg.data || {};
+          this.showNotification(`Recibiste ${data.amount} BTC de ${data.from}`, 'success');
+          this.loadCryptoBalance();
+          this.fetchWallet();
+          break; }
+      }
+  },
     setView(view) {
       this.currentView = view;
     },
@@ -168,32 +267,44 @@ const DarkWeb = {
       }
     },
     createPrivateRoom() {
-      if (!this.newRoomName.trim()) return this.showNotification('Ingresa un nombre', 'error');
+      if (this._creatingRoom) return;
+      if (!this.newRoomName.trim()) {
+        this.showNotification('Ingresa un nombre para la sala', 'error');
+        return;
+      }
       
-      const newRoom = {
-        id: Date.now(),
-        name: this.newRoomName,
-        code: this.generateRoomCode(),
-        creator: this.username,
-        members: [this.username],
-        messages: [],
-        createdAt: Date.now()
-      };
+      const roomName = this.newRoomName.trim();
       
-      this.privateRooms.push(newRoom);
-      this.addSystemMessage(newRoom, `Sala creada por ${this.username}`);
-      
+      this._creatingRoom = true;
       fetch('https://bit-smartphone/darkweb:createRoom', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ 
-          name: this.newRoomName, 
-          creator: this.username 
+          name: roomName,
+          description: `Sala creada por ${this.username}`
         })
-      }).catch(error => console.error('[Darkweb] Error creating room:', error));
+      }).then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.text();
+      }).then(text => {
+        try {
+          const data = text ? JSON.parse(text) : {};
+        } catch (parseError) {
+          console.warn('[Darkweb] Invalid JSON response for createRoom:', text);
+        }
+      }).catch(error => {
+        console.error('[Darkweb] Error creating room:', error);
+        this.showNotification('No se pudo crear la sala', 'error');
+      }).finally(() => {
+        setTimeout(() => { this._creatingRoom = false; }, 500);
+      });
       
       this.newRoomName = '';
       this.currentView = 'rooms';
-      this.showNotification('Sala creada exitosamente', 'success');
     },
     showJoinRoom() {
       this.showJoinModal = true;
@@ -203,43 +314,39 @@ const DarkWeb = {
       this.joinRoomCode = '';
     },
     joinRoom() {
+      if (this._joiningRoom) return;
+      this._joiningRoom = true;
       
       const existingRoom = this.privateRooms.find(room => room.code === this.joinRoomCode.toUpperCase());
       
-      if (existingRoom) {
-        if (!existingRoom.members.includes(this.username)) {
-          existingRoom.members.push(this.username);
-          this.addSystemMessage(existingRoom, `${this.username} se unió a la sala`);
-        }
-        this.enterRoom(existingRoom);
-        this.showNotification('Te uniste a la sala', 'success');
-      } else {
-        this.showNotification('Código de sala inválido', 'error');
-      }
-      
       fetch('https://bit-smartphone/darkweb:joinRoom', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ code: this.joinRoomCode })
-      }).catch(error => console.error('[Darkweb] Error joining room:', error));
+      }).catch(error => console.error('[Darkweb] Error joining room:', error))
+      .finally(() => {
+        setTimeout(() => { this._joiningRoom = false; }, 500);
+      });
       
       this.hideJoinModal();
     },
     enterRoom(room) {
-      this.currentRoom = room;
+      this.currentRoom = {
+        ...room,
+        members: room.members || [],
+        messages: room.messages || []
+      };
       this.currentView = 'chat';
-      setTimeout(() => {
-        if (Math.random() < 0.3) {
-          this.simulateResponse();
-        }
-      }, 2000 + Math.random() * 5000);
     },
     leaveRoom() {
       if (this.currentRoom) {
         const room = this.currentRoom;
-        room.members = room.members.filter(member => member !== this.username);
+        room.members = (room.members || []).filter(member => member !== this.username);
         this.addSystemMessage(room, `${this.username} abandonó la sala`);
         
-        if (room.creator === this.username && room.members.length === 0) {
+        if (room.creator === this.username && (room.members || []).length === 0) {
           this.privateRooms = this.privateRooms.filter(r => r.id !== room.id);
         }
       }
@@ -250,33 +357,19 @@ const DarkWeb = {
     sendMessage() {
       if (!this.newMessage.trim()) return;
       
-      const message = {
-        id: Date.now(),
-        username: this.username,
-        text: this.newMessage,
-        timestamp: Date.now(),
-        isOwn: true
-      };
-      
-      this.currentRoom.messages.push(message);
-      
       fetch('https://bit-smartphone/darkweb:sendMessage', {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({ 
           roomId: this.currentRoom.id, 
-          text: this.newMessage, 
+          message: this.newMessage,
           username: this.username 
         })
       }).catch(error => console.error('[Darkweb] Error sending message:', error));
       
       this.newMessage = '';
-      
-      
-      setTimeout(() => {
-        if (Math.random() < 0.4) {
-          this.simulateResponse();
-        }
-      }, 1000 + Math.random() * 3000);
     },
     addSystemMessage(room, text) {
       const message = {
@@ -287,6 +380,9 @@ const DarkWeb = {
         isSystem: true
       };
       
+      if (!room.messages) {
+        room.messages = [];
+      }
       room.messages.push(message);
     },
     simulateResponse() {
@@ -307,7 +403,7 @@ const DarkWeb = {
         'Tengo lo que buscas.'
       ];
       
-      const members = this.currentRoom.members.filter(m => m !== this.username);
+      const members = (this.currentRoom.members || []).filter(m => m !== this.username);
       
       if (members.length > 0) {
         const message = {
@@ -318,59 +414,13 @@ const DarkWeb = {
           isOwn: false
         };
         
+        if (!this.currentRoom.messages) {
+          this.currentRoom.messages = [];
+        }
         this.currentRoom.messages.push(message);
       }
     },
-    setCategory(category) {
-      this.currentCategory = category;
-    },
-    buyItem(item) {
-      if (!item.inStock) {
-        this.showNotification('Artículo agotado', 'error');
-        return;
-      }
-      
-      const balance = this.getCryptoBalance ? this.getCryptoBalance(item.currency) : 0;
-      
-      if (balance < item.price) {
-        this.showNotification(`Saldo insuficiente de ${item.currency.toUpperCase()}`, 'error');
-        return;
-      }
-      
-      if (confirm(`¿Confirmar compra de "${item.name}" por ${item.price} ${item.currency.toUpperCase()}?`)) {
-        if (this.spendCrypto && this.spendCrypto(item.currency, item.price)) {
-          this.showNotification('Compra procesada. El vendedor te contactará.', 'success');
-          
-          setTimeout(() => {
-            this.simulateVendorContact(item);
-          }, 2000 + Math.random() * 3000);
-        } else {
-          this.showNotification('Error procesando el pago', 'error');
-        }
-      }
-    },
-    simulateVendorContact(item) {
-      const vendorRoom = {
-        id: Date.now(),
-        name: `💼 ${item.seller}`,
-        code: this.generateRoomCode(),
-        creator: item.seller,
-        members: [this.username, item.seller],
-        messages: [
-          {
-            id: Date.now(),
-            username: item.seller,
-            text: `${this.username}, pago confirmado por "${item.name}". Instrucciones de entrega en proceso...`,
-            timestamp: Date.now(),
-            isOwn: false
-          }
-        ],
-        createdAt: Date.now()
-      };
-      
-      this.privateRooms.push(vendorRoom);
-      this.showNotification(`${item.seller} te contactó en sala privada`, 'success');
-    },
+    
     formatCurrency(amount, currency) {
       return `${amount} ${currency.toUpperCase()}`;
     },
@@ -390,23 +440,17 @@ const DarkWeb = {
       if (hours > 0) return `${hours}h`;
       return `${minutes}m`;
     },
-    renderStars(rating) {
-      const stars = Math.floor(rating);
-      return '★'.repeat(stars) + '☆'.repeat(5 - stars);
-    },
-    showNotification(message, type = 'info') {
-      const notification = {
+    
+  showNotification(message, type = 'info') {
+      this.$emit('add-notification', {
         id: Date.now(),
-        message,
-        type,
-        timestamp: Date.now()
-      };
-      
-      this.notifications.push(notification);
-      
-      setTimeout(() => {
-        this.notifications = this.notifications.filter(n => n.id !== notification.id);
-      }, 3000);
+        title: 'DarkWeb',
+        message: message,
+        icon: './assets/icons/apps/darkweb.svg',
+        app: 'darkweb',
+        time: new Date().toLocaleTimeString(),
+        type: type
+      });
     },
     simulateActivity() {
       setInterval(() => {
@@ -448,7 +492,7 @@ const DarkWeb = {
       <div v-if="currentView === 'rooms'" class="relative z-10 h-full flex flex-col">
         
         
-        <div class="bg-black/50 backdrop-blur-lg border-b border-slate-600/30 p-4">
+        <div class="bg-black/50 backdrop-blur-lg border-b border-slate-600/30 p-4 pt-8">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center space-x-3">
               <button @click="goBack" class="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 transition-colors">
@@ -471,7 +515,7 @@ const DarkWeb = {
           </div>
           
           
-          <div class="grid grid-cols-3 gap-3">
+      <div class="grid grid-cols-2 gap-3">
             <button 
               @click="setView('create-room')" 
               class="bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/50 rounded-xl p-3 transition-all hover:border-cyan-500/50 group"
@@ -500,19 +544,7 @@ const DarkWeb = {
               </div>
             </button>
             
-            <button 
-              @click="setView('marketplace')" 
-              class="bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/50 rounded-xl p-3 transition-all hover:border-cyan-500/50 group"
-            >
-              <div class="flex flex-col items-center space-y-2">
-                <div class="w-10 h-10 bg-cyan-500/20 rounded-full flex items-center justify-center group-hover:bg-cyan-500/30 transition-colors">
-                  <svg class="w-5 h-5 text-cyan-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/>
-                  </svg>
-                </div>
-                <span class="text-cyan-300 font-medium text-sm">Market</span>
-              </div>
-            </button>
+            
           </div>
         </div>
         
@@ -533,7 +565,6 @@ const DarkWeb = {
                 </div>
                 <div>
                   <h3 class="text-cyan-300 font-semibold">{{ room.name }}</h3>
-                  <p class="text-slate-400 text-sm">Por {{ room.creator }}</p>
                 </div>
               </div>
               <div class="text-right">
@@ -542,15 +573,15 @@ const DarkWeb = {
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"/>
                   </svg>
-                  <span>{{ room.members.length }}</span>
+                  <span>{{ room.members?.length || 0 }}</span>
                 </div>
               </div>
             </div>
             
-            <div v-if="room.messages.length > 0" class="bg-slate-900/50 rounded-lg p-3">
+            <div v-if="room.messages && room.messages.length > 0" class="bg-slate-900/50 rounded-lg p-3">
               <div class="text-slate-200 text-sm">
-                <span class="font-medium">{{ room.messages[room.messages.length - 1].username }}:</span>
-                {{ room.messages[room.messages.length - 1].text }}
+                <span class="font-medium">{{ room.messages[room.messages.length - 1]?.username }}:</span>
+                {{ room.messages[room.messages.length - 1]?.text }}
               </div>
             </div>
             <div v-else class="text-slate-400 text-sm italic">
@@ -559,10 +590,10 @@ const DarkWeb = {
           </div>
           
           
-          <div v-if="privateRooms.length === 0" class="flex flex-col items-center justify-center py-8">
+          <div v-if="!privateRooms || privateRooms.length === 0" class="flex flex-col items-center justify-center py-8">
             <div class="text-6xl mb-4 opacity-60">🌐</div>
             <h3 class="text-xl font-bold text-cyan-300 mb-2">Bienvenido a DarkWeb</h3>
-            <p class="text-slate-400 text-center mb-6">Comienza creando tu primera sala o explorando el marketplace</p>
+            <p class="text-slate-400 text-center mb-6">Comienza creando tu primera sala privada</p>
             
             <div class="flex space-x-4">
               <button 
@@ -571,12 +602,7 @@ const DarkWeb = {
               >
                 🔒 Crear Sala
               </button>
-              <button 
-                @click="setView('marketplace')"
-                class="px-6 py-3 bg-slate-700/60 hover:bg-slate-600/70 border border-cyan-500/50 rounded-xl text-cyan-300 font-medium transition-colors"
-              >
-                🛒 Ver Market
-              </button>
+              
             </div>
           </div>
         </div>
@@ -586,7 +612,7 @@ const DarkWeb = {
       <div v-if="currentView === 'chat' && currentRoom" class="relative z-10 h-full flex flex-col">
         
         
-        <div class="bg-black/50 backdrop-blur-lg border-b border-slate-600/30 p-4">
+        <div class="bg-black/50 backdrop-blur-lg border-b border-slate-600/30 p-4 pt-8">
           <div class="flex items-center justify-between">
             <div class="flex items-center space-x-3">
               <button @click="leaveRoom" class="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 transition-colors">
@@ -596,7 +622,7 @@ const DarkWeb = {
               </button>
               <div>
                 <h1 class="text-lg font-bold text-cyan-300">{{ currentRoom.name }}</h1>
-                <p class="text-slate-400 text-sm">{{ currentRoom.members.length }} miembros • Código: {{ currentRoom.code }}</p>
+                <p class="text-slate-400 text-sm">{{ currentRoom.members?.length || 0 }} miembros • Código: {{ currentRoom.code }}</p>
               </div>
             </div>
           </div>
@@ -636,7 +662,7 @@ const DarkWeb = {
           </div>
           
           
-          <div v-if="currentRoomMessages.length === 0" class="flex flex-col items-center justify-center py-12">
+          <div v-if="!currentRoomMessages || currentRoomMessages.length === 0" class="flex flex-col items-center justify-center py-12">
             <div class="text-6xl mb-4 opacity-60">💬</div>
             <h3 class="text-xl font-bold text-cyan-300 mb-2">Sala vacía</h3>
             <p class="text-slate-400 text-center">Sé el primero en enviar un mensaje</p>
@@ -645,7 +671,12 @@ const DarkWeb = {
         
         
         <div class="bg-black/50 backdrop-blur-lg border-t border-slate-600/30 p-4">
-          <div class="flex space-x-3">
+          <div class="flex space-x-3 items-center">
+            <button @click="openCryptoPanel" class="w-11 h-11 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 border border-cyan-500/40 flex items-center justify-center text-cyan-300 transition-colors">
+              <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 1.343-3 3s1.343 3 3 3m0-6V5m0 9v3m7-7a7 7 0 11-14 0 7 7 0 0114 0z"/>
+              </svg>
+            </button>
             <input
               v-model="newMessage"
               type="text"
@@ -664,102 +695,142 @@ const DarkWeb = {
             </button>
           </div>
         </div>
+
+        <div class="absolute bottom-0 left-0 right-0 z-30 transform transition-all duration-500 ease-out"
+             :class="showCryptoPanel ? 'translate-y-0' : 'translate-y-full'">
+          <div class="bg-black/30 backdrop-blur-2xl rounded-t-3xl border-t border-white/20 max-h-[65vh] overflow-hidden shadow-2xl">
+            <div class="flex justify-center py-3">
+              <div class="w-12 h-1.5 bg-white/40 rounded-full"></div>
+            </div>
+
+            <div class="p-6">
+              <div class="flex items-center justify-between mb-6">
+                <div>
+                  <h3 class="text-xl font-bold text-white">Enviar Criptomonedas</h3>
+                  <p class="text-gray-300 text-sm">Saldo BTC: <span class="text-cyan-300 font-semibold">{{ (wallet.bitcoin_balance || 0).toFixed ? wallet.bitcoin_balance.toFixed(8) : wallet.bitcoin_balance }}</span></p>
+                </div>
+                <button @click="closeCryptoPanel" class="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center text-white transition-all duration-200">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-semibold text-white mb-2">Destinatario (identificador)</label>
+                  <input v-model="transfer.recipient" type="text" placeholder="citizenid / identifier"
+                         class="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 focus:bg-white/15 focus:border-white/40 focus:outline-none transition-all duration-200"/>
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-white mb-2">Cantidad (BTC)</label>
+                  <input v-model="transfer.amount" type="number" step="0.00000001" min="0"
+                         placeholder="0.001"
+                         class="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 focus:bg-white/15 focus:border-white/40 focus:outline-none transition-all duration-200"/>
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-white mb-2">Descripción (opcional)</label>
+                  <input v-model="transfer.description" type="text" placeholder="Motivo de la transferencia"
+                         class="w-full px-4 py-3 bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl text-white placeholder-gray-400 focus:bg-white/15 focus:border-white/40 focus:outline-none transition-all duration-200"/>
+                </div>
+
+                <div class="flex space-x-4 pt-2">
+                  <button @click="sendCrypto" :disabled="transferSending"
+                          class="flex-1 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white py-3 px-6 rounded-xl font-semibold transition-all duration-200 shadow-lg hover:shadow-green-500/30 hover:scale-105 disabled:opacity-50">
+                    Enviar BTC
+                  </button>
+                  <button @click="closeCryptoPanel"
+                          class="flex-1 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white py-3 px-6 rounded-xl font-semibold transition-all duration-200 border border-white/20">
+                    Cancelar
+                  </button>
+                </div>
+
+                <div class="pt-4">
+                  <h4 class="text-white font-semibold mb-2">Transacciones recientes</h4>
+                  <div class="space-y-2 max-h-40 overflow-y-auto">
+                    <div v-if="!wallet.recent_transactions || wallet.recent_transactions.length === 0" class="text-gray-400 text-sm">Sin movimientos</div>
+                    <div v-for="(tx, idx) in wallet.recent_transactions" :key="idx" class="p-3 bg-white/10 rounded-xl border border-white/20 text-white/90">
+                      <div class="flex justify-between text-sm">
+                        <span>{{ tx.type || 'transfer' }}</span>
+                        <span>{{ tx.amount }}</span>
+                      </div>
+                      <div class="text-xs text-gray-300" v-if="tx.description">{{ tx.description }}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       
       
-      <div v-if="currentView === 'marketplace'" class="relative z-10 h-full flex flex-col">
-        
-        
-        <div class="bg-black/50 backdrop-blur-lg border-b border-slate-600/30 p-4">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center space-x-3">
-              <button @click="setView('rooms')" class="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 transition-colors">
-                <svg class="w-6 h-6 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
-                </svg>
-              </button>
-              <div>
-                <h1 class="text-xl font-bold text-cyan-300">Black Market</h1>
-                <p class="text-slate-400 text-sm">Solo pagos en crypto</p>
-              </div>
-            </div>
-            <div class="text-right">
-              <div class="text-slate-400 text-sm">Wallet</div>
-              <div class="text-lg font-bold text-green-400">\${{ totalCryptoValue.toFixed(2) }}</div>
-            </div>
-          </div>
-          
-          
-          <div class="flex space-x-2 overflow-x-auto pb-2">
-            <button 
-              v-for="category in [
-                { id: 'all', name: '🌐 Todo', icon: '🌐' },
-                { id: 'info', name: '📊 Info', icon: '📊' },
-                { id: 'services', name: '🔧 Servicios', icon: '🔧' },
-                { id: 'digital', name: '💾 Digital', icon: '💾' }
-              ]"
-              :key="category.id"
-              @click="setCategory(category.id)"
-              :class="[
-                'px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all',
-                currentCategory === category.id
-                  ? 'bg-cyan-600/30 text-cyan-300 border border-cyan-500/50'
-                  : 'bg-slate-800/40 text-slate-400 border border-slate-600/40 hover:bg-slate-700/50 hover:text-slate-300'
-              ]"
-            >
-              {{ category.name }}
+      <div v-if="currentView === 'create-room'" class="relative z-10 h-full flex flex-col">
+        <div class="bg-slate-900/80 backdrop-blur-xl border-b border-cyan-500/20 p-4 pt-8 flex-shrink-0">
+          <div class="flex items-center gap-4">
+            <button @click="setView('rooms')" class="p-2 rounded-xl bg-slate-800/60 hover:bg-slate-700/60 transition-colors">
+              <svg class="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+              </svg>
             </button>
+            <div>
+              <h2 class="text-xl font-bold text-cyan-300">🔒 Crear Sala Privada</h2>
+              <p class="text-slate-400 text-sm">Crea tu propia sala de chat anónima</p>
+            </div>
           </div>
         </div>
         
-        
-        <div class="flex-1 overflow-y-auto p-4">
-          <div class="grid gap-4">
-            <div
-              v-for="item in filteredMarketItems"
-              :key="item.id"
-              class="bg-slate-800/40 backdrop-blur-sm border border-slate-600/30 rounded-2xl p-4 hover:border-cyan-500/40 transition-all"
-            >
-              <div class="flex justify-between items-start mb-3">
-                <div class="flex-1">
-                  <h3 class="text-cyan-300 font-semibold text-lg mb-1">{{ item.name }}</h3>
-                  <p class="text-slate-400 text-sm mb-2">{{ item.description }}</p>
-                  <div class="flex items-center space-x-2 text-xs">
-                    <span class="text-yellow-400">{{ renderStars(item.rating) }}</span>
-                    <span class="text-slate-400">({{ item.sales }} ventas)</span>
-                    <span class="text-cyan-400">por {{ item.seller }}</span>
-                  </div>
-                </div>
-                <div class="text-right">
-                  <div class="text-2xl font-bold text-green-400">
-                    {{ formatCurrency(item.price, item.currency) }}
-                  </div>
-                  <div :class="['text-sm font-medium', item.inStock ? 'text-green-400' : 'text-red-400']">
-                    {{ item.inStock ? '✓ Disponible' : '✗ Agotado' }}
-                  </div>
-                </div>
+        <div class="flex-1 p-6 space-y-6">
+          <div class="bg-slate-800/40 backdrop-blur-lg border border-slate-600/40 rounded-2xl p-6">
+            <div class="text-center mb-6">
+              <div class="text-6xl mb-4">🔐</div>
+              <h3 class="text-2xl font-bold text-cyan-300 mb-2">Nueva Sala Privada</h3>
+              <p class="text-slate-400">Las salas privadas son completamente anónimas y se autodestruyen después de 24 horas de inactividad</p>
+            </div>
+            
+            <div class="space-y-4">
+              <div>
+                <label class="block text-slate-300 font-medium mb-2">📝 Nombre de la Sala</label>
+                <input
+                  v-model="newRoomName"
+                  type="text"
+                  placeholder="Ej: Reunión Privada..."
+                  class="w-full px-4 py-3 bg-slate-700/60 border border-slate-600/40 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:border-cyan-500/50 transition-colors"
+                  @keyup.enter="createPrivateRoom"
+                  maxlength="50"
+                />
+                <p class="text-slate-400 text-xs mt-1">Máximo 50 caracteres</p>
               </div>
               
-              <div class="flex space-x-3">
-                <button
-                  @click="buyItem(item)"
-                  :disabled="!item.inStock"
-                  class="flex-1 px-4 py-3 bg-slate-700/60 hover:bg-slate-600/70 disabled:bg-slate-800/30 disabled:cursor-not-allowed border border-cyan-500/50 rounded-xl text-cyan-300 font-medium transition-colors"
-                >
-                  {{ item.inStock ? '🛒 Comprar' : 'Agotado' }}
-                </button>
-                <button class="px-4 py-3 bg-slate-800/60 hover:bg-slate-700/60 border border-slate-600/40 rounded-xl text-slate-300 transition-colors">
-                  💬 Contactar
-                </button>
+              <div class="bg-slate-700/30 rounded-xl p-4 border border-slate-600/20">
+                <div class="flex items-center gap-3 mb-2">
+                  <span class="text-2xl">⚠️</span>
+                  <h4 class="text-yellow-400 font-semibold">Información Importante</h4>
+                </div>
+                <ul class="text-slate-300 text-sm space-y-1">
+                  <li>• La sala se creará con un código único de 6 dígitos</li>
+                  <li>• Solo quienes tengan el código podrán unirse</li>
+                  <li>• Todos los mensajes son anónimos</li>
+                  <li>• La sala se eliminará automáticamente si queda vacía por más de 1 hora</li>
+                </ul>
               </div>
             </div>
-          </div>
-          
-          
-          <div v-if="filteredMarketItems.length === 0" class="flex flex-col items-center justify-center py-12">
-            <div class="text-6xl mb-4 opacity-60">📦</div>
-            <h3 class="text-xl font-bold text-cyan-300 mb-2">Sin artículos</h3>
-            <p class="text-slate-400 text-center">No hay artículos en esta categoría</p>
+            
+            <div class="flex gap-4 mt-6">
+              <button
+                @click="createPrivateRoom"
+                :disabled="!newRoomName.trim()"
+                class="flex-1 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 disabled:from-slate-600 disabled:to-slate-700 disabled:cursor-not-allowed border border-cyan-500/50 disabled:border-slate-600/40 rounded-xl text-white font-medium transition-all duration-300"
+              >
+                🔒 Crear Sala Privada
+              </button>
+              <button
+                @click="setView('rooms')"
+                class="px-6 py-3 bg-slate-700/40 hover:bg-slate-600/50 border border-slate-600/40 rounded-xl text-slate-300 transition-colors"
+              >
+                ❌ Cancelar
+              </button>
+            </div>
           </div>
         </div>
       </div>

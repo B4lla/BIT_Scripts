@@ -282,7 +282,27 @@ AddEventHandler('bit-smartphone:tuister:updateProfile', function(data)
     local src = source
     local identifier = GetPlayerIdentifier(src)
     if not identifier then return end
-    SqlFunc(Config.Mysql, 'execute', 'UPDATE bit_phone_tuister_users SET display_name = @display, bio = @bio, avatar = @avatar, banner = @banner WHERE identifier = @id', { ['@display'] = data.displayName, ['@bio'] = data.bio, ['@avatar'] = data.avatar, ['@banner'] = data.banner, ['@id'] = identifier })
+    local displayName = data and (data.displayName or data.display_name) or nil
+    if not displayName or displayName == '' then
+        local row = SqlFunc(Config.Mysql, 'fetchAll', 'SELECT display_name, username FROM bit_phone_tuister_users WHERE identifier = @id LIMIT 1', { ['@id'] = identifier })
+        if row and row[1] then
+            displayName = row[1].display_name or row[1].username or ''
+        else
+            displayName = ''
+        end
+    end
+
+    local bio = (data and data.bio) or ''
+    local avatar = (data and data.avatar) or ''
+    local banner = (data and data.banner) or ''
+
+    SqlFunc(Config.Mysql, 'execute', 'UPDATE bit_phone_tuister_users SET display_name = @display, bio = @bio, avatar = @avatar, banner = @banner WHERE identifier = @id', {
+        ['@display'] = displayName,
+        ['@bio'] = bio,
+        ['@avatar'] = avatar,
+        ['@banner'] = banner,
+        ['@id'] = identifier
+    })
 end)
 
 

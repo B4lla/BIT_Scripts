@@ -35,9 +35,6 @@ DROP TABLE IF EXISTS `bit_phone_darkweb_users`;
 DROP TABLE IF EXISTS `bit_phone_darkweb_rooms`;
 DROP TABLE IF EXISTS `bit_phone_darkweb_room_members`;
 DROP TABLE IF EXISTS `bit_phone_darkweb_messages`;
-DROP TABLE IF EXISTS `bit_phone_darkweb_marketplace`;
-DROP TABLE IF EXISTS `bit_phone_darkweb_purchases`;
-DROP TABLE IF EXISTS `bit_phone_darkweb_reviews`;
 DROP TABLE IF EXISTS `bit_phone_contact_list`;
 DROP TABLE IF EXISTS `bit_phone_chats`;
 DROP TABLE IF EXISTS `bit_phone_chat_participants`;
@@ -256,6 +253,7 @@ CREATE TABLE `bit_phone_bitlove_profiles` (
   `location` VARCHAR(100) DEFAULT NULL,
   `interests` TEXT DEFAULT NULL,
   `photos` JSON DEFAULT NULL,
+  `profile_picture` TEXT DEFAULT NULL,
   `job` VARCHAR(100) DEFAULT NULL,
   `looking_for` ENUM('casual', 'serious', 'friends', 'anything') DEFAULT 'anything',
   `distance_range` INT DEFAULT 50,
@@ -375,41 +373,7 @@ CREATE TABLE `bit_phone_business_reviews` (
   INDEX `idx_rating` (`rating`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE `bit_phone_crypto_holdings` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `user` VARCHAR(50) NOT NULL,
-  `crypto_id` VARCHAR(50) NOT NULL,
-  `amount` DECIMAL(20, 8) NOT NULL DEFAULT 0.00000000,
-  `average_buy_price` DECIMAL(20, 8) DEFAULT 0.00000000,
-  `last_updated` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY `unique_user_crypto` (`user`, `crypto_id`),
-  INDEX `idx_user` (`user`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE `bit_phone_crypto_watchlist` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `user` VARCHAR(50) NOT NULL,
-  `crypto_id` VARCHAR(50) NOT NULL,
-  `added_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  UNIQUE KEY `unique_user_crypto` (`user`, `crypto_id`),
-  INDEX `idx_user` (`user`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
-
-CREATE TABLE `bit_phone_crypto_transactions` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `user` VARCHAR(50) NOT NULL,
-  `crypto_id` VARCHAR(50) NOT NULL,
-  `transaction_type` ENUM('buy', 'sell') NOT NULL,
-  `amount` DECIMAL(20, 8) NOT NULL,
-  `price_per_unit` DECIMAL(20, 8) NOT NULL,
-  `total_value` DECIMAL(20, 2) NOT NULL,
-  `fee` DECIMAL(20, 8) DEFAULT 0.00000000,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  INDEX `idx_user` (`user`),
-  INDEX `idx_crypto` (`crypto_id`),
-  INDEX `idx_type` (`transaction_type`),
-  INDEX `idx_created` (`created_at` DESC)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `bit_phone_bank_pending` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -530,8 +494,6 @@ CREATE TABLE `bit_phone_darkweb_users` (
   `user_identifier` VARCHAR(50) NOT NULL,
   `username` VARCHAR(50) NOT NULL,
   `reputation` INT DEFAULT 100,
-  `total_purchases` INT DEFAULT 0,
-  `total_sales` INT DEFAULT 0,
   `is_banned` BOOLEAN DEFAULT FALSE,
   `ban_reason` TEXT DEFAULT NULL,
   `last_active` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -579,78 +541,6 @@ CREATE TABLE IF NOT EXISTS `bit_phone_darkweb_messages` (
     INDEX `idx_created_at` (`created_at`),
     FOREIGN KEY (`room_id`) REFERENCES `bit_phone_darkweb_rooms`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
-CREATE TABLE `bit_phone_darkweb_marketplace` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `seller_identifier` VARCHAR(50) NOT NULL,
-  `title` VARCHAR(200) NOT NULL,
-  `description` TEXT NOT NULL,
-  `category` ENUM(
-    'weapons',
-    'drugs',
-    'services',
-    'documents',
-    'other'
-  ) NOT NULL,
-  `price` DECIMAL(10, 2) NOT NULL,
-  `currency` VARCHAR(20) DEFAULT 'USD',
-  `stock_quantity` INT DEFAULT 1,
-  `is_active` BOOLEAN DEFAULT TRUE,
-  `rating` DECIMAL(2, 1) DEFAULT 0.0,
-  `review_count` INT DEFAULT 0,
-  `image_urls` JSON DEFAULT NULL,
-  `shipping_info` TEXT DEFAULT NULL,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  INDEX `idx_seller` (`seller_identifier`),
-  INDEX `idx_category` (`category`),
-  INDEX `idx_active` (`is_active`),
-  INDEX `idx_price` (`price`),
-  INDEX `idx_rating` (`rating` DESC)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
-
-CREATE TABLE `bit_phone_darkweb_purchases` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `buyer_identifier` VARCHAR(50) NOT NULL,
-  `seller_identifier` VARCHAR(50) NOT NULL,
-  `item_id` INT NOT NULL,
-  `quantity` INT NOT NULL DEFAULT 1,
-  `unit_price` DECIMAL(10, 2) NOT NULL,
-  `total_price` DECIMAL(10, 2) NOT NULL,
-  `currency` VARCHAR(20) NOT NULL,
-  `status` ENUM(
-    'pending',
-    'confirmed',
-    'delivered',
-    'cancelled',
-    'disputed'
-  ) DEFAULT 'pending',
-  `delivery_location` VARCHAR(100) DEFAULT NULL,
-  `notes` TEXT DEFAULT NULL,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  FOREIGN KEY (`item_id`) REFERENCES `bit_phone_darkweb_marketplace`(`id`) ON DELETE CASCADE,
-  INDEX `idx_buyer` (`buyer_identifier`),
-  INDEX `idx_seller` (`seller_identifier`),
-  INDEX `idx_status` (`status`),
-  INDEX `idx_created` (`created_at`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
-
-CREATE TABLE `bit_phone_darkweb_reviews` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `purchase_id` INT NOT NULL,
-  `reviewer_identifier` VARCHAR(50) NOT NULL,
-  `item_id` INT NOT NULL,
-  `rating` TINYINT NOT NULL,
-  `review` TEXT DEFAULT NULL,
-  `is_anonymous` BOOLEAN DEFAULT TRUE,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (`purchase_id`) REFERENCES `bit_phone_darkweb_purchases`(`id`) ON DELETE CASCADE,
-  FOREIGN KEY (`item_id`) REFERENCES `bit_phone_darkweb_marketplace`(`id`) ON DELETE CASCADE,
-  UNIQUE KEY `unique_purchase_review` (`purchase_id`),
-  INDEX `idx_item` (`item_id`),
-  INDEX `idx_reviewer` (`reviewer_identifier`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE `bit_phone_contact_list` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -854,31 +744,7 @@ CREATE TABLE `bit_phone_news` (
   INDEX `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
-CREATE TABLE `bit_phone_crypto_holdings` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `user_id` VARCHAR(50) NOT NULL,
-  `crypto_symbol` VARCHAR(20) NOT NULL,
-  `amount` DECIMAL(20, 8) NOT NULL DEFAULT 0,
-  `total_invested` DECIMAL(15, 2) NOT NULL DEFAULT 0,
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-  UNIQUE KEY `unique_user_crypto` (`user_id`, `crypto_symbol`),
-  INDEX `idx_user` (`user_id`)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
-CREATE TABLE `bit_phone_crypto_transactions` (
-  `id` INT AUTO_INCREMENT PRIMARY KEY,
-  `user_id` VARCHAR(50) NOT NULL,
-  `crypto_symbol` VARCHAR(20) NOT NULL,
-  `transaction_type` ENUM('buy', 'sell') NOT NULL,
-  `amount` DECIMAL(20, 8) NOT NULL,
-  `price_per_unit` DECIMAL(15, 2) NOT NULL,
-  `total_value` DECIMAL(15, 2) NOT NULL,
-  `payment_method` ENUM('bank', 'cash') NOT NULL DEFAULT 'bank',
-  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
-  INDEX `idx_user` (`user_id`),
-  INDEX `idx_created` (`created_at` DESC)
-) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 CREATE TABLE `bit_phone_bitlove_profiles` (
   `id` INT AUTO_INCREMENT PRIMARY KEY,
@@ -950,6 +816,7 @@ CREATE TABLE `bit_phone_notifications` (
   `app` VARCHAR(50) NOT NULL DEFAULT 'system',
   `app_id` VARCHAR(50) DEFAULT NULL,
   `icon` TEXT DEFAULT NULL,
+  `icon_svg` TEXT DEFAULT NULL,
   `additional_info` TEXT DEFAULT NULL,
   `notification_data` JSON DEFAULT NULL,
   `is_read` BOOLEAN DEFAULT FALSE,
@@ -979,3 +846,232 @@ CREATE TABLE `bit_phone_bitlove_reports` (
   INDEX `idx_reported` (`reported_identifier`),
   INDEX `idx_status` (`status`)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_crypto_holdings` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` VARCHAR(50) NOT NULL,
+  `crypto_symbol` VARCHAR(10) NOT NULL,
+  `amount` DECIMAL(20, 8) NOT NULL DEFAULT 0,
+  `total_invested` DECIMAL(15, 2) NOT NULL DEFAULT 0,
+  `average_buy_price` DECIMAL(15, 8) DEFAULT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_user_crypto` (`user_id`, `crypto_symbol`),
+  INDEX `idx_user` (`user_id`),
+  INDEX `idx_crypto` (`crypto_symbol`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_crypto_transactions` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` VARCHAR(50) NOT NULL,
+  `crypto_symbol` VARCHAR(10) NOT NULL,
+  `transaction_type` ENUM('buy', 'sell') NOT NULL,
+  `amount` DECIMAL(20, 8) NOT NULL,
+  `price_per_unit` DECIMAL(15, 8) NOT NULL,
+  `total_value` DECIMAL(15, 2) NOT NULL,
+  `payment_method` VARCHAR(20) DEFAULT 'bank',
+  `status` ENUM('pending', 'completed', 'failed') DEFAULT 'completed',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  INDEX `idx_user` (`user_id`),
+  INDEX `idx_crypto` (`crypto_symbol`),
+  INDEX `idx_type` (`transaction_type`),
+  INDEX `idx_created` (`created_at` DESC),
+  INDEX `idx_user_crypto` (`user_id`, `crypto_symbol`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_crypto_watchlist` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` VARCHAR(50) NOT NULL,
+  `crypto_symbol` VARCHAR(10) NOT NULL,
+  `added_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_user_watchlist` (`user_id`, `crypto_symbol`),
+  INDEX `idx_user` (`user_id`)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_bitlove_profiles` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `identifier` VARCHAR(50) NOT NULL,
+  `name` VARCHAR(100) NOT NULL,
+  `age` INT DEFAULT 18,
+  `bio` TEXT,
+  `photos` TEXT,
+  `profile_picture` TEXT,
+  `location` VARCHAR(100),
+  `interests` TEXT,
+  `job` VARCHAR(100),
+  `looking_for` ENUM('friendship', 'dating', 'relationship', 'anything') DEFAULT 'anything',
+  `distance_range` INT DEFAULT 50,
+  `age_min` INT DEFAULT 18,
+  `age_max` INT DEFAULT 99,
+  `is_active` BOOLEAN DEFAULT TRUE,
+  `is_verified` BOOLEAN DEFAULT FALSE,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_identifier` (`identifier`),
+  INDEX `idx_identifier` (`identifier`),
+  INDEX `idx_active` (`is_active`),
+  INDEX `idx_age` (`age`),
+  INDEX `idx_created` (`created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_bitlove_swipes` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `swiper_identifier` VARCHAR(50) NOT NULL,
+  `target_identifier` VARCHAR(50) NOT NULL,
+  `action` ENUM('like', 'dislike', 'superlike') NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_swipe` (`swiper_identifier`, `target_identifier`),
+  INDEX `idx_swiper` (`swiper_identifier`),
+  INDEX `idx_target` (`target_identifier`),
+  INDEX `idx_action` (`action`),
+  INDEX `idx_created` (`created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_bitlove_matches` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user1_identifier` VARCHAR(50) NOT NULL,
+  `user2_identifier` VARCHAR(50) NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `is_active` BOOLEAN DEFAULT TRUE,
+  UNIQUE KEY `unique_match` (`user1_identifier`, `user2_identifier`),
+  INDEX `idx_user1` (`user1_identifier`),
+  INDEX `idx_user2` (`user2_identifier`),
+  INDEX `idx_active` (`is_active`),
+  INDEX `idx_created` (`created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_bitlove_messages` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `match_id` INT NOT NULL,
+  `sender_identifier` VARCHAR(50) NOT NULL,
+  `message` TEXT NOT NULL,
+  `message_type` ENUM('text', 'image', 'emoji') DEFAULT 'text',
+  `is_read` BOOLEAN DEFAULT FALSE,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`match_id`) REFERENCES `bit_phone_bitlove_matches`(`id`) ON DELETE CASCADE,
+  INDEX `idx_match` (`match_id`),
+  INDEX `idx_sender` (`sender_identifier`),
+  INDEX `idx_read` (`is_read`),
+  INDEX `idx_created` (`created_at` DESC),
+  INDEX `idx_match_created` (`match_id`, `created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_bitlove_reports` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `reporter_identifier` VARCHAR(50) NOT NULL,
+  `reported_identifier` VARCHAR(50) NOT NULL,
+  `reason` ENUM('inappropriate_photos', 'harassment', 'fake_profile', 'spam', 'other') NOT NULL,
+  `description` TEXT,
+  `status` ENUM('pending', 'reviewed', 'resolved') DEFAULT 'pending',
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `resolved_at` DATETIME DEFAULT NULL,
+  INDEX `idx_reporter` (`reporter_identifier`),
+  INDEX `idx_reported` (`reported_identifier`),
+  INDEX `idx_status` (`status`),
+  INDEX `idx_created` (`created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_tuister_users` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `identifier` VARCHAR(50) NOT NULL,
+  `username` VARCHAR(50) NOT NULL,
+  `display_name` VARCHAR(100) NOT NULL,
+  `bio` TEXT,
+  `location` VARCHAR(100),
+  `website` VARCHAR(200),
+  `avatar` TEXT,
+  `banner` TEXT,
+  `followers_count` INT DEFAULT 0,
+  `following_count` INT DEFAULT 0,
+  `tweets_count` INT DEFAULT 0,
+  `is_verified` BOOLEAN DEFAULT FALSE,
+  `is_private` BOOLEAN DEFAULT FALSE,
+  `is_active` BOOLEAN DEFAULT TRUE,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_identifier` (`identifier`),
+  UNIQUE KEY `unique_username` (`username`),
+  INDEX `idx_identifier` (`identifier`),
+  INDEX `idx_username` (`username`),
+  INDEX `idx_active` (`is_active`),
+  INDEX `idx_created` (`created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_tuister_tweets` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `content` TEXT NOT NULL,
+  `image_url` TEXT,
+  `reply_to_tweet_id` INT DEFAULT NULL,
+  `likes_count` INT DEFAULT 0,
+  `retweets_count` INT DEFAULT 0,
+  `replies_count` INT DEFAULT 0,
+  `is_pinned` BOOLEAN DEFAULT FALSE,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `bit_phone_tuister_users`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`reply_to_tweet_id`) REFERENCES `bit_phone_tuister_tweets`(`id`) ON DELETE CASCADE,
+  INDEX `idx_user` (`user_id`),
+  INDEX `idx_reply_to` (`reply_to_tweet_id`),
+  INDEX `idx_created` (`created_at` DESC),
+  INDEX `idx_user_created` (`user_id`, `created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_tuister_follows` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `follower_id` INT NOT NULL,
+  `following_id` INT NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`follower_id`) REFERENCES `bit_phone_tuister_users`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`following_id`) REFERENCES `bit_phone_tuister_users`(`id`) ON DELETE CASCADE,
+  UNIQUE KEY `unique_follow` (`follower_id`, `following_id`),
+  INDEX `idx_follower` (`follower_id`),
+  INDEX `idx_following` (`following_id`),
+  INDEX `idx_created` (`created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_tuister_likes` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `tweet_id` INT NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `bit_phone_tuister_users`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`tweet_id`) REFERENCES `bit_phone_tuister_tweets`(`id`) ON DELETE CASCADE,
+  UNIQUE KEY `unique_like` (`user_id`, `tweet_id`),
+  INDEX `idx_user` (`user_id`),
+  INDEX `idx_tweet` (`tweet_id`),
+  INDEX `idx_created` (`created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE `bit_phone_tuister_retweets` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user_id` INT NOT NULL,
+  `tweet_id` INT NOT NULL,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (`user_id`) REFERENCES `bit_phone_tuister_users`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`tweet_id`) REFERENCES `bit_phone_tuister_tweets`(`id`) ON DELETE CASCADE,
+  UNIQUE KEY `unique_retweet` (`user_id`, `tweet_id`),
+  INDEX `idx_user` (`user_id`),
+  INDEX `idx_tweet` (`tweet_id`),
+  INDEX `idx_created` (`created_at` DESC)
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `bit_phone_notifications` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `user` VARCHAR(50) NOT NULL,
+  `title` VARCHAR(255) NOT NULL,
+  `message` TEXT DEFAULT NULL,
+  `app` VARCHAR(50) DEFAULT 'system',
+  `app_id` VARCHAR(50) DEFAULT NULL,
+  `icon` TEXT DEFAULT NULL,
+  `additional_info` TEXT DEFAULT NULL,
+  `notification_data` JSON DEFAULT NULL,
+  `priority` ENUM('low','normal','high') DEFAULT 'normal',
+  `is_read` BOOLEAN DEFAULT FALSE,
+  `is_dismissed` BOOLEAN DEFAULT FALSE,
+  `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+  `expires_at` DATETIME DEFAULT NULL,
+  INDEX `idx_user_created` (`user`, `created_at` DESC),
+  INDEX `idx_read` (`user`, `is_read`),
+  INDEX `idx_app` (`app`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

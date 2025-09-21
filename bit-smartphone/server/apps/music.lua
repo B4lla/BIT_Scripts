@@ -171,9 +171,9 @@ if Config.Framework == "esx" then
         
         
         SqlFunc(Config.Mysql, 'execute', 
-            [[DELETE FROM bit_music_recent_plays 
+            [[DELETE FROM bit_phone_music_recent_plays 
               WHERE user = @user AND id NOT IN 
-              (SELECT * FROM (SELECT id FROM bit_music_recent_plays WHERE user = @user ORDER BY played_at DESC LIMIT 100) t)]], 
+              (SELECT * FROM (SELECT id FROM bit_phone_music_recent_plays WHERE user = @user ORDER BY played_at DESC LIMIT 100) t)]], 
             {['@user'] = identifier}
         )
         
@@ -386,14 +386,14 @@ elseif Config.Framework == "qb" or Config.Framework == "qbox" then
         )
         
         SqlFunc(Config.Mysql, 'execute', 
-            'INSERT INTO bit_music_recent_plays (user, song_id) VALUES (@user, @song_id)', 
+            'INSERT INTO bit_phone_music_recent_plays (user, song_id) VALUES (@user, @song_id)', 
             {['@user'] = identifier, ['@song_id'] = songId}
         )
         
         SqlFunc(Config.Mysql, 'execute', 
-            [[DELETE FROM bit_music_recent_plays 
+            [[DELETE FROM bit_phone_music_recent_plays 
               WHERE user = @user AND id NOT IN 
-              (SELECT * FROM (SELECT id FROM bit_music_recent_plays WHERE user = @user ORDER BY played_at DESC LIMIT 100) t)]], 
+              (SELECT * FROM (SELECT id FROM bit_phone_music_recent_plays WHERE user = @user ORDER BY played_at DESC LIMIT 100) t)]], 
             {['@user'] = identifier}
         )
         

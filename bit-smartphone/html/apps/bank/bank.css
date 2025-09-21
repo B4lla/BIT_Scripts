@@ -1,10 +1,10 @@
 
 :root{
-  --bank-bg-1: #0f1724; /* deep slate */
-  --bank-bg-2: #07112a; /* navy gradient */
-  --accent-1: #47c6ff; /* bright cyan */
-  --accent-2: #3ad1a3; /* teal */
-  --accent-3: #ffd47a; /* warm accent */
+  --bank-bg-1: #0f1724;
+  --bank-bg-2: #07112a;
+  --accent-1: #47c6ff; 
+  --accent-2: #3ad1a3; 
+  --accent-3: #ffd47a; 
   --glass: rgba(255,255,255,0.06);
   --glass-2: rgba(255,255,255,0.04);
   --muted: rgba(255,255,255,0.6);

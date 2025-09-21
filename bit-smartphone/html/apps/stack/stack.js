@@ -468,3 +468,6 @@ const Stack = {
     </div>
   `
 }
+
+window.Stack = Stack;
+window.Stack = window.Stack || Stack;

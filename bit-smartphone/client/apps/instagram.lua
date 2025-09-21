@@ -1,4 +1,9 @@
 RegisterNUICallback('bit-smartphone:instagram:register', function(data, cb)
+    if not IsPhoneConnected() then
+        cb({success = false, error = 'no_signal'})
+        return
+    end
+    
     if Config.Framework == 'esx' then
         ESX.TriggerServerCallback('bit-smartphone:instagram:register', function(result)
             cb(result)
@@ -29,6 +34,7 @@ RegisterNUICallback('bit-smartphone:instagram:verify', function(data, cb)
 end)
 
 RegisterNUICallback('bit-smartphone:instagram:login', function(data, cb)
+    print('[bit-smartphone][instagram] NUI callback: bit-smartphone:instagram:login received')
     if Config.Framework == 'esx' then
         ESX.TriggerServerCallback('bit-smartphone:instagram:login', function(result)
             cb(result)
@@ -61,6 +67,22 @@ end)
 RegisterNUICallback('bit-smartphone:instagram:getStories', function(data, cb)
     TriggerServerEvent('bit-smartphone:instagram:getStories')
     cb('ok')
+end)
+
+RegisterNUICallback('bit-smartphone:instagram:getProfilePosts', function(data, cb)
+    if Config.Framework == 'esx' then
+        ESX.TriggerServerCallback('bit-smartphone:instagram:getProfilePosts', function(posts)
+            SendNUIMessage({ action = 'instagram:profile_posts_data', data = { posts = posts or {} } })
+            cb({ success = true })
+        end)
+    elseif Config.Framework == 'qb' or Config.Framework == 'qbox' then
+        QBCore.Functions.TriggerCallback('bit-smartphone:instagram:getProfilePosts', function(posts)
+            SendNUIMessage({ action = 'instagram:profile_posts_data', data = { posts = posts or {} } })
+            cb({ success = true })
+        end)
+    else
+        cb({ success = false })
+    end
 end)
 
 RegisterNUICallback('bit-smartphone:instagram:createPost', function(data, cb)
@@ -116,6 +138,7 @@ RegisterNUICallback('instagramRegister', function(data, cb)
 end)
 
 RegisterNUICallback('instagramLogin', function(data, cb)
+    print('[bit-smartphone][instagram] NUI callback: instagramLogin received')
     if Config.Framework == 'esx' then
         ESX.TriggerServerCallback('bit-smartphone:instagram:login', function(result)
             cb(result)
@@ -141,22 +164,14 @@ RegisterNUICallback('instagramLogin', function(data, cb)
 end)
 
 RegisterNUICallback('loadInstagramFeed', function(data, cb)
-    TriggerServerEvent('bit-smartphone:instagram:getFeed')
+    print('[bit-smartphone][instagram] NUI callback: loadInstagramFeed received')
+    TriggerServerEvent('instagram:getFeed')
     cb('ok')
 end)
 
 RegisterNUICallback('loadInstagramStories', function(data, cb)
-    TriggerServerEvent('bit-smartphone:instagram:getStories')
-    cb('ok')
-end)
-
-RegisterNUICallback('createInstagramPost', function(data, cb)
-    TriggerServerEvent('bit-smartphone:instagram:createPost', data)
-    cb('ok')
-end)
-
-RegisterNUICallback('likeInstagramPost', function(data, cb)
-    TriggerServerEvent('bit-smartphone:instagram:likePost', { postId = data.postId })
+    print('[bit-smartphone][instagram] NUI callback: loadInstagramStories received')
+    TriggerServerEvent('instagram:getStories')
     cb('ok')
 end)
 
@@ -177,47 +192,7 @@ RegisterNUICallback('bit-smartphone:instagram:searchUsers', function(data, cb)
     end
 end)
 
-RegisterNUICallback('searchInstagramUsers', function(data, cb)
-    
-    TriggerEvent('bit-smartphone:client:debug')
-    if Config.Framework == 'esx' then
-        ESX.TriggerServerCallback('bit-smartphone:instagram:searchUsers', function(users)
-            cb({ users = users or {} })
-            SendNUIMessage({ action = 'instagram:search_results', data = { users = users or {} } })
-        end, data.query)
-    elseif Config.Framework == 'qb' or Config.Framework == 'qbox' then
-        QBCore.Functions.TriggerCallback('bit-smartphone:instagram:searchUsers', function(users)
-            cb({ users = users or {} })
-            SendNUIMessage({ action = 'instagram:search_results', data = { users = users or {} } })
-        end, data.query)
-    else
-        cb({ users = {} })
-    end
-end)
-
 RegisterNUICallback('bit-smartphone:instagram:updateProfile', function(data, cb)
-    if Config.Framework == 'esx' then
-        ESX.TriggerServerCallback('bit-smartphone:instagram:updateProfile', function(result)
-            cb(result)
-            if result and result.success then
-                SendNUIMessage({ action = 'instagram:profile_updated', data = { username = data.username } })
-            end
-        end, data)
-    elseif Config.Framework == 'qb' or Config.Framework == 'qbox' then
-        QBCore.Functions.TriggerCallback('bit-smartphone:instagram:updateProfile', function(result)
-            cb(result)
-            if result and result.success then
-                SendNUIMessage({ action = 'instagram:profile_updated', data = { username = data.username } })
-            end
-        end, data)
-    else
-        cb({ success = false })
-    end
-end)
-
-RegisterNUICallback('instagram:updateProfile', function(data, cb)
-    
-    TriggerEvent('bit-smartphone:client:debug')
     if Config.Framework == 'esx' then
         ESX.TriggerServerCallback('bit-smartphone:instagram:updateProfile', function(result)
             cb(result)
@@ -254,40 +229,8 @@ RegisterNUICallback('bit-smartphone:instagram:sendMessage', function(data, cb)
     end
 end)
 
-RegisterNUICallback('instagram:sendMessage', function(data, cb)
-    if Config.Framework == 'esx' then
-        ESX.TriggerServerCallback('bit-smartphone:instagram:sendMessage', function(result)
-            cb(result)
-            SendNUIMessage({ action = result and result.success and 'instagram:message_sent' or 'instagram:message_error', data = { to = data.to, success = result and result.success } })
-        end, data)
-    elseif Config.Framework == 'qb' or Config.Framework == 'qbox' then
-        QBCore.Functions.TriggerCallback('bit-smartphone:instagram:sendMessage', function(result)
-            cb(result)
-            SendNUIMessage({ action = result and result.success and 'instagram:message_sent' or 'instagram:message_error', data = { to = data.to, success = result and result.success } })
-        end, data)
-    else
-        cb({ success = false })
-    end
-end)
-
 RegisterNUICallback('bit-smartphone:instagram:getMessages', function(data, cb)
     if not data or not data.with then cb({ messages = {} }); return end
-    if Config.Framework == 'esx' then
-        ESX.TriggerServerCallback('bit-smartphone:instagram:getMessages', function(msgs)
-            cb({ messages = msgs or {} })
-            SendNUIMessage({ action = 'instagram:messages_list', data = { with = data.with, messages = msgs or {} } })
-        end, data.with)
-    elseif Config.Framework == 'qb' or Config.Framework == 'qbox' then
-        QBCore.Functions.TriggerCallback('bit-smartphone:instagram:getMessages', function(msgs)
-            cb({ messages = msgs or {} })
-            SendNUIMessage({ action = 'instagram:messages_list', data = { with = data.with, messages = msgs or {} } })
-        end, data.with)
-    else
-        cb({ messages = {} })
-    end
-end)
-
-RegisterNUICallback('instagram:getMessages', function(data, cb)
     if Config.Framework == 'esx' then
         ESX.TriggerServerCallback('bit-smartphone:instagram:getMessages', function(msgs)
             cb({ messages = msgs or {} })

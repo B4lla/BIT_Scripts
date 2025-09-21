@@ -1,9 +1,9 @@
 const Lockscreen = {
 	name: "Lockscreen",
-	components: {
-		NotchNotification: NotchNotification,
-		LockscreenNotifications: LockscreenNotifications,
-	},
+  components: {
+    NotchNotification: (typeof NotchNotification !== 'undefined') ? NotchNotification : (window.NotchNotification || {}),
+    LockscreenNotifications: (typeof LockscreenNotifications !== 'undefined') ? LockscreenNotifications : (window.LockscreenNotifications || {}),
+  },
 	props: {
 		phoneState: String,
 		currentWallpaperStyle: Object,
@@ -44,7 +44,8 @@ const Lockscreen = {
 			clockStyles: [],
 			sizes: [],
 			colors: [],
-			prevPhoneState: null,
+      prevPhoneState: null,
+      showWidgetPanel: false,
 		};
 	},
 	created() {
@@ -146,6 +147,7 @@ const Lockscreen = {
 		exitCustomization() {
 			this.isCustomizing = false;
 			this.customizeMode = null;
+      this.showWidgetPanel = false;
 		},
 
 		updateClockStyle(styleId) {
@@ -213,6 +215,14 @@ const Lockscreen = {
 			});
 		},
 
+    openWidgetPanel() {
+      this.showWidgetPanel = true;
+    },
+
+    closeWidgetPanel() {
+      this.showWidgetPanel = false;
+    },
+
 		startFlashToggle(event) {
 			event.stopPropagation();
 			this.toggleFlashlight();
@@ -220,14 +230,12 @@ const Lockscreen = {
 
 		endFlashToggle(event) {
 			event.stopPropagation();
-			// Ya no se usa temporizador, no es necesario limpiar nada
 		},
 
 		toggleFlashlight() {
 			if (typeof window.toggleFlashlight === "function") {
 				window.toggleFlashlight();
 			} else {
-				// Fallback: mantener el fetch local por si el global no existe
 				const newState = !this.flashlightOn;
 				console.log("[Lockscreen] Intentando cambiar linterna a:", newState);
 				fetch("https://bit-smartphone/bit-smartphone:toggleFlashlight", {
@@ -253,7 +261,6 @@ const Lockscreen = {
 					})
 					.catch((err) => {
 						console.error("[Lockscreen] Error al cambiar linterna:", err);
-						// Opcional: feedback visual de error
 					});
 			}
 		},
@@ -291,18 +298,20 @@ const Lockscreen = {
       <div v-if="phoneState === 'LOCKED' || phoneState === 'LOCKED_PREVIEW'" 
            class="absolute inset-0 z-40 flex flex-col text-white bg-cover bg-center overflow-hidden"
            :style="currentWallpaperStyle"
-           @touchstart="startLongPress"
-           @touchend="endLongPress"
-           @mousedown="startLongPress"
-           @mouseup="endLongPress">
+           @touchstart="(e) => { if (!(e.target && e.target.closest && e.target.closest('.notification-card'))) startLongPress(e); }"
+           @touchend="(e) => { if (!(e.target && e.target.closest && e.target.closest('.notification-card'))) endLongPress(e); }"
+           @mousedown="(e) => { if (!(e.target && e.target.closest && e.target.closest('.notification-card'))) startLongPress(e); }"
+           @mouseup="(e) => { if (!(e.target && e.target.closest && e.target.closest('.notification-card'))) endLongPress(e); }">
         
         <div class="absolute inset-0 bg-black/10"></div>
         
         <NotchNotification
           :musicState="musicState || {}"
-          :notifications="[]"
+          :notifications="notifications"
           :t="t"
           class="pointer-events-none select-none"
+          @dismiss-notification="handleDismissNotification"
+          @tap-notification="handleTapNotification"
         />
 
         <LockscreenNotifications
@@ -324,6 +333,13 @@ const Lockscreen = {
             </p>
           </div>
           
+
+          <div v-if="isCustomizing" class="mt-6">
+            <button @click.stop="openWidgetPanel" class="px-5 py-2 bg-white/20 backdrop-blur-md text-white font-semibold rounded-full border border-white/30 hover:bg-white/30 transition-all">
+              {{ (t && t('widgets.title')) || 'Widgets' }}
+            </button>
+          </div>
+
           <div class="relative mt-2" :class="{ 'ring-2 ring-white/50 rounded-lg p-4': isCustomizing && customizeMode === 'clock' }">
             <h1 :class="clockClasses" :style="clockStyle"
                 @click="isCustomizing && (customizeMode = 'clock')">
@@ -372,6 +388,56 @@ const Lockscreen = {
               <button v-if="isCustomizing && lockscreenSettings && lockscreenSettings.widgets" @click="removeWidget((lockscreenSettings.widgets.find(w => w && w.type === 'music') || {}).id)"
                       class="absolute -top-2 -right-2 w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-xs">
                 ×
+
+                      <div class="absolute bottom-0 left-0 right-0 z-50 transform transition-all duration-500 ease-out"
+                           :class="showWidgetPanel ? 'translate-y-0' : 'translate-y-full'">
+                        <div class="bg-black/30 backdrop-blur-2xl rounded-t-3xl border-t border-white/20 text-white shadow-2xl max-h-[60vh] overflow-hidden flex flex-col">
+                          <div class="flex justify-center py-3">
+                            <div class="w-12 h-1.5 bg-white/40 rounded-full"></div>
+                          </div>
+                          <div class="flex items-center justify-between px-6 pb-2">
+                            <div>
+                              <h3 class="text-xl font-bold">{{ (t && t('widgets.title')) || 'Widgets' }}</h3>
+                              <p class="text-sm text-white/70">{{ (t && t('widgets.dragInstruction')) || 'Añade widgets a tu pantalla bloqueada' }}</p>
+                            </div>
+                            <button @click="closeWidgetPanel" class="w-8 h-8 bg-white/20 hover:bg-white/30 rounded-xl flex items-center justify-center text-white transition-all duration-200 border border-white/20">
+                              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                              </svg>
+                            </button>
+                          </div>
+
+                          <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                            <div class="grid grid-cols-2 gap-3">
+                              <div v-for="w in availableWidgets" :key="w.id"
+                                   @click="addWidget(w.id)"
+                                   class="bg-white/10 hover:bg-white/15 border border-white/20 rounded-2xl p-4 cursor-pointer transition-all active:scale-95 backdrop-blur-sm">
+                                <div class="flex items-center gap-3">
+                                  <div class="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center border border-white/20">
+                                    <span class="text-lg">{{ w.icon === 'cloud-sun' ? '⛅' : w.icon === 'music' ? '🎵' : w.icon === 'battery' ? '🔋' : '🖼️' }}</span>
+                                  </div>
+                                  <div class="flex-1">
+                                    <div class="text-sm font-medium">{{ w.name }}</div>
+                                    <div class="text-xs text-white/60">Lockscreen</div>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div v-if="lockscreenSettings && lockscreenSettings.widgets && lockscreenSettings.widgets.length > 0" class="pt-2">
+                              <h4 class="text-sm font-semibold text-white/80 mb-2">{{ (t && t('common.current', 'Actuales')) || 'Actuales' }}</h4>
+                              <div class="space-y-2">
+                                <div v-for="aw in lockscreenSettings.widgets" :key="aw.id" class="flex items-center justify-between bg-white/10 border border-white/20 rounded-xl p-3">
+                                  <div class="text-sm">{{ aw.type }}</div>
+                                  <button @click="removeWidget(aw.id)" class="px-3 py-1 text-xs bg-red-500/80 hover:bg-red-500 text-white rounded-lg">Eliminar</button>
+                                </div>
+                              </div>
+                            </div>
+
+                          </div>
+                        </div>
+                      </div>
+
               </button>
             </div>
           </div>

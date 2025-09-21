@@ -404,12 +404,21 @@ end
 
 
 function GetClosestRoad(coords)
+    if not coords or type(coords) ~= "vector3" then
+        print("[BikeRent] Error: GetClosestRoad received invalid coords:", coords)
+        return nil
+    end
+    
     local roadFound, roadCoords = GetClosestVehicleNode(coords.x, coords.y, coords.z, 0, 3.0, 0)
     
-    if roadFound then
-        return roadCoords
+    if roadFound and roadCoords then
+        if type(roadCoords) == "vector3" then
+            return roadCoords
+        else
+            return vector3(roadCoords.x or roadCoords[1], roadCoords.y or roadCoords[2], roadCoords.z or roadCoords[3])
+        end
     else
-        return coords 
+        return nil 
     end
 end
 

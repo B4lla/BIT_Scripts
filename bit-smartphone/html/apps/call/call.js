@@ -56,13 +56,30 @@ const Call = {
         console.warn('[Call] No call data received, closing...');
         this.handleCallEnd();
       }
-    }, 5000);
-    
-    window.callComponent = {
-      handleMessage: this.handleMessage
-    };
+    }, 10000);
+
+    try {
+      window.callComponent = {
+        handleMessage: this.handleMessage
+      };
+      window.__previous_bit_dispatch = window.__bit_dispatch;
+      window.__bit_dispatch = this.handleMessage;
+    } catch (e) {
+      console.error('[Call] Error setting temporary dispatcher:', e);
+    }
   },
   beforeUnmount() {
+    try {
+      if (window.__previous_bit_dispatch !== undefined) {
+        window.__bit_dispatch = window.__previous_bit_dispatch;
+        delete window.__previous_bit_dispatch;
+      } else if (window.__bit_dispatch === this.handleMessage) {
+        delete window.__bit_dispatch;
+      }
+    } catch (e) {
+      console.error('[Call] Error restoring dispatcher:', e);
+    }
+
     if (window.callComponent) {
       delete window.callComponent;
     }

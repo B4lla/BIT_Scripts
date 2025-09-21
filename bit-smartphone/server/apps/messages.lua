@@ -152,7 +152,7 @@ AddEventHandler('bit-smartphone:server:createChat', function(contactNumber, cont
     if not identifier or not contactNumber or not contactName then return end
     
     local profilePicture = SqlFunc(Config.Mysql, 'fetchScalar', 
-        'SELECT profile_picture FROM bit_phone WHERE user = @number LIMIT 1', 
+        'SELECT profile_picture FROM bit_phone WHERE phone_number = @number LIMIT 1', 
         {['@number']=contactNumber}
     ) or './assets/avatars/default.png'
     
@@ -162,7 +162,7 @@ AddEventHandler('bit-smartphone:server:createChat', function(contactNumber, cont
     )
     
     local rows = SqlFunc(Config.Mysql, 'fetchAll', 
-        'SELECT c.*, COALESCE(p.profile_picture, "./assets/avatars/default.png") as profile_pic FROM bit_phone_contacts c LEFT JOIN bit_phone p ON c.number = p.user WHERE c.user = @u', 
+        'SELECT c.*, COALESCE(p.profile_picture, "./assets/avatars/default.png") as profile_pic FROM bit_phone_contacts c LEFT JOIN bit_phone p ON (c.number = p.phone_number OR c.number = p.user) WHERE c.user = @u ORDER BY c.name ASC', 
         {['@u']=identifier}
     )
     local formatted = {}
@@ -182,7 +182,7 @@ if Config.Framework == "esx" then
         local identifier = getIdentifier(source)
         if not identifier then return cb({}) end
         local contacts = SqlFunc(Config.Mysql, 'fetchAll', 
-            'SELECT c.*, COALESCE(p.profile_picture, "./assets/avatars/default.png") as profile_pic FROM bit_phone_contacts c LEFT JOIN bit_phone p ON c.number = p.user WHERE c.user = @identifier', 
+            'SELECT c.*, COALESCE(p.profile_picture, "./assets/avatars/default.png") as profile_pic FROM bit_phone_contacts c LEFT JOIN bit_phone p ON (c.number = p.phone_number OR c.number = p.user) WHERE c.user = @identifier ORDER BY c.name ASC', 
             {['@identifier'] = identifier}
         )
         local formattedContacts = {}
@@ -331,7 +331,7 @@ elseif Config.Framework == "qb" or Config.Framework == "qbox" then
         local identifier = getIdentifier(source)
         if not identifier then return cb({}) end
         local contacts = SqlFunc(Config.Mysql, 'fetchAll', 
-            'SELECT c.*, COALESCE(p.profile_picture, "./assets/avatars/default.png") as profile_pic FROM bit_phone_contacts c LEFT JOIN bit_phone p ON c.number = p.user WHERE c.user = @identifier', 
+            'SELECT c.*, COALESCE(p.profile_picture, "./assets/avatars/default.png") as profile_pic FROM bit_phone_contacts c LEFT JOIN bit_phone p ON (c.number = p.phone_number OR c.number = p.user) WHERE c.user = @identifier ORDER BY c.name ASC', 
             {['@identifier'] = identifier}
         )
         local formattedContacts = {}

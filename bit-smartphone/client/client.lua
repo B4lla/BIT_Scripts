@@ -1,25 +1,44 @@
--- NUI callback para traducciones
 RegisterNUICallback(
     "getTranslations",
     function(data, cb)
+        DebugPrint("CLIENT", "Getting translations", {requested_lang = data.lang or "default"})
         local lang = Config.Language or "es"
         if PhoneMessages and PhoneMessages[lang] then
+            DebugPrint("CLIENT", "Translations found for language", lang)
             cb(PhoneMessages[lang])
         else
+            DebugPrint("CLIENT", "Fallback to English translations", {has_phone_messages = PhoneMessages ~= nil})
             cb(PhoneMessages and PhoneMessages["en"] or {})
         end
     end
 )
+
+local _TriggerServerEvent = TriggerServerEvent
 local phoneOpen = false
 local phoneProp = 0
 local canUsePhone = true
 local flashlightActive = false
+local lastPhoneToggle = 0
+local isPhoneTransitioning = false
 local flashlightRange = 15.0
 local flashlightBrightness = 2.0
 local flashlightAngle = 45.0
 local isConnected = true
 local signalStrength = 4
+local networkType = "5G"
 local pendingCommunications = {outgoing = {}, incoming = {}}
+
+function GetNetworkStatus()
+    return {
+        isConnected = isConnected,
+        signalStrength = signalStrength,
+        networkType = networkType
+    }
+end
+
+function IsPhoneConnected()
+    return isConnected and signalStrength > 0
+end
 
 local function interceptCommunication(type, event, data, callback)
     if not isConnected or signalStrength == 0 then
@@ -39,7 +58,7 @@ local function interceptCommunication(type, event, data, callback)
     end
 
     if type == "server_event" then
-        TriggerServerEvent(event, table.unpack(data))
+        _TriggerServerEvent(event, table.unpack(data))
     elseif type == "server_callback" then
         if Config.Framework == "esx" then
             ESX.TriggerServerCallback(event, callback, table.unpack(data))
@@ -60,7 +79,7 @@ local function processPendingCommunications()
         if comm.retries < 3 then
             comm.retries = comm.retries + 1
             if comm.type == "server_event" then
-                TriggerServerEvent(comm.event, table.unpack(comm.data))
+                _TriggerServerEvent(comm.event, table.unpack(comm.data))
                 PhoneNotify("phone.messageSent", {}, "system")
             elseif comm.type == "server_callback" then
                 if Config.Framework == "esx" then
@@ -87,7 +106,6 @@ local function processPendingCommunications()
     end
 end
 
-local _TriggerServerEvent = TriggerServerEvent
 TriggerServerEvent = function(event, ...)
     local phoneEvents = {
         "bit-smartphone:",
@@ -153,19 +171,43 @@ local function phoneAnimation()
 end
 
 local function openPhone()
+    DebugPrint("CLIENT", "Attempting to open phone")
+    local playerPed = PlayerPedId()
+    
+    if IsPedDeadOrDying(playerPed, true) or IsPedBeingStunned(playerPed, 0) then
+        DebugPrint("CLIENT", "Phone open blocked - player dead or stunned")
+        return
+    end
+    
+    local currentTime = GetGameTimer()
+    if Config.PhoneCooldown.enabled and currentTime - lastPhoneToggle < Config.PhoneCooldown.openCooldown then
+        DebugPrint("CLIENT", "Phone open blocked - cooldown active", {time_left = Config.PhoneCooldown.openCooldown - (currentTime - lastPhoneToggle)})
+        PhoneNotify("phone.phoneInUse", {}, "system")
+        return
+    end
+    
     if not canUsePhone then
+        DebugPrint("CLIENT", "Phone open blocked - phone disabled")
         PhoneNotify("phone.phoneDisabled", {}, "system")
         return
     end
-    if phoneOpen then
+    
+    if phoneOpen or isPhoneTransitioning then
+        DebugPrint("CLIENT", "Phone open blocked - already open or transitioning", {phoneOpen = phoneOpen, isTransitioning = isPhoneTransitioning})
         return
     end
 
+    DebugPrint("CLIENT", "Starting phone transition")
+    isPhoneTransitioning = true
+    lastPhoneToggle = currentTime
+
     if phoneProp ~= 0 and DoesEntityExist(phoneProp) then
+        DebugPrint("CLIENT", "Deleting existing phone prop", {entity = phoneProp})
         DeleteObject(phoneProp)
         phoneProp = 0
     end
 
+    DebugPrint("CLIENT", "Setting phone open state and starting animation")
     phoneOpen = true
     phoneAnimation()
     SetNuiFocus(true, true)
@@ -180,15 +222,47 @@ local function openPhone()
     )
 
     if Config.Framework == "esx" then
+        DebugPrint("CLIENT", "Loading phone data via ESX callback")
         ESX.TriggerServerCallback(
             "bit-smartphone:loadData",
             function(data)
+                DebugPrint("CLIENT", "Phone data loaded", {has_data = data ~= nil})
                 data = data or {}
+                
+                if data.battery_level and type(data.battery_level) == "number" then
+                    currentBatteryLevel = math.max(0, math.min(100, data.battery_level))
+                    DebugPrint("CLIENT", "Battery level loaded from DB", {level = currentBatteryLevel})
+                else
+                    currentBatteryLevel = 85 
+                    DebugPrint("CLIENT", "Using default battery level", {level = currentBatteryLevel})
+                end
+                
+                DebugPrint("CLIENT", "Loading photos via callback")
                 ESX.TriggerServerCallback(
                     "bit-smartphone:photos:loadPhotos",
                     function(photos)
+                        DebugPrint("CLIENT", "Photos loaded", {photo_count = photos and #photos or 0})
                         data.photos = photos or {}
-                        SendNUIMessage({type = "openPhone", data = data})
+                        
+                        DebugPrint("CLIENT", "Loading persistent notifications via callback")
+                        ESX.TriggerServerCallback(
+                            "bit-smartphone:getNotifications",
+                            function(notifications)
+                                DebugPrint("CLIENT", "Persistent notifications loaded", {notification_count = notifications and #notifications or 0})
+                                data.notifications = notifications or {}
+                                
+                                DebugPrint("CLIENT", "Sending openPhone message to NUI")
+                                if Config.debugMode then
+                                SendNUIMessage({type = "enableDebugMode"})
+                                end
+                                SendNUIMessage({type = "openPhone", data = data})
+                                
+                                SetTimeout(500, function()
+                                    DebugPrint("CLIENT", "Phone transition completed")
+                                    isPhoneTransitioning = false
+                                end)
+                            end
+                        )
                     end
                 )
             end
@@ -198,11 +272,29 @@ local function openPhone()
             "bit-smartphone:loadData",
             function(data)
                 data = data or {}
+                
+                if data.battery_level and type(data.battery_level) == "number" then
+                    currentBatteryLevel = math.max(0, math.min(100, data.battery_level))
+                else
+                    currentBatteryLevel = 85 
+                end
+                
                 QBCore.Functions.TriggerCallback(
                     "bit-smartphone:photos:loadPhotos",
                     function(photos)
                         data.photos = photos or {}
-                        SendNUIMessage({action = "openPhone", data = data})
+                        
+                        QBCore.Functions.TriggerCallback(
+                            "bit-smartphone:getNotifications",
+                            function(notifications)
+                                data.notifications = notifications or {}
+                                SendNUIMessage({action = "openPhone", data = data})
+                                
+                                SetTimeout(500, function()
+                                    isPhoneTransitioning = false
+                                end)
+                            end
+                        )
                     end
                 )
             end
@@ -258,7 +350,6 @@ local function togglePhoneFlashlight(state, range, brightness, angle)
     flashlightRange = range or Config.Flashlight.maxRange
     flashlightBrightness = brightness or Config.Flashlight.brightness
     flashlightAngle = angle or Config.Flashlight.angle
-    print("ACTIVAR LINTERNA")
     if flashlightActive then
         CreateThread(
             function()
@@ -315,7 +406,7 @@ end
 RegisterNUICallback(
     "bit-smartphone:toggleFlashlight",
     function(data, cb)
-        print("[bit-smartphone] NUI toggleFlashlight recibido:", json.encode(data))
+        DebugPrint("CLIENT", "Toggling flashlight", {state = data.state, range = data.range, brightness = data.brightness, angle = data.angle})
         togglePhoneFlashlight(data.state, data.range, data.brightness, data.angle)
         cb("ok")
     end
@@ -406,6 +497,14 @@ end
 RegisterNUICallback(
     "bit-smartphone:closePhone",
     function(data, cb)
+        local currentTime = GetGameTimer()
+        if Config.PhoneCooldown.enabled and currentTime - lastPhoneToggle < Config.PhoneCooldown.closeCooldown then
+            if cb then cb("cooldown") end
+            return
+        end
+        
+        isPhoneTransitioning = true
+        lastPhoneToggle = currentTime
         phoneOpen = false
         SetNuiFocus(false, false)
         TriggerServerEvent("bit-smartphone:saveData", data)
@@ -435,6 +534,10 @@ RegisterNUICallback(
             DeleteObject(phoneProp)
             phoneProp = 0
         end
+
+        SetTimeout(200, function()
+            isPhoneTransitioning = false
+        end)
 
         if cb then
             cb("ok")
@@ -492,19 +595,11 @@ if not SaveContactResultHandlerRegistered then
 end
 
 local currentBatteryLevel = 85
-local networkType = "5G"
+local batteryDrainActive = false
+local currentApp = nil
+local lastBatterySave = GetGameTimer()
 
-local lowSignalZones = {
-    {coords = vector3(136.0, -761.0, 242.0), radius = 100.0, strength = 1},
-    {coords = vector3(-2203.0, 4244.0, 47.0), radius = 150.0, strength = 1},
-    {coords = vector3(-1087.0, -2187.0, 13.0), radius = 200.0, strength = 0},
-    {coords = vector3(715.0, 4165.0, 40.0), radius = 100.0, strength = 2},
-    {coords = vector3(1728.0, 3308.0, 41.0), radius = 80.0, strength = 1},
-    {coords = vector3(-75.0, -827.0, 243.0), radius = 50.0, strength = 2},
-    {coords = vector3(-1375.0, -499.0, 33.0), radius = 40.0, strength = 1},
-    {coords = vector3(-1350.0, 4394.0, 182.0), radius = 120.0, strength = 1},
-    {coords = vector3(2868.0, 4627.0, 48.0), radius = 100.0, strength = 2}
-}
+
 
 Citizen.CreateThread(
     function()
@@ -512,15 +607,21 @@ Citizen.CreateThread(
             Wait(5000)
             local playerPed = PlayerPedId()
             local playerCoords = GetEntityCoords(playerPed)
-            local newSignalStrength = 4
-            local newNetworkType = "5G"
+            local newSignalStrength = Config.Network.baseSignalStrength
+            local newNetworkType = ""
+            local closestTowerDistance = Config.Network.maxDistance
 
-            for _, zone in pairs(lowSignalZones) do
-                local distance = #(playerCoords - zone.coords)
-                if distance <= zone.radius then
-                    local signalReduction = math.max(0, (zone.radius - distance) / zone.radius)
-                    local zoneSignal = math.floor(zone.strength + (4 - zone.strength) * (1 - signalReduction))
-                    newSignalStrength = math.min(newSignalStrength, zoneSignal)
+            if Config.Network.enabled then
+                for _, tower in pairs(Config.Network.towers) do
+                    local distance = #(playerCoords - tower.coords)
+                    if distance <= tower.range then
+                        if distance < closestTowerDistance then
+                            closestTowerDistance = distance
+                            local signalPercent = 1.0 - (distance / tower.range)
+                            newSignalStrength = math.floor(signalPercent * 4) + 1
+                            newSignalStrength = math.max(1, math.min(4, newSignalStrength))
+                        end
+                    end
                 end
             end
 
@@ -531,16 +632,15 @@ Citizen.CreateThread(
 
             if underwater then
                 newSignalStrength = 0
-                newNetworkType = ""
-            elseif altitude > 300 then
-                newSignalStrength = math.max(1, newSignalStrength - 1)
+            elseif altitude > 500 then
+                newSignalStrength = math.max(0, newSignalStrength - 2)
             elseif inBuilding then
-                newSignalStrength = math.max(1, newSignalStrength - 1)
+                newSignalStrength = math.max(0, newSignalStrength - 1)
             elseif inVehicle then
                 local vehicle = GetVehiclePedIsIn(playerPed, false)
                 local vehicleClass = GetVehicleClass(vehicle)
-                if vehicleClass == 15 or vehicleClass == 16 then
-                    newSignalStrength = math.min(4, newSignalStrength + 1)
+                if vehicleClass == 8 or vehicleClass == 13 or vehicleClass == 14 then
+                    newSignalStrength = math.max(0, newSignalStrength - 1)
                 end
             end
 
@@ -579,6 +679,51 @@ Citizen.CreateThread(
     end
 )
 
+Citizen.CreateThread(function()
+    while true do
+        Wait(60000) 
+        
+        if Config.Battery.enabled and batteryDrainActive and currentBatteryLevel > 0 then
+            local drainAmount = Config.Battery.baseDrainRate
+            
+            if currentApp and Config.Battery.appConsumption[currentApp] then
+                drainAmount = drainAmount + Config.Battery.appConsumption[currentApp]
+            end
+            
+            local newLevel = math.max(0, currentBatteryLevel - drainAmount)
+            
+            if newLevel ~= currentBatteryLevel then
+                currentBatteryLevel = newLevel
+                SendNUIMessage({action = "updateBattery", battery = currentBatteryLevel})
+                
+                if currentBatteryLevel <= Config.Battery.criticalBatteryLevel and currentBatteryLevel > 0 then
+                    PhoneNotify("battery.critical", {currentBatteryLevel}, "system")
+                elseif currentBatteryLevel <= Config.Battery.lowBatteryWarning and currentBatteryLevel > Config.Battery.criticalBatteryLevel then
+                    PhoneNotify("battery.low", {currentBatteryLevel}, "system")
+                end
+                
+                if currentBatteryLevel <= Config.Battery.autoShutdownLevel then
+                    PhoneNotify("battery.shutdown", {}, "system")
+                    SetTimeout(3000, function()
+                        if phoneOpen then
+                            phoneOpen = false
+                            SetNuiFocus(false, false)
+                            SendNUIMessage({action = "closePhone"})
+                        end
+                        batteryDrainActive = false
+                    end)
+                end
+                
+                local currentTime = GetGameTimer()
+                if currentTime - lastBatterySave > 300000 or currentBatteryLevel <= 10 then
+                    TriggerServerEvent("bit-smartphone:server:saveBattery", currentBatteryLevel)
+                    lastBatterySave = currentTime
+                end
+            end
+        end
+    end
+end)
+
 Citizen.CreateThread(
     function()
         while true do
@@ -600,6 +745,8 @@ AddEventHandler(
     function(newLevel)
         currentBatteryLevel = math.max(0, math.min(100, newLevel))
         SendNUIMessage({action = "updateBattery", battery = currentBatteryLevel})
+        
+        TriggerServerEvent("bit-smartphone:server:saveBattery", currentBatteryLevel)
     end
 )
 
@@ -739,20 +886,33 @@ function PhoneNotify(messageKey, params, appId)
     local messages = PhoneMessages[lang] or PhoneMessages["en"]
     local message = messages[messageKey] or messageKey
 
-    if params then
-        message = string.format(message, table.unpack(params))
+    if not message or type(message) ~= "string" then
+        message = messageKey or "Unknown message"
     end
 
-    SendNUIMessage(
-        {
-            action = "receiveNotification",
-            appId = appId or "system",
-            message = message,
-            type = "info",
-            time = 5000,
-            timestamp = GetGameTimer()
-        }
-    )
+    if params and type(params) == "table" and #params > 0 and string.find(message, "%%") then
+        local ok, formatted = pcall(string.format, message, table.unpack(params))
+        if ok then
+            message = formatted
+        else
+            print("[BIT-Smartphone] Error formatting message:", messageKey, "Message:", message, "Params:", json.encode(params))
+        end
+    end
+
+    local app = appId or "system"
+    if type(app) == "string" and app ~= "system" then
+        TriggerServerEvent('bit-smartphone:proxyLegacyNotification', app, message)
+        return
+    end
+
+    SendNUIMessage({
+        action = "receiveNotification",
+        appId = app,
+        message = message,
+        type = "info",
+        time = 5000,
+        timestamp = GetGameTimer()
+    })
 end
 
 RegisterNetEvent("bit-smartphone:requestSaveBeforeDisconnect")
@@ -774,7 +934,7 @@ AddEventHandler(
 RegisterNUICallback(
     "bit-smartphone:savePhoneData",
     function(data, cb)
-        TriggerEvent("bit-smartphone:saveData", data)
+        TriggerServerEvent("bit-smartphone:saveData", data)
         cb("ok")
     end
 )
@@ -877,14 +1037,6 @@ RegisterNUICallback(
 )
 
 RegisterNUICallback(
-    "bit-smartphone:saveCompleted",
-    function(data, cb)
-        TriggerServerEvent("bit-smartphone:saveCompleted", data)
-        cb("ok")
-    end
-)
-
-RegisterNUICallback(
     "getUserProfile",
     function(data, cb)
         TriggerServerEvent("bit-smartphone:getUserProfile")
@@ -974,7 +1126,94 @@ local function cleanupPhone()
         phoneOpen = false
         SetNuiFocus(false, false)
     end
+    
+    isPhoneTransitioning = false
+    lastPhoneToggle = 0
 end
+
+RegisterNUICallback("phoneOpened", function(data, cb)
+    batteryDrainActive = true
+    currentApp = nil
+    cb("ok")
+end)
+
+RegisterNUICallback("phoneClosed", function(data, cb)
+    batteryDrainActive = false
+    currentApp = nil
+    TriggerServerEvent("bit-smartphone:server:saveBattery", currentBatteryLevel)
+    cb("ok")
+end)
+
+RegisterNUICallback("appChanged", function(data, cb)
+    if data and data.appId then
+        currentApp = data.appId
+    else
+        currentApp = nil
+    end
+    cb("ok")
+end)
+
+RegisterNUICallback("bit-smartphone:dismissNotification", function(data, cb)
+    DebugPrint("CLIENT", "Dismissing notification", {id = data.notificationId})
+    
+    if Config.Framework == "esx" then
+        ESX.TriggerServerCallback("bit-smartphone:dismissNotification", function(success)
+            cb({success = success})
+        end, data.notificationId)
+    elseif Config.Framework == "qb" or Config.Framework == "qbox" then
+        QBCore.Functions.TriggerCallback("bit-smartphone:dismissNotification", function(success)
+            cb({success = success})
+        end, data.notificationId)
+    end
+end)
+
+RegisterNUICallback("bit-smartphone:markNotificationRead", function(data, cb)
+    DebugPrint("CLIENT", "Marking notification as read", {id = data.notificationId})
+    
+    if Config.Framework == "esx" then
+        ESX.TriggerServerCallback("bit-smartphone:markNotificationRead", function(success)
+            cb({success = success})
+        end, data.notificationId)
+    elseif Config.Framework == "qb" or Config.Framework == "qbox" then
+        QBCore.Functions.TriggerCallback("bit-smartphone:markNotificationRead", function(success)
+            cb({success = success})
+        end, data.notificationId)
+    end
+end)
+
+RegisterNUICallback("bit-smartphone:clearAllNotifications", function(data, cb)
+    DebugPrint("CLIENT", "Clearing all notifications")
+    
+    if Config.Framework == "esx" then
+        ESX.TriggerServerCallback("bit-smartphone:clearAllNotifications", function(success)
+            cb({success = success})
+        end)
+    elseif Config.Framework == "qb" or Config.Framework == "qbox" then
+        QBCore.Functions.TriggerCallback("bit-smartphone:clearAllNotifications", function(success)
+            cb({success = success})
+        end)
+    end
+end)
+
+RegisterNUICallback("bit-smartphone:saveNotification", function(data, cb)
+    DebugPrint("CLIENT", "Saving notification", data)
+    if not data or type(data) ~= "table" then
+        cb({ success = false, error = "invalid_payload" })
+        return
+    end
+
+    if Config.Framework == "esx" then
+        ESX.TriggerServerCallback("bit-smartphone:saveNotification", function(result)
+            cb(result or { success = false })
+        end, data)
+    elseif Config.Framework == "qb" or Config.Framework == "qbox" then
+        QBCore.Functions.TriggerCallback("bit-smartphone:saveNotification", function(result)
+            cb(result or { success = false })
+        end, data)
+    else
+        cb({ success = false, error = "unsupported_framework" })
+    end
+end)
 
 AddEventHandler(
     "onResourceStop",
@@ -993,3 +1232,20 @@ AddEventHandler(
         end
     end
 )
+
+CreateThread(function()
+    while true do
+        Wait(5000) 
+        
+        if isPhoneTransitioning and (GetGameTimer() - lastPhoneToggle) > Config.PhoneCooldown.maxTransitionTime then
+            print("[BIT-Smartphone] Resetting stuck phone transition")
+            isPhoneTransitioning = false
+            
+            if phoneOpen then
+                phoneOpen = false
+                SetNuiFocus(false, false)
+                print("[BIT-Smartphone] Force closed stuck phone")
+            end
+        end
+    end
+end)

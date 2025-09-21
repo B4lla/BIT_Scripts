@@ -601,3 +601,6 @@ const Pacman = {
     </div>
   `
 }
+
+window.Pacman = Pacman;
+window.Pacman = window.Pacman || Pacman;
