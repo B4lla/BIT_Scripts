@@ -122,11 +122,9 @@ const AppSwitcher = {
 
 		t() {
 			return (key, params = {}) => {
-				 1. Buscar en phoneTranslations (backend)
 				if (window.phoneTranslations && window.phoneTranslations[key]) {
 					return window.phoneTranslations[key];
 				}
-				 2. Buscar en translations (frontend/local)
 				const lang = (window.setupData && window.setupData.language) || "es";
 				if (window.translations && window.translations[lang]) {
 					const value = key.split(".").reduce((obj, k) => obj && obj[k], window.translations[lang]);
@@ -135,7 +133,6 @@ const AppSwitcher = {
 					}
 					if (value) return value;
 				}
-				 3. Retornar la clave si no se encuentra
 				return key;
 			};
 		},
@@ -144,7 +141,6 @@ const AppSwitcher = {
 		visible(newVal) {
 			if (newVal && this.openAppsWithData.length > 0) {
 				this.$nextTick(() => {
-					 Use openAppsWithData length to keep index in-sync with filtered apps
 					this.currentIndex = Math.min(this.openAppsWithData.length - 1, Math.max(0, this.currentIndex));
 					this.offsetX = 0;
 					this.startLockTimer();
