@@ -10,15 +10,15 @@ Config, Noti, Lang = {}, {}, {}
 -- \______/  \______/ \__|  \__|\__|      \______| \______/  \______/ \__|  \__|\__|  \__|  \__|   \______| \______/ \__|  \__|
 
 -- Framework used by the server (esx | qb | qbox)
-Config.Framework = "esx"
+Config.Framework = "qb"
 -- MySQL library used (oxmysql | mysql-async | ghmattimysql)
 Config.Mysql = "oxmysql"
 -- Notifications library used (codem | okok | qb | esx)
-Config.Notifications = "codem"
+Config.Notifications = "qb"
 -- Language for notifications
-Config.Language = "es"
+Config.Language = "en"
 -- Debug mode for development and troubleshooting
-Config.debugMode = true
+Config.debugMode = false
 
 -- Debug function helper
 function DebugPrint(module, message, data)
@@ -27,7 +27,9 @@ function DebugPrint(module, message, data)
         local timestamp = "----"
         if type(os) == "table" and type(os.date) == "function" then
             local ok, t = pcall(os.date, "%H:%M:%S")
-            if ok and t then timestamp = t end
+            if ok and t then
+                timestamp = t
+            end
         else
             -- Try GetGameTimer as fallback (client-side native), convert to seconds
             if type(GetGameTimer) == "function" then
@@ -48,7 +50,9 @@ function DebugPrint(module, message, data)
                 local dataStr = nil
                 if type(json) == "table" and type(json.encode) == "function" then
                     local ok3, enc = pcall(json.encode, data)
-                    if ok3 and enc then dataStr = enc end
+                    if ok3 and enc then
+                        dataStr = enc
+                    end
                 end
                 if not dataStr then
                     dataStr = tostring(data)
@@ -162,7 +166,7 @@ Config.PhoneCooldown = {
 Config.PhotoProvider = "screenshot-basic"
 -- Discord webhook for logging (leave empty if FMSDK)
 Config.DiscordWebhook =
-    "https://discord.com/api/webhooks/1205255675362410517/iZhCsFFzxA0s-9_5cIsxe_CZ68rz1fMGyp1VgK4A1eKmiijNaQ-4zSKckOJ1LnaQyLYS"
+    "https://discord.com/api/webhooks/1362096355631431791/jaiE6Dq4_5zRr5eivlXiixtQmFBL_HUApicbZpXYNHGYeoHx-TpFwr7OZt4JhNIwqSA1"
 
 -- Network and Signal Configuration
 Config.Network = {
@@ -971,20 +975,26 @@ function GetWeatherData()
         inGameTime = "12:00",
         inGameDate = "Sábado, 16 de Septiembre"
     }
-    
+
     if Config.Weather.provider == "cd_easytime" then
-        if GetResourceState('cd_easytime') == 'started' then
-            local success, time = pcall(function()
-                return exports['cd_easytime']:GetTime()
-            end)
+        if GetResourceState("cd_easytime") == "started" then
+            local success, time =
+                pcall(
+                function()
+                    return exports["cd_easytime"]:GetTime()
+                end
+            )
             if success and time then
                 weatherData.inGameTime = string.format("%02d:%02d", time.hour or 12, time.minute or 0)
                 weatherData.inGameDate = time.date or weatherData.inGameDate
             end
-            
-            local weatherSuccess, weather = pcall(function()
-                return exports['cd_easytime']:GetWeather()
-            end)
+
+            local weatherSuccess, weather =
+                pcall(
+                function()
+                    return exports["cd_easytime"]:GetWeather()
+                end
+            )
             if weatherSuccess and weather then
                 weatherData.condition = weather.type or weatherData.condition
                 weatherData.temperature = weather.temperature or weatherData.temperature
@@ -993,7 +1003,7 @@ function GetWeatherData()
             end
         end
     end
-    
+
     return weatherData
 end
 
@@ -1005,12 +1015,12 @@ function GetPlayerLocationData(playerId)
     local crossingName = crossingHash ~= 0 and GetStreetNameFromHashKey(crossingHash) or ""
     local zoneName = GetLabelText(GetNameOfZone(coords.x, coords.y, coords.z))
     local heading = GetEntityHeading(playerPed)
-    
+
     local fullStreet = streetName
     if crossingName and crossingName ~= "" then
         fullStreet = streetName .. " / " .. crossingName
     end
-    
+
     return {
         street = fullStreet ~= "" and fullStreet or "Ubicación desconocida",
         zone = zoneName ~= "ZONE_UNK" and zoneName or "Los Santos",

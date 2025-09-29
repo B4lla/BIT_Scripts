@@ -1,303 +1,285 @@
 const PhoneSetup = {
-  name: 'PhoneSetup',
-  props: {
-    t: {
-      type: Function,
-      required: true
-    },
-    setupData: {
-      type: Object,
-      required: true
-    },
-    wallpapers: {
-      type: Array,
-      default: () => [
-  "assets/wallpapers/wallpaper1.webp",
-  "assets/wallpapers/wallpaper2.webp",
-  "assets/wallpapers/wallpaper3.webp",
-  "assets/wallpapers/wallpaper4.webp",
-  "assets/wallpapers/wallpaper5.webp"
-      ]
-    },
-    callSounds: {
-      type: Array,
-      default: () => [
-        { name: "setup.sounds.classic", url: "assets/sounds/calls/1.mp3" },
-        { name: "setup.sounds.modern", url: "assets/sounds/calls/2.mp3" },
-        { name: "Digital", url: "assets/sounds/calls/3.mp3" },
-        { name: "Suave", url: "assets/sounds/calls/4.mp3" },
-        { name: "Vibrante", url: "assets/sounds/calls/5.mp3" }
-      ]
-    },
-    notificationSounds: {
-      type: Array,
-      default: () => [
-        { name: "Ping", url: "assets/sounds/notifications/1.mp3" },
-        { name: "Chime", url: "assets/sounds/notifications/2.mp3" },
-        { name: "Ding", url: "assets/sounds/notifications/3.mp3" },
-        { name: "Pop", url: "assets/sounds/notifications/4.mp3" },
-        { name: "Bell", url: "assets/sounds/notifications/5.mp3" }
-      ]
-    }
-  },
-  emits: {
-    'update-setup': (key, value) => typeof key === 'string',
-    'complete': () => true
-  },
-  data() {
-    const availableLangs = Object.keys(translations).map(id => ({
-      id,
-      name: translations[id]?.language || id,
-      flag: id === 'es' ? '🇪🇸' : id === 'en' ? '🇺🇸' : id === 'fr' ? '🇫🇷' : id === 'de' ? '🇩🇪' : id === 'it' ? '🇮🇹' : '🏳️'
-    }));
-    return {
-      currentStep: 0,
-      isAnimating: false,
-      profileLinkInput: '',
-      predefinedPhotos: [
-        './assets/avatars/avatar1.png',
-        './assets/avatars/avatar2.png',
-        './assets/avatars/avatar3.png',
-        './assets/avatars/avatar4.png',
-        './assets/avatars/avatar5.png',
-        './assets/avatars/avatar6.png'
-      ],
-      availableLanguages: availableLangs,
-      availableFonts: [
-        {
-          id: 'system',
-          name: 'SF Pro Display',
-          category: 'system',
-          cssClass: 'font-system',
-          preview: 'Fuente del sistema iOS'
-        },
-        {
-          id: 'inter',
-          name: 'Inter',
-          category: 'modern',
-          cssClass: 'font-inter',
-          preview: 'Fuente moderna y legible'
-        },
-        {
-          id: 'roboto',
-          name: 'Roboto',
-          category: 'modern',
-          cssClass: 'font-roboto',
-          preview: 'Fuente limpia de Google'
-        },
-        {
-          id: 'poppins',
-          name: 'Poppins',
-          category: 'modern',
-          cssClass: 'font-poppins',
-          preview: 'Fuente moderna y elegante'
-        }
-      ],
-      fontCategories: [
-        { id: 'system', name: 'Sistema', icon: '📱' },
-        { id: 'modern', name: 'Modernas', icon: '✨' }
-      ],
-      steps: [
-        'welcome',
-        'language',
-        'appearance',
-        'wallpaper',
-        'profile',
-        'fontFamily',
-        'callSounds',
-        'notificationSounds',
-        'pin',
-        'complete'
-      ],
-      customCallSound: '',
-      customNotificationSound: '',
-      currentAudio: null
-    };
-  },
-  computed: {
-    backgroundClasses() {
-      return this.setupData.darkMode
-        ? 'from-gray-900 via-slate-900 to-black'
-        : 'from-gray-50 via-gray-100 to-gray-200';
-    },
-    textClasses() {
-      return this.setupData.darkMode ? 'text-white' : 'text-gray-900';
-    },
-    itemClasses() {
-      return this.setupData.darkMode
-        ? 'bg-white/10 border-white/10 hover:bg-white/20 backdrop-blur-xl'
-        : 'bg-white/80 border-white/40 hover:bg-white/90 backdrop-blur-xl shadow-lg';
-    },
-    currentStepName() {
-      return this.steps[this.currentStep];
-    },
-    isLastSetupStep() {
-      return this.currentStep === this.steps.indexOf('pin');
-    },
-    canContinue() {
-      switch(this.currentStepName) {
-        case 'pin':
-          return this.setupData.pin && this.setupData.pin.length === 4;
-        case 'profile':
-          return this.setupData.userName && this.setupData.userName.trim().length > 0;
-        default:
-          return true;
-      }
-    },
-    progressPercentage() {
-      return ((this.currentStep + 1) / this.steps.length) * 100;
-    }
-  },
-  watch: {
-    'setupData.wallpaper': {
-      handler(newWallpaper) {
-        if (newWallpaper) {
-          this.applyWallpaper(newWallpaper);
-        }
-      },
-      immediate: true
-    },
-    'setupData.fontFamily': {
-      handler(newFont) {
-        if (newFont) {
-          this.applyFont(newFont);
-        }
-      },
-      immediate: true
-    }
-  },
-  mounted() {
-    
-    if (this.setupData.wallpaper) {
-      this.applyWallpaper(this.setupData.wallpaper);
-    }
-    if (this.setupData.fontFamily) {
-      this.applyFont(this.setupData.fontFamily);
-    }
-  },
-  beforeUnmount() {
-    
-    if (this.currentAudio) {
-      this.currentAudio.pause();
-      this.currentAudio = null;
-    }
-  },
-  methods: {
-    getAssetUrl(path) {
-      return path; 
-    },
-    updateSetupData(key, value) {
-      this.$emit('update-setup', key, value);
-    },
-    applyWallpaper(wallpaper) {
-      const phoneElement = document.querySelector('.phone-container') || document.querySelector('.phone-app');
-      if (phoneElement && wallpaper) {
-        phoneElement.style.backgroundImage = `url('${wallpaper}')`;
-        phoneElement.style.backgroundSize = 'cover';
-        phoneElement.style.backgroundPosition = 'center';
-      }
-    },
-    applyFont(fontId) {
-      const fontValue = this.getFontFamilyValue(fontId);
-      const phoneElement = document.querySelector('.phone-container') || document.querySelector('.phone-app') || document.body;
-      if (phoneElement) {
-        phoneElement.style.fontFamily = fontValue;
-      }
-      
-      const setupElement = this.$el;
-      if (setupElement) {
-        setupElement.style.fontFamily = fontValue;
-      }
-    },
-    nextStep() {
-      if (!this.canContinue || this.isAnimating) return;
-      if (this.currentStepName === 'complete') {
-        this.completeSetup();
-        return;
-      }
-      this.isAnimating = true;
-      setTimeout(() => {
-        if (this.currentStep < this.steps.length - 1) {
-          this.currentStep++;
-        }
-        this.isAnimating = false;
-      }, 300); 
-    },
-    prevStep() {
-      if (this.currentStep === 0 || this.isAnimating) return;
-      this.isAnimating = true;
-      setTimeout(() => {
-        this.currentStep--;
-        this.isAnimating = false;
-      }, 300);
-    },
-    completeSetup() {
-      setTimeout(() => {
-        this.$emit('complete');
-      }, 500);
-    },
-    selectPhoto(photo) {
-      const newPhoto = this.setupData.userPhoto === photo ? null : photo;
-      this.updateSetupData('userPhoto', newPhoto);
-    },
-    setPhotoFromLink() {
-      if (this.profileLinkInput && this.profileLinkInput.startsWith('http')) {
-        this.updateSetupData('userPhoto', this.profileLinkInput);
-      }
-    },
-    addPinDigit(digit) {
-      const currentPin = this.setupData.pin || '';
-      if (currentPin.length < 4) {
-        this.updateSetupData('pin', currentPin + digit);
-      }
-    },
-    removePinDigit() {
-      const currentPin = this.setupData.pin || '';
-      if (currentPin.length > 0) {
-        this.updateSetupData('pin', currentPin.slice(0, -1));
-      }
-    },
-    selectFont(fontId) {
-      this.updateSetupData('fontFamily', fontId);
-    },
-    getFontsByCategory(categoryId) {
-      return this.availableFonts.filter(font => font.category === categoryId);
-    },
-    getSelectedFont() {
-      return this.availableFonts.find(font => font.id === this.setupData.fontFamily) || this.availableFonts[0];
-    },
-    getFontFamilyValue(fontId) {
-      const font = this.availableFonts.find(f => f.id === fontId);
-      if (!font) return '"SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      
-      switch(fontId) {
-        case 'system': return '"SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        case 'inter': return '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        case 'roboto': return '"Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        case 'poppins': return '"Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-        default: return '"SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-      }
-    },
-    applyFont(fontId) {
-      const fontValue = this.getFontFamilyValue(fontId);
-      
-      
-      const phoneApp = document.querySelector('.phone-app') || document.querySelector('#phoneApp');
-      if (phoneApp) {
-        phoneApp.style.fontFamily = fontValue;
-      }
-      
-      
-      document.documentElement.style.setProperty('--phone-font-family', fontValue);
-      
-      let styleElement = document.getElementById('dynamic-phone-fonts');
-      if (!styleElement) {
-        styleElement = document.createElement('style');
-        styleElement.id = 'dynamic-phone-fonts';
-        document.head.appendChild(styleElement);
-      }
-      
-      styleElement.innerHTML = `
+	name: "PhoneSetup",
+	props: {
+		t: {
+			type: Function,
+			required: true,
+		},
+		setupData: {
+			type: Object,
+			required: true,
+		},
+		wallpapers: {
+			type: Array,
+			default: () => ["assets/wallpapers/wallpaper1.webp", "assets/wallpapers/wallpaper2.webp", "assets/wallpapers/wallpaper3.webp", "assets/wallpapers/wallpaper4.webp", "assets/wallpapers/wallpaper5.webp"],
+		},
+		callSounds: {
+			type: Array,
+			default: () => [
+				{ name: "setup.sounds.classic", url: "assets/sounds/calls/1.mp3" },
+				{ name: "setup.sounds.modern", url: "assets/sounds/calls/2.mp3" },
+				{ name: "Digital", url: "assets/sounds/calls/3.mp3" },
+				{ name: "Suave", url: "assets/sounds/calls/4.mp3" },
+				{ name: "Vibrante", url: "assets/sounds/calls/5.mp3" },
+			],
+		},
+		notificationSounds: {
+			type: Array,
+			default: () => [
+				{ name: "Ping", url: "assets/sounds/notifications/1.mp3" },
+				{ name: "Chime", url: "assets/sounds/notifications/2.mp3" },
+				{ name: "Ding", url: "assets/sounds/notifications/3.mp3" },
+				{ name: "Pop", url: "assets/sounds/notifications/4.mp3" },
+				{ name: "Bell", url: "assets/sounds/notifications/5.mp3" },
+			],
+		},
+	},
+	emits: {
+		"update-setup": (key, value) => typeof key === "string",
+		complete: () => true,
+	},
+	data() {
+		const availableLangs = Object.keys(translations).map((id) => ({
+			id,
+			name: translations[id]?.language || id,
+			flag: id === "es" ? "🇪🇸" : id === "en" ? "🇺🇸" : id === "fr" ? "🇫🇷" : id === "de" ? "🇩🇪" : id === "it" ? "🇮🇹" : "🏳️",
+		}));
+		return {
+			currentStep: 0,
+			isAnimating: false,
+			profileLinkInput: "",
+			predefinedPhotos: [
+				// Use free placeholder avatar images (pravatar.cc) when local assets are missing
+				// These return consistent avatar images by id (1..70)
+				"../../assets/avatars/1.png",
+				"../../assets/avatars/2.png",
+				"../../assets/avatars/3.png",
+				"../../assets/avatars/4.png",
+				"../../assets/avatars/5.png",
+				"../../assets/avatars/6.png",
+			],
+			availableLanguages: availableLangs,
+			availableFonts: [
+				{
+					id: "system",
+					name: "SF Pro Display",
+					category: "system",
+					cssClass: "font-system",
+					preview: "Fuente del sistema iOS",
+				},
+				{
+					id: "inter",
+					name: "Inter",
+					category: "modern",
+					cssClass: "font-inter",
+					preview: "Fuente moderna y legible",
+				},
+				{
+					id: "roboto",
+					name: "Roboto",
+					category: "modern",
+					cssClass: "font-roboto",
+					preview: "Fuente limpia de Google",
+				},
+				{
+					id: "poppins",
+					name: "Poppins",
+					category: "modern",
+					cssClass: "font-poppins",
+					preview: "Fuente moderna y elegante",
+				},
+			],
+			fontCategories: [
+				{ id: "system", name: "Sistema", icon: "📱" },
+				{ id: "modern", name: "Modernas", icon: "✨" },
+			],
+			steps: ["welcome", "language", "appearance", "wallpaper", "profile", "fontFamily", "callSounds", "notificationSounds", "pin", "complete"],
+			customCallSound: "",
+			customNotificationSound: "",
+			currentAudio: null,
+		};
+	},
+	computed: {
+		backgroundClasses() {
+			return this.setupData.darkMode ? "from-gray-900 via-slate-900 to-black" : "from-gray-50 via-gray-100 to-gray-200";
+		},
+		textClasses() {
+			return this.setupData.darkMode ? "text-white" : "text-gray-900";
+		},
+		itemClasses() {
+			return this.setupData.darkMode ? "bg-white/10 border-white/10 hover:bg-white/20 backdrop-blur-xl" : "bg-white/80 border-white/40 hover:bg-white/90 backdrop-blur-xl shadow-lg";
+		},
+		currentStepName() {
+			return this.steps[this.currentStep];
+		},
+		isLastSetupStep() {
+			return this.currentStep === this.steps.indexOf("pin");
+		},
+		canContinue() {
+			switch (this.currentStepName) {
+				case "pin":
+					return this.setupData.pin && this.setupData.pin.length === 4;
+				case "profile":
+					return this.setupData.userName && this.setupData.userName.trim().length > 0;
+				default:
+					return true;
+			}
+		},
+		progressPercentage() {
+			return ((this.currentStep + 1) / this.steps.length) * 100;
+		},
+	},
+	watch: {
+		"setupData.wallpaper": {
+			handler(newWallpaper) {
+				if (newWallpaper) {
+					this.applyWallpaper(newWallpaper);
+				}
+			},
+			immediate: true,
+		},
+		"setupData.fontFamily": {
+			handler(newFont) {
+				if (newFont) {
+					this.applyFont(newFont);
+				}
+			},
+			immediate: true,
+		},
+	},
+	mounted() {
+		if (this.setupData.wallpaper) {
+			this.applyWallpaper(this.setupData.wallpaper);
+		}
+		if (this.setupData.fontFamily) {
+			this.applyFont(this.setupData.fontFamily);
+		}
+	},
+	beforeUnmount() {
+		if (this.currentAudio) {
+			this.currentAudio.pause();
+			this.currentAudio = null;
+		}
+	},
+	methods: {
+		getAssetUrl(path) {
+			return path;
+		},
+		updateSetupData(key, value) {
+			this.$emit("update-setup", key, value);
+		},
+		applyWallpaper(wallpaper) {
+			const phoneElement = document.querySelector(".phone-container") || document.querySelector(".phone-app");
+			if (phoneElement && wallpaper) {
+				phoneElement.style.backgroundImage = `url('${wallpaper}')`;
+				phoneElement.style.backgroundSize = "cover";
+				phoneElement.style.backgroundPosition = "center";
+			}
+		},
+		applyFont(fontId) {
+			const fontValue = this.getFontFamilyValue(fontId);
+			const phoneElement = document.querySelector(".phone-container") || document.querySelector(".phone-app") || document.body;
+			if (phoneElement) {
+				phoneElement.style.fontFamily = fontValue;
+			}
+
+			const setupElement = this.$el;
+			if (setupElement) {
+				setupElement.style.fontFamily = fontValue;
+			}
+		},
+		nextStep() {
+			if (!this.canContinue || this.isAnimating) return;
+			if (this.currentStepName === "complete") {
+				this.completeSetup();
+				return;
+			}
+			this.isAnimating = true;
+			setTimeout(() => {
+				if (this.currentStep < this.steps.length - 1) {
+					this.currentStep++;
+				}
+				this.isAnimating = false;
+			}, 300);
+		},
+		prevStep() {
+			if (this.currentStep === 0 || this.isAnimating) return;
+			this.isAnimating = true;
+			setTimeout(() => {
+				this.currentStep--;
+				this.isAnimating = false;
+			}, 300);
+		},
+		completeSetup() {
+			setTimeout(() => {
+				this.$emit("complete");
+			}, 500);
+		},
+		selectPhoto(photo) {
+			const newPhoto = this.setupData.userPhoto === photo ? null : photo;
+			this.updateSetupData("userPhoto", newPhoto);
+		},
+		setPhotoFromLink() {
+			if (this.profileLinkInput && this.profileLinkInput.startsWith("http")) {
+				this.updateSetupData("userPhoto", this.profileLinkInput);
+			}
+		},
+		addPinDigit(digit) {
+			const currentPin = this.setupData.pin || "";
+			if (currentPin.length < 4) {
+				this.updateSetupData("pin", currentPin + digit);
+			}
+		},
+		removePinDigit() {
+			const currentPin = this.setupData.pin || "";
+			if (currentPin.length > 0) {
+				this.updateSetupData("pin", currentPin.slice(0, -1));
+			}
+		},
+		selectFont(fontId) {
+			this.updateSetupData("fontFamily", fontId);
+		},
+		getFontsByCategory(categoryId) {
+			return this.availableFonts.filter((font) => font.category === categoryId);
+		},
+		getSelectedFont() {
+			return this.availableFonts.find((font) => font.id === this.setupData.fontFamily) || this.availableFonts[0];
+		},
+		getFontFamilyValue(fontId) {
+			const font = this.availableFonts.find((f) => f.id === fontId);
+			if (!font) return '"SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+
+			switch (fontId) {
+				case "system":
+					return '"SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+				case "inter":
+					return '"Inter", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+				case "roboto":
+					return '"Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+				case "poppins":
+					return '"Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+				default:
+					return '"SF Pro Display", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
+			}
+		},
+		applyFont(fontId) {
+			const fontValue = this.getFontFamilyValue(fontId);
+
+			const phoneApp = document.querySelector(".phone-app") || document.querySelector("#phoneApp");
+			if (phoneApp) {
+				phoneApp.style.fontFamily = fontValue;
+			}
+
+			document.documentElement.style.setProperty("--phone-font-family", fontValue);
+
+			let styleElement = document.getElementById("dynamic-phone-fonts");
+			if (!styleElement) {
+				styleElement = document.createElement("style");
+				styleElement.id = "dynamic-phone-fonts";
+				document.head.appendChild(styleElement);
+			}
+
+			styleElement.innerHTML = `
         .phone-app, .phone-app *, .phone-container, .phone-container * {
           font-family: ${fontValue} !important;
         }
@@ -306,49 +288,47 @@ const PhoneSetup = {
         .font-roboto { font-family: "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; }
         .font-poppins { font-family: "Poppins", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; }
       `;
-      
-      
-    },
-    previewSound(sound, type) {
-      if (this.currentAudio) {
-        this.currentAudio.pause();
-        this.currentAudio = null;
-      }
-      
-      try {
-        this.currentAudio = new Audio(sound.url);
-        this.currentAudio.volume = 0.5;
-        this.currentAudio.play();
-        
-        if (type === 'call') {
-          this.updateSetupData('callSound', sound.url);
-        } else if (type === 'notification') {
-          this.updateSetupData('notificationSound', sound.url);
-        }
-      } catch (e) {
-        console.error('Error playing sound:', e);
-      }
-    },
-    setCustomSound(type) {
-      const url = type === 'call' ? this.customCallSound : this.customNotificationSound;
-      if (url && (url.startsWith('http') || url.startsWith('assets/'))) {
-        if (type === 'call') {
-          this.updateSetupData('callSound', url);
-        } else if (type === 'notification') {
-          this.updateSetupData('notificationSound', url);
-        }
-        
-        try {
-          const audio = new Audio(url);
-          audio.volume = 0.5;
-          audio.play();
-        } catch (e) {
-          console.error('Error playing custom sound:', e);
-        }
-      }
-    }
-  },
-  template: `
+		},
+		previewSound(sound, type) {
+			if (this.currentAudio) {
+				this.currentAudio.pause();
+				this.currentAudio = null;
+			}
+
+			try {
+				this.currentAudio = new Audio(sound.url);
+				this.currentAudio.volume = 0.5;
+				this.currentAudio.play();
+
+				if (type === "call") {
+					this.updateSetupData("callSound", sound.url);
+				} else if (type === "notification") {
+					this.updateSetupData("notificationSound", sound.url);
+				}
+			} catch (e) {
+				console.error("Error playing sound:", e);
+			}
+		},
+		setCustomSound(type) {
+			const url = type === "call" ? this.customCallSound : this.customNotificationSound;
+			if (url && (url.startsWith("http") || url.startsWith("assets/"))) {
+				if (type === "call") {
+					this.updateSetupData("callSound", url);
+				} else if (type === "notification") {
+					this.updateSetupData("notificationSound", url);
+				}
+
+				try {
+					const audio = new Audio(url);
+					audio.volume = 0.5;
+					audio.play();
+				} catch (e) {
+					console.error("Error playing custom sound:", e);
+				}
+			}
+		},
+	},
+	template: `
     <div class="fixed inset-0 z-50 font-sans overflow-hidden" 
          :style="{ 
            fontFamily: getFontFamilyValue(setupData.fontFamily || 'system'),
@@ -502,7 +482,7 @@ const PhoneSetup = {
                             class="aspect-square rounded-full overflow-hidden border-3 transition-all duration-300 transform hover:scale-110 active:scale-95 animate-scale-in" 
                             :class="setupData.userPhoto === photo ? 'border-blue-500 scale-110 shadow-xl ring-4 ring-blue-500/20' : 'border-transparent opacity-70 hover:opacity-100'"
                             :style="{ animationDelay: (index * 0.05) + 's' }">
-                       <img :src="getAssetUrl(photo.replace('./', '../'))" class="w-full h-full object-cover" />
+                       <img :src="photo.startsWith('http') ? photo : getAssetUrl(photo.replace('./', '../'))" class="w-full h-full object-cover" />
                     </button>
                   </div>
                   <div class="flex items-center gap-3 mb-8">
@@ -561,8 +541,8 @@ const PhoneSetup = {
 
             
             <div v-else-if="currentStepName === 'callSounds'" class="h-full flex flex-col">
-              <h1 class="text-4xl font-light text-center mb-6 pt-8 animate-slide-down" :class="setupData.darkMode ? 'text-white' : 'text-gray-900'">🔔 Sonido de Llamada</h1>
-              <p class="text-lg text-center mb-8 opacity-80" :class="setupData.darkMode ? 'text-white' : 'text-gray-700'">Elige el sonido que prefieres para las llamadas</p>
+              <h1 class="text-4xl font-light text-center mb-6 pt-8 animate-slide-down" :class="setupData.darkMode ? 'text-white' : 'text-gray-900'">{{t('setup.callsounds.title')}}</h1>
+              <p class="text-lg text-center mb-8 opacity-80" :class="setupData.darkMode ? 'text-white' : 'text-gray-700'">{{t('setup.callsounds.description')}}</p>
               
               <div class="flex-1 overflow-y-auto px-6">
                 <div class="grid grid-cols-1 gap-3 max-w-md mx-auto">
@@ -583,12 +563,12 @@ const PhoneSetup = {
                 
                 <div class="mt-2 max-w-md mx-auto space-y-2">
                   <input v-model="customCallSound" 
-                         placeholder="URL personalizada para llamadas..." 
+                         placeholder="URL..." 
                          class="w-full p-3 rounded-xl border-2 focus:border-blue-500 focus:outline-none transition-colors"
                          :class="setupData.darkMode ? 'bg-white/10 backdrop-blur-xl text-white placeholder-white/60 border-white/20' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'">
                   <button @click="setCustomSound('call')" 
                           class="w-full p-2 rounded-xl bg-blue-500/20 border border-blue-500/50 text-blue-300 hover:bg-blue-500/30 transition-colors">
-                    Usar sonido personalizado
+                    {{t('setup.callsounds.custom')}}
                   </button>
                 </div>
               </div>
@@ -596,9 +576,9 @@ const PhoneSetup = {
 
             
             <div v-else-if="currentStepName === 'notificationSounds'" class="h-full flex flex-col">
-              <h1 class="text-4xl font-light text-center mb-6 pt-8 animate-slide-down" :class="setupData.darkMode ? 'text-white' : 'text-gray-900'">🔔 Sonido de Notificación</h1>
-              <p class="text-lg text-center mb-8 opacity-80" :class="setupData.darkMode ? 'text-white' : 'text-gray-700'">Elige el sonido para las notificaciones</p>
-              
+              <h1 class="text-4xl font-light text-center mb-6 pt-8 animate-slide-down" :class="setupData.darkMode ? 'text-white' : 'text-gray-900'">{{t('setup.sounds.title')}}</h1>
+              <p class="text-lg text-center mb-8 opacity-80" :class="setupData.darkMode ? 'text-white' : 'text-gray-700'">{{t('setup.sounds.description')}}</p>
+
               <div class="flex-1 overflow-y-auto px-6">
                 <div class="grid grid-cols-1 gap-3 max-w-md mx-auto">
                   <div v-for="(sound, index) in notificationSounds" :key="'notif-' + index"
@@ -618,12 +598,12 @@ const PhoneSetup = {
                 
                 <div class="mt-2 max-w-md mx-auto space-y-2">
                   <input v-model="customNotificationSound" 
-                         placeholder="URL personalizada para notificaciones..." 
+                         placeholder="URL..." 
                          class="w-full p-3 rounded-xl border-2 focus:border-blue-500 focus:outline-none transition-colors"
                          :class="setupData.darkMode ? 'bg-white/10 backdrop-blur-xl text-white placeholder-white/60 border-white/20' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-500'">
                   <button @click="setCustomSound('notification')" 
                           class="w-full p-2 rounded-xl bg-blue-500/20 border border-blue-500/50 text-blue-300 hover:bg-blue-500/30 transition-colors">
-                    Usar sonido personalizado
+                    {{t('setup.sounds.custom')}}
                   </button>
                 </div>
               </div>
@@ -700,10 +680,9 @@ const PhoneSetup = {
       </div>
     </div>
 
-  `
+  `,
 };
 
-
-if (typeof window !== 'undefined') {
-  window.PhoneSetup = PhoneSetup;
+if (typeof window !== "undefined") {
+	window.PhoneSetup = PhoneSetup;
 }

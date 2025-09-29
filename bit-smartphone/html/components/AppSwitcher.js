@@ -40,14 +40,16 @@ const AppSwitcher = {
 			if (!Array.isArray(this.openApps) || !Array.isArray(this.allApps)) {
 				return [];
 			}
-			
-			return this.openApps.filter(openApp => openApp && openApp.id).map((openApp) => {
-				const appData = this.allApps.find((app) => app && app.id === openApp.id);
-				return {
-					...openApp,
-					...appData,
-				};
-			});
+
+			return this.openApps
+				.filter((openApp) => openApp && openApp.id)
+				.map((openApp) => {
+					const appData = this.allApps.find((app) => app && app.id === openApp.id);
+					return {
+						...openApp,
+						...appData,
+					};
+				});
 		},
 
 		currentApp() {
@@ -62,21 +64,21 @@ const AppSwitcher = {
 
 		currentAppDisplayName() {
 			if (!this.openAppsWithData || this.openAppsWithData.length === 0) {
-				return '';
+				return "";
 			}
 			if (this.currentIndex < 0 || this.currentIndex >= this.openAppsWithData.length) {
-				return '';
+				return "";
 			}
 			const app = this.openAppsWithData[this.currentIndex];
-			if (!app) return '';
+			if (!app) return "";
 			try {
-				if (typeof app.name === 'function') {
-					return app.name() || '';
+				if (typeof app.name === "function") {
+					return app.name() || "";
 				}
-				return app.name || '';
+				return app.name || "";
 			} catch (error) {
-				console.warn('[AppSwitcher] Error getting app name:', error);
-				return '';
+				console.warn("[AppSwitcher] Error getting app name:", error);
+				return "";
 			}
 		},
 
@@ -84,16 +86,16 @@ const AppSwitcher = {
 			if (!this.openAppsWithData || this.openAppsWithData.length === 0) {
 				return [];
 			}
-			
+
 			return this.openAppsWithData.map((app, index) => {
 				if (!app) {
 					return {
-						transform: 'translateX(0px) scale(0) rotateY(0deg)',
+						transform: "translateX(0px) scale(0) rotateY(0deg)",
 						zIndex: 0,
 						opacity: 0,
 					};
 				}
-				
+
 				const distance = index - this.currentIndex;
 				let translateX, scale, rotateY, zIndex, opacity;
 
@@ -151,7 +153,6 @@ const AppSwitcher = {
 			}
 		},
 		openAppsWithData(newApps) {
-			 Ensure currentIndex is always valid
 			if (newApps.length === 0) {
 				this.currentIndex = 0;
 			} else if (this.currentIndex >= newApps.length) {

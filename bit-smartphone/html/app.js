@@ -2,11 +2,11 @@ const { createApp, ref, computed, onMounted, onUnmounted, nextTick, watch, defin
 
 function safeJsonParse(value, fallback = null) {
 	if (value == null) return fallback;
-	if (typeof value !== 'string') return value;
+	if (typeof value !== "string") return value;
 	try {
 		return JSON.parse(value);
 	} catch (e) {
-		console.warn('[safeJsonParse] Failed to parse JSON:', value, e);
+		console.warn("[safeJsonParse] Failed to parse JSON:", value, e);
 		return fallback;
 	}
 }
@@ -51,7 +51,7 @@ const importApp = async (appName, t) => {
 
 	const createPlaceholder = (name, reason) => {
 		const placeholder = {
-						name: (name || appName) + "Placeholder",
+			name: (name || appName) + "Placeholder",
 			template: `<div class="flex items-center justify-center h-full text-white bg-red-900/20 border border-red-500/50 rounded-lg m-4">
                    <div class="text-center">
                      <h3 class="text-lg font-bold mb-2">⚠️ Error en la App</h3>
@@ -168,7 +168,7 @@ const MobileOS = {
 		};
 	},
 	setup() {
-		const phoneState = ref("HOME"); 
+		const phoneState = ref("HOME");
 		const pinInput = ref("");
 		const correctPin = "1234";
 		const pinError = ref(false);
@@ -224,9 +224,9 @@ const MobileOS = {
 			callType: "audio",
 			callStatus: "connecting",
 		});
-	const currentTime = ref("");
-	const appSafeTop = ref('1.5rem'); 
-	const appSafeStyle = ref({ backgroundColor: 'transparent' });
+		const currentTime = ref("");
+		const appSafeTop = ref("1.5rem");
+		const appSafeStyle = ref({ backgroundColor: "transparent" });
 		const appScreen = ref(null);
 		const appContentWrap = ref(null);
 
@@ -247,8 +247,8 @@ const MobileOS = {
 					backgroundOrigin: cs.backgroundOrigin,
 					backgroundClip: cs.backgroundClip,
 				};
-				if ((!styleObj.backgroundImage || styleObj.backgroundImage === 'none') && (styleObj.backgroundColor === 'rgba(0, 0, 0, 0)' || styleObj.backgroundColor === 'transparent')) {
-					appSafeStyle.value = { backgroundColor: 'transparent' };
+				if ((!styleObj.backgroundImage || styleObj.backgroundImage === "none") && (styleObj.backgroundColor === "rgba(0, 0, 0, 0)" || styleObj.backgroundColor === "transparent")) {
+					appSafeStyle.value = { backgroundColor: "transparent" };
 				} else {
 					appSafeStyle.value = styleObj;
 				}
@@ -512,7 +512,7 @@ const MobileOS = {
 					fetch("https://bit-smartphone/appChanged", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ appId: null })
+						body: JSON.stringify({ appId: null }),
 					}).catch(() => {});
 				} catch (e2) {}
 			} catch (e) {}
@@ -548,17 +548,17 @@ const MobileOS = {
 				if (typeof photoData === "string") {
 					photoUrl = photoData;
 				} else {
-					const response = await fetch('https://bit-smartphone/camera:take', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
-						body: JSON.stringify({ metadata: { source: 'camera-app' } }),
+					const response = await fetch("https://bit-smartphone/camera:take", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
+						body: JSON.stringify({ metadata: { source: "camera-app" } }),
 					});
 					const result = await response.json().catch(() => ({}));
 
 					if (result && (result.success || result.ok) && (result.url || result.photoUrl)) {
 						photoUrl = result.url || result.photoUrl;
 					} else {
-						throw new Error((result && result.error) || 'Failed to take photo');
+						throw new Error((result && result.error) || "Failed to take photo");
 					}
 				}
 
@@ -591,34 +591,40 @@ const MobileOS = {
 		const handleSharePhoto = async (shareData) => {
 			try {
 				const { photo, platform } = shareData;
-				console.log('[handleSharePhoto] Sharing photo:', photo.url, 'to platform:', platform);
+				console.log("[handleSharePhoto] Sharing photo:", photo.url, "to platform:", platform);
 
 				switch (platform) {
-					case 'tuister':
-						currentApp.value = 'tuister';
+					case "tuister":
+						currentApp.value = "tuister";
 						setTimeout(() => {
-							window.dispatchEvent(new CustomEvent('phone:share-photo', {
-								detail: { photo, app: 'tuister' }
-							}));
+							window.dispatchEvent(
+								new CustomEvent("phone:share-photo", {
+									detail: { photo, app: "tuister" },
+								})
+							);
 						}, 500);
 						break;
-					case 'messages':
-						currentApp.value = 'messages';
+					case "messages":
+						currentApp.value = "messages";
 						setTimeout(() => {
-							window.dispatchEvent(new CustomEvent('phone:share-photo', {
-								detail: { photo, app: 'messages' }
-							}));
+							window.dispatchEvent(
+								new CustomEvent("phone:share-photo", {
+									detail: { photo, app: "messages" },
+								})
+							);
 						}, 500);
 						break;
-					case 'instagram':
-						currentApp.value = 'instagram';
+					case "instagram":
+						currentApp.value = "instagram";
 						setTimeout(() => {
-							window.dispatchEvent(new CustomEvent('phone:share-photo', {
-								detail: { photo, app: 'instagram' }
-							}));
+							window.dispatchEvent(
+								new CustomEvent("phone:share-photo", {
+									detail: { photo, app: "instagram" },
+								})
+							);
 						}, 500);
 						break;
-					case 'save':
+					case "save":
 						addNotification({
 							appId: "photos",
 							title: t.value("photos.saved_to_device") || "Guardado en dispositivo",
@@ -627,20 +633,24 @@ const MobileOS = {
 						});
 						break;
 					default:
-						console.warn('[handleSharePhoto] Unknown platform:', platform);
+						console.warn("[handleSharePhoto] Unknown platform:", platform);
 				}
 			} catch (error) {
-				console.error('[handleSharePhoto] Error:', error);
+				console.error("[handleSharePhoto] Error:", error);
 			}
 		};
 
 		const handleDeletePhoto = async (photoId) => {
 			try {
-				const immediate = await fetch('https://bit-smartphone/photos:delete', {
-					method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photoId })
-				}).then(r => r.json()).catch(() => ({}));
+				const immediate = await fetch("https://bit-smartphone/photos:delete", {
+					method: "POST",
+					headers: { "Content-Type": "application/json" },
+					body: JSON.stringify({ photoId }),
+				})
+					.then((r) => r.json())
+					.catch(() => ({}));
 				const removeFromList = () => {
-					const photoIndex = photos.value.findIndex(p => p.id === photoId);
+					const photoIndex = photos.value.findIndex((p) => p.id === photoId);
 					if (photoIndex !== -1) {
 						photos.value.splice(photoIndex, 1);
 					}
@@ -659,7 +669,7 @@ const MobileOS = {
 					removeFromList();
 				}
 			} catch (error) {
-				console.error('[handleDeletePhoto] Error:', error);
+				console.error("[handleDeletePhoto] Error:", error);
 				addNotification({
 					appId: "photos",
 					title: "Error",
@@ -743,7 +753,7 @@ const MobileOS = {
 						fetch("https://bit-smartphone/appChanged", {
 							method: "POST",
 							headers: { "Content-Type": "application/json" },
-							body: JSON.stringify({ appId })
+							body: JSON.stringify({ appId }),
 						}).catch(() => {});
 					} catch (e) {}
 				} else {
@@ -843,7 +853,7 @@ const MobileOS = {
 					closeAppSwitcher();
 				}
 			} catch (error) {
-				console.warn('Error opening app from AppSwitcher:', error);
+				console.warn("Error opening app from AppSwitcher:", error);
 			}
 		};
 
@@ -854,46 +864,46 @@ const MobileOS = {
 				}
 
 				switch (id) {
-					case 'music':
+					case "music":
 						musicState.track = null;
 						musicState.isPlaying = false;
 						musicState.progress = 0;
 						musicState.currentTime = 0;
 						break;
-					case 'phone':
-						callData.value = { isVisible: false, callId: null, contactName: '', contactNumber: '', isIncoming: false, callType: 'audio', callStatus: 'connecting' };
+					case "phone":
+						callData.value = { isVisible: false, callId: null, contactName: "", contactNumber: "", isIncoming: false, callType: "audio", callStatus: "connecting" };
 						break;
-					case 'instagram':
+					case "instagram":
 						photos.value = [];
 						break;
-					case 'crypto':
+					case "crypto":
 						break;
-					case 'bikerent':
+					case "bikerent":
 						break;
-					case 'notes':
-						if (typeof notes !== 'undefined') notes.value = [];
+					case "notes":
+						if (typeof notes !== "undefined") notes.value = [];
 						break;
 					default:
 						break;
 				}
 			};
 
-			if (appId === 'all') {
+			if (appId === "all") {
 				openApps.value = [];
 				currentApp.value = null;
-				if (currentOpenApps.value && typeof currentOpenApps.value.clear === 'function') currentOpenApps.value.clear();
-				for (const k in (loadedApps.value || {})) {
+				if (currentOpenApps.value && typeof currentOpenApps.value.clear === "function") currentOpenApps.value.clear();
+				for (const k in loadedApps.value || {}) {
 					if (Object.prototype.hasOwnProperty.call(loadedApps.value, k)) delete loadedApps.value[k];
 				}
-				clearAppState('music');
-				clearAppState('phone');
-				clearAppState('instagram');
-				clearAppState('crypto');
-				clearAppState('bikerent');
-				clearAppState('notes');
+				clearAppState("music");
+				clearAppState("phone");
+				clearAppState("instagram");
+				clearAppState("crypto");
+				clearAppState("bikerent");
+				clearAppState("notes");
 			} else {
 				openApps.value = openApps.value.filter((app) => app.id !== appId);
-				if (currentOpenApps.value && typeof currentOpenApps.value.delete === 'function') currentOpenApps.value.delete(appId);
+				if (currentOpenApps.value && typeof currentOpenApps.value.delete === "function") currentOpenApps.value.delete(appId);
 				if (currentApp.value === appId) {
 					currentApp.value = null;
 				}
@@ -1542,21 +1552,21 @@ const MobileOS = {
 				if (shouldPersist) {
 					const oldId = newNotification.id;
 					const payload = {
-						title: newNotification.title || '',
-						message: newNotification.message || '',
-						app: newNotification.app || newNotification.appId || 'system',
-						appId: newNotification.appId || newNotification.app || 'system',
+						title: newNotification.title || "",
+						message: newNotification.message || "",
+						app: newNotification.app || newNotification.appId || "system",
+						appId: newNotification.appId || newNotification.app || "system",
 						icon: newNotification.icon || null,
 						iconSvg: newNotification.iconSvg || null,
 						additionalInfo: newNotification.additionalInfo || null,
 						data: newNotification.data || null,
-						priority: newNotification.priority || 'normal',
+						priority: newNotification.priority || "normal",
 						expiresAt: newNotification.expiresAt || null,
 					};
 
-					fetch('https://bit-smartphone/bit-smartphone:saveNotification', {
-						method: 'POST',
-						headers: { 'Content-Type': 'application/json' },
+					fetch("https://bit-smartphone/bit-smartphone:saveNotification", {
+						method: "POST",
+						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify(payload),
 					})
 						.then((r) => r.json())
@@ -1609,12 +1619,12 @@ const MobileOS = {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
 						body: JSON.stringify({ notificationId: notificationId }),
-					}).catch((e) => console.error('[BIT-Smartphone] dismissNotification fetch failed', e));
+					}).catch((e) => console.error("[BIT-Smartphone] dismissNotification fetch failed", e));
 				}
 
 				notifications.value = notifications.value.filter((n) => n && n.id !== notificationId);
 			} catch (e) {
-				console.error('[BIT-Smartphone] removeNotification error:', e, notificationId);
+				console.error("[BIT-Smartphone] removeNotification error:", e, notificationId);
 			}
 		};
 
@@ -1647,10 +1657,10 @@ const MobileOS = {
 		const handleDismissNotification = async (notificationId) => {
 			try {
 				if (notificationId == null) return;
-				
-				const notification = notifications.value.find(n => n.id === notificationId);
+
+				const notification = notifications.value.find((n) => n.id === notificationId);
 				if (!notification) return;
-				
+
 				if (notification.persistent) {
 					try {
 						const response = await fetch("https://bit-smartphone/bit-smartphone:dismissNotification", {
@@ -1658,20 +1668,20 @@ const MobileOS = {
 							headers: { "Content-Type": "application/json" },
 							body: JSON.stringify({ notificationId: notificationId }),
 						});
-						
+
 						if (!response.ok) {
-							console.error('[BIT-Smartphone] Failed to dismiss persistent notification');
+							console.error("[BIT-Smartphone] Failed to dismiss persistent notification");
 							return;
 						}
 					} catch (error) {
-						console.error('[BIT-Smartphone] Error dismissing persistent notification:', error);
+						console.error("[BIT-Smartphone] Error dismissing persistent notification:", error);
 						return;
 					}
 				}
-				
+
 				removeNotification(notificationId);
 			} catch (e) {
-				console.error('[BIT-Smartphone] handleDismissNotification error:', e, notificationId);
+				console.error("[BIT-Smartphone] handleDismissNotification error:", e, notificationId);
 			}
 		};
 
@@ -1694,13 +1704,13 @@ const MobileOS = {
 								body: JSON.stringify({ notificationId: n.id }),
 							});
 						} catch (e) {
-							console.error('[BIT-Smartphone] clearAllNotifications dismiss failed', e, n && n.id);
+							console.error("[BIT-Smartphone] clearAllNotifications dismiss failed", e, n && n.id);
 						}
 					}
 				}
 				notifications.value = [];
 			} catch (e) {
-				console.error('[BIT-Smartphone] clearAllNotifications error:', e);
+				console.error("[BIT-Smartphone] clearAllNotifications error:", e);
 			}
 		};
 
@@ -1882,23 +1892,23 @@ const MobileOS = {
 			musicState.playlist = playlist;
 		}
 		const appSwitcher = ref(null);
-		
+
 		const handleHomeIndicatorTouchStart = () => {
 			if (isAppSwitcherVisible.value) {
-				if (appSwitcher.value && typeof appSwitcher.value.toggleLock === 'function') {
+				if (appSwitcher.value && typeof appSwitcher.value.toggleLock === "function") {
 					setTimeout(() => {
 						if (isAppSwitcherVisible.value && isHomeIndicatorPressed.value) {
 							try {
 								appSwitcher.value.toggleLock();
 							} catch (error) {
-								console.warn('Error toggling AppSwitcher lock:', error);
+								console.warn("Error toggling AppSwitcher lock:", error);
 							}
 						}
 					}, 500);
 				}
 				return;
 			}
-			
+
 			isHomeIndicatorPressed.value = true;
 			homeIndicatorPressTimer.value = setTimeout(() => {
 				if (isHomeIndicatorPressed.value) {
@@ -1975,7 +1985,7 @@ const MobileOS = {
 					id: p.id,
 					url: p.url,
 					thumbnail: p.url,
-					createdAt: (p.created_at ? new Date(p.created_at).toISOString() : (p.createdAt || new Date().toISOString())),
+					createdAt: p.created_at ? new Date(p.created_at).toISOString() : p.createdAt || new Date().toISOString(),
 					favorite: false,
 					albumIds: [2],
 					metadata: p.metadata || null,
@@ -1994,7 +2004,7 @@ const MobileOS = {
 						icon: notification.icon,
 						iconSvg: notification.icon_svg || notification.iconSvg || null,
 						additionalInfo: notification.additional_info || notification.additionalInfo,
-						data: notification.notification_data ? (typeof notification.notification_data === 'string' ? safeJsonParse(notification.notification_data) : notification.notification_data) : (notification.data || null),
+						data: notification.notification_data ? (typeof notification.notification_data === "string" ? safeJsonParse(notification.notification_data) : notification.notification_data) : notification.data || null,
 						priority: notification.priority,
 						timestamp: ts,
 						persistent: true,
@@ -2016,7 +2026,7 @@ const MobileOS = {
 				fetch("https://bit-smartphone/phoneOpened", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({})
+					body: JSON.stringify({}),
 				}).catch(() => {});
 			} catch (e) {}
 
@@ -2025,13 +2035,13 @@ const MobileOS = {
 
 		const masterNuiHandler = (message) => {
 			try {
-				if (window && window.console) console.log('[NUI MASTER] Received message:', message);
+				if (window && window.console);
 			} catch (e) {}
 			if (!message) return;
 
 			const action = message.type || message.action;
 
-				switch (action) {
+			switch (action) {
 				case "camera:preview_frame":
 					break;
 				case "openPhone":
@@ -2070,7 +2080,7 @@ const MobileOS = {
 								title: app ? (typeof app.name === "function" ? app.name() : app.name) : appId,
 								message: truncated,
 								timestamp: Date.now(),
-								fromReceiveEvent: true
+								fromReceiveEvent: true,
 							});
 						} catch (e) {
 							console.error("[app.js] Legacy receiveNotification handling failed", e, message);
@@ -2078,7 +2088,7 @@ const MobileOS = {
 					}
 					break;
 				case "updateBattery": {
-					const payload = message.data && (typeof message.data === 'object') ? message.data : message;
+					const payload = message.data && typeof message.data === "object" ? message.data : message;
 					if (typeof payload.battery !== "undefined") {
 						batteryLevel.value = payload.battery;
 					}
@@ -2097,7 +2107,8 @@ const MobileOS = {
 					if (typeof payload.chargingProgress !== "undefined") {
 						chargingProgress.value = payload.chargingProgress;
 					}
-					break; }
+					break;
+				}
 				case "call:incoming":
 					callData.value = {
 						isVisible: true,
@@ -2191,7 +2202,7 @@ const MobileOS = {
 						if (message.data.level !== undefined) {
 							batteryLevel.value = message.data.level;
 						}
-						if (typeof message.data.isCharging !== 'undefined') {
+						if (typeof message.data.isCharging !== "undefined") {
 							isCharging.value = !!message.data.isCharging;
 						}
 						batteryAuthoritative.value = true;
@@ -2288,7 +2299,7 @@ const MobileOS = {
 				fetch("https://bit-smartphone/phoneClosed", {
 					method: "POST",
 					headers: { "Content-Type": "application/json" },
-					body: JSON.stringify({})
+					body: JSON.stringify({}),
 				}).catch(() => {});
 			} catch (e) {}
 			const payload = {
@@ -2327,7 +2338,7 @@ const MobileOS = {
 			try {
 				setTimeout(updateAppSafeAreaBg, 0);
 				setTimeout(updateAppSafeAreaBg, 50);
-			} catch(e) {}
+			} catch (e) {}
 			window.addEventListener("keydown", handleEsc);
 			updateTime();
 			setInterval(updateTime, 10000);
@@ -2370,6 +2381,8 @@ const MobileOS = {
 				if (event.data && event.data.action === "phone:config") {
 					window.phoneConfig = event.data.data;
 					this.phoneConfig = event.data.data;
+					// Also expose config as setupData so components can read language and other settings
+					window.setupData = Object.assign(window.setupData || {}, event.data.data || {});
 				}
 			});
 
@@ -2473,7 +2486,7 @@ const MobileOS = {
 					fetch("https://bit-smartphone/appChanged", {
 						method: "POST",
 						headers: { "Content-Type": "application/json" },
-						body: JSON.stringify({ appId: newApp || null })
+						body: JSON.stringify({ appId: newApp || null }),
 					}).catch(() => {});
 				} catch (e) {}
 				nextTick(() => setTimeout(updateAppSafeAreaBg, 0));
@@ -2711,7 +2724,7 @@ const MobileOS = {
 			startVideoCall,
 		};
 	},
-		components: {
+	components: {
 		StatusBar: StatusBar,
 		Folder: Folder,
 		DraggableAppGrid: DraggableAppGrid,
