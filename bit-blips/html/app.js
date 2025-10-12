@@ -920,13 +920,12 @@ Vue.createApp({
     },
 
     confirmDelete(blipId) {
-      this.confirmTitle = this.lang.UI.DeleteBlip || "Delete Blip";
-      this.confirmMessage = this.lang.UI.DeleteBlipConfirm || "Are you sure you want to delete this blip? This action cannot be undone.";
+      this.confirmTitle = this.lang.UI.DeleteBlipMessage || "Delete";
+      this.confirmMessage = this.lang.UI.DeleteConfirm || "Are you sure you want to delete this blip? This action cannot be undone.";
       this.confirmButtonText = this.lang.UI.Delete || "Delete";
       this.confirmAction = () => this.deleteBlip(blipId);
       this.showConfirmDialog = true;
     },
-
     proceedWithConfirmation() {
       if (this.confirmAction) {
         this.confirmAction();
