@@ -11,7 +11,7 @@ function StopEscortPlayer(serverId, setIntoVeh, setIntoSeat)
 
     local playerPed = PlayerPedId()
     StopAnimTask(playerPed, "anim@heists@box_carry@", "idle", 2.0)
-    ClearPedTasks(playerPed)
+    ClearPedTasks(playerPed) 
 
     currentlyEscorting = false
     escortTargetServerId = nil
@@ -94,15 +94,27 @@ local function setEscorted(serverId)
     RemoveAnimDict(dict)
     RemoveAnimDict(dict2)
     playerState:set('isEscorted', false, true)
+
+    local playerPed = PlayerPedId()
+    if IsEntityAttached(playerPed) then
+        DetachEntity(playerPed, true, false)
+    end
+    StopAnimTask(playerPed, 'anim@move_m@prisoner_cuffed', 'walk', -8.0)
+    StopAnimTask(playerPed, 'anim@move_m@trash', 'run', -8.0)
+    ClearPedTasks(playerPed)
 end
 
 AddStateBagChangeHandler('isEscorted', ('player:%s'):format(GetPlayerServerId(PlayerId())), function(_, _, value)
     isEscorted = value
 
-    if IsEntityAttached(PlayerPedId()) then
-        DetachEntity(PlayerPedId(), true, false)
-        StopAnimTask(PlayerPedId(), 'anim@move_m@prisoner_cuffed', 'walk', -8.0)
-        StopAnimTask(PlayerPedId(), 'anim@move_m@trash', 'run', -8.0)
+    if not value then
+        local playerPed = PlayerPedId()
+        if IsEntityAttached(playerPed) then
+            DetachEntity(playerPed, true, false)
+        end
+        StopAnimTask(playerPed, 'anim@move_m@prisoner_cuffed', 'walk', -8.0)
+        StopAnimTask(playerPed, 'anim@move_m@trash', 'run', -8.0)
+        ClearPedTasks(playerPed)
     end
 
     if value then setEscorted(value) end
@@ -120,19 +132,12 @@ CreateThread(function()
         
         if currentlyEscorting then
             local playerPed = PlayerPedId()
-            
             if not IsEntityPlayingAnim(playerPed, "anim@heists@box_carry@", "idle", 3) then
                 RequestAnimDict("anim@heists@box_carry@")
                 while not HasAnimDictLoaded("anim@heists@box_carry@") do
                     Wait(100)
                 end
                 TaskPlayAnim(playerPed, "anim@heists@box_carry@", "idle", 8.0, 8.0, -1, 50, 0, false, false, false)
-            end
-        else
-            local playerPed = PlayerPedId()
-            if IsEntityPlayingAnim(playerPed, "anim@heists@box_carry@", "idle", 3) then
-                StopAnimTask(playerPed, "anim@heists@box_carry@", "idle", 2.0)
-                ClearPedTasks(playerPed)
             end
         end
     end
@@ -159,7 +164,6 @@ CreateThread(function()
         end
     end
 end)
-
 
 RegisterNetEvent('bit-menu:escort:start')
 AddEventHandler('bit-menu:escort:start', function(targetServerId)
